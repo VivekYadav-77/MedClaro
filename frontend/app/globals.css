@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  @apply bg-foam text-ink antialiased;
+}
+
+a {
+  @apply transition-colors;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #a4cfcc transparent;
+}
