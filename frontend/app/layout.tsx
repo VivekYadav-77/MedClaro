@@ -1,25 +1,27 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Fraunces, Manrope } from "next/font/google";
+import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 
 import { Providers } from "@/app/providers";
 import { mockUser } from "@/lib/mock-data";
 
 import "./globals.css";
 
-const manrope = Manrope({
+const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-manrope"
+  variable: "--font-inter",
+  display: "swap",
 });
 
-const fraunces = Fraunces({
+const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  variable: "--font-fraunces"
+  variable: "--font-jakarta",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "HealthStack",
-  description: "Personal health intelligence for reports, trends, and calm doctor prep."
+  title: "MedClaro – Personal Health Intelligence",
+  description: "Upload blood reports, prescriptions, and labs to get calm multilingual explanations, trend views, and doctor prep summaries.",
 };
 
 export default function RootLayout({
@@ -28,8 +30,8 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html lang={mockUser.preferredLanguage}>
-      <body className={`${manrope.variable} ${fraunces.variable}`}>
+    <html lang={mockUser.preferredLanguage} className="scroll-smooth">
+      <body className={`${inter.variable} ${jakarta.variable} font-sans`}>
         <Providers locale={mockUser.preferredLanguage}>{children}</Providers>
       </body>
     </html>

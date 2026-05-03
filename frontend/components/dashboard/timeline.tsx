@@ -10,18 +10,31 @@ export function Timeline({ reports }: { reports: Report[] }) {
   }, {});
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       {Object.entries(grouped)
-        .sort(([left], [right]) => Number(right) - Number(left))
+        .sort(([a], [b]) => Number(b) - Number(a))
         .map(([year, yearReports]) => (
-          <section key={year} className="space-y-4">
-            <div className="flex items-center gap-4">
-              <span className="text-xs font-bold uppercase tracking-[0.3em] text-[#6b8292]">{year}</span>
-              <div className="h-px flex-1 bg-[#d7e9e6]" />
+          <section key={year}>
+            {/* Year marker */}
+            <div className="mb-5 flex items-center gap-3">
+              <span className="rounded-full bg-brand-100 px-3 py-1 text-xs font-bold text-brand-700">
+                {year}
+              </span>
+              <div className="h-px flex-1 bg-slate-200" />
+              <span className="text-xs text-slate-400">{yearReports.length} report{yearReports.length !== 1 ? "s" : ""}</span>
             </div>
-            <div className="grid gap-4 md:grid-cols-2">
+
+            {/* Vertical timeline */}
+            <div className="relative space-y-4 pl-6">
+              {/* Connecting line */}
+              <div className="absolute left-2 top-2 bottom-2 w-px bg-slate-200" />
+
               {yearReports.map((report) => (
-                <ReportCard key={report._id} report={report} />
+                <div key={report._id} className="relative">
+                  {/* Timeline dot */}
+                  <div className="absolute -left-[18px] top-4 h-3 w-3 rounded-full border-2 border-brand-500 bg-white" />
+                  <ReportCard report={report} />
+                </div>
               ))}
             </div>
           </section>

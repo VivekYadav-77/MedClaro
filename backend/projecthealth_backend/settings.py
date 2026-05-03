@@ -1,8 +1,9 @@
 import os
 from pathlib import Path
-
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
 
 
 def env(name: str, default: str | None = None) -> str | None:
@@ -118,11 +119,7 @@ APP_ENCRYPTION_KEY = env("APP_ENCRYPTION_KEY", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 GEMINI_API_KEY = env("GEMINI_API_KEY", "") or ""
 GEMINI_MODEL_TEXT = env("GEMINI_MODEL_TEXT", "gemini-1.5-flash") or "gemini-1.5-flash"
 GEMINI_MODEL_VISION = env("GEMINI_MODEL_VISION", "gemini-1.5-flash") or "gemini-1.5-flash"
-AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID", "") or ""
-AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY", "") or ""
-AWS_REGION = env("AWS_REGION", "ap-south-1") or "ap-south-1"
-AWS_BUCKET_NAME = env("AWS_BUCKET_NAME", "") or ""
-STORAGE_ENDPOINT_URL = env("STORAGE_ENDPOINT_URL")
+
 ALLOWED_FILE_TYPES = tuple(
     item.strip()
     for item in (env("ALLOWED_FILE_TYPES", "application/pdf,image/jpeg,image/png") or "").split(",")

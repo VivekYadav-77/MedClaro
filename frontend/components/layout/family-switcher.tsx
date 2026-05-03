@@ -1,47 +1,88 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ChevronDown, LogOut, User } from "lucide-react";
+import { signOut } from "next-auth/react";
 
 import { FamilyMember } from "@/lib/types";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
-export function FamilySwitcher({
-  members
-}: {
-  members: FamilyMember[];
-}) {
+export function FamilySwitcher({ members }: { members: FamilyMember[] }) {
   const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Close on outside click — this fixes the "dropdown stays open" bug
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    if (open) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
   return (
-    <div className="relative">
-      <Button variant="soft" className="gap-2" onClick={() => setOpen((value) => !value)}>
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-sea/20 text-xs font-bold text-ink">AM</span>
-        Me
-        <ChevronDown className="h-4 w-4" />
-      </Button>
-      {open ? (
-        <Card className="absolute right-0 top-14 z-20 w-64 space-y-3 p-3">
-          <div className="space-y-2">
-            <button className="flex w-full items-center justify-between rounded-2xl bg-mist px-3 py-2 text-left text-sm font-medium text-ink">
-              <span>Aarav Mehta</span>
-              <Badge>Primary</Badge>
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 transition-colors"
+        aria-expanded={open}
+      >
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-600 text-xs font-bold text-white">
+          Me
+        </span>
+        <span className="hidden sm:inline">My Profile</span>
+        <ChevronDown className={cn("h-4 w-4 text-slate-400 transition-transform", open && "rotate-180")} />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-12 z-50 w-60 animate-scale-in rounded-2xl border border-slate-200 bg-white shadow-dialog">
+          {/* Current user */}
+          <div className="border-b border-slate-100 px-3 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Viewing As</p>
+            <button className="mt-2 flex w-full items-center gap-3 rounded-xl bg-brand-50 px-3 py-2 text-left">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-xs font-bold text-white">
+                Me
+              </span>
+              <span className="text-sm font-medium text-slate-900">My Profile</span>
             </button>
-            {members.map((member) => (
-              <button key={member.id} className="flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-left text-sm text-ink hover:bg-mist">
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-tide text-xs font-bold">
-                  {member.name.slice(0, 2).toUpperCase()}
-                </span>
-                <span>
-                  {member.name}
-                  <span className="block text-xs text-[#6b8292]">{member.relationship}</span>
-                </span>
-              </button>
-            ))}
           </div>
-        </Card>
-      ) : null}
+
+          {/* Family members */}
+          {members.length > 0 && (
+            <div className="px-3 py-2">
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">Family</p>
+              {members.map((member) => (
+                <button
+                  key={member.id}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors"
+                  onClick={() => setOpen(false)}
+                >
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-100 text-xs font-bold text-teal-700">
+                    {member.name.slice(0, 2).toUpperCase()}
+                  </span>
+                  <span>
+                    <span className="block font-medium">{member.name}</span>
+                    <span className="block text-xs text-slate-400">{member.relationship}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Sign out */}
+          <div className="border-t border-slate-100 px-3 py-2">
+            <button
+              onClick={() => signOut({ callbackUrl: "/" })}
+              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+            >
+              <LogOut className="h-4 w-4" />
+              Sign out
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

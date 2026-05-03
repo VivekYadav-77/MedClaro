@@ -8,7 +8,7 @@ from collections import defaultdict
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
-import boto3
+
 import google.generativeai as genai
 import pdfplumber
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -71,21 +71,21 @@ class EncryptionService:
 
 class StorageService:
     def __init__(self) -> None:
-        session = boto3.session.Session(
-            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-            region_name=settings.AWS_REGION,
-        )
-        self.bucket = settings.AWS_BUCKET_NAME
-        self.client = session.client("s3", endpoint_url=settings.STORAGE_ENDPOINT_URL)
+        self.media_root = settings.BASE_DIR / "media"
+        os.makedirs(self.media_root, exist_ok=True)
 
     def upload_bytes(self, key: str, content: bytes, content_type: str) -> str:
-        self.client.upload_fileobj(io.BytesIO(content), self.bucket, key, ExtraArgs={"ContentType": content_type})
+        file_path = self.media_root / key
+        os.makedirs(file_path.parent, exist_ok=True)
+        with open(file_path, "wb") as f:
+            f.write(content)
         return key
 
     def delete_object(self, key: str) -> None:
-        if key and self.bucket:
-            self.client.delete_object(Bucket=self.bucket, Key=key)
+        file_path = self.media_root / key
+        if file_path.exists():
+            os.remove(file_path)
+
 
 
 class GeminiService:

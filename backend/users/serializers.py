@@ -34,7 +34,7 @@ class FamilyMemberCreateSerializer(serializers.ModelSerializer):
 
 class UserProfileSerializer(serializers.ModelSerializer):
     _id = serializers.SerializerMethodField()
-    googleId = serializers.CharField(source="google_id")
+    googleId = serializers.CharField(source="google_id", allow_null=True)
     email = serializers.SerializerMethodField()
     biologicalSex = serializers.CharField(source="biological_sex", allow_null=True)
     preferredLanguage = serializers.CharField(source="preferred_language")
@@ -42,6 +42,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
     settings = SettingsPayloadSerializer()
     createdAt = serializers.DateTimeField(source="created_at")
     deletedAt = serializers.DateTimeField(source="deleted_at", allow_null=True)
+    isVerified = serializers.BooleanField(source="is_verified")
+    isGuest = serializers.BooleanField(source="is_guest")
 
     class Meta:
         model = User
@@ -57,6 +59,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "settings",
             "createdAt",
             "deletedAt",
+            "isVerified",
+            "isGuest",
         ]
 
     def get__id(self, obj):
@@ -85,3 +89,18 @@ class AuthCallbackSerializer(serializers.Serializer):
     email = serializers.EmailField()
     name = serializers.CharField()
     avatar_url = serializers.URLField(required=False, allow_null=True, allow_blank=True)
+
+
+class UserRegistrationSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+    name = serializers.CharField()
+
+
+class UserLoginSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+
+
+class GuestLoginSerializer(serializers.Serializer):
+    name = serializers.CharField(default="Guest")
