@@ -185,7 +185,12 @@ class ParserService:
     def extract_text(self, content: bytes, mime_type: str) -> str:
         if mime_type == "application/pdf":
             with pdfplumber.open(io.BytesIO(content)) as pdf:
-                return "\n".join(page.extract_text() or "" for page in pdf.pages).strip()
+                extracted_pages = []
+                for i, page in enumerate(pdf.pages):
+                    # layout=True preserves table spacing, making it much easier for the AI to parse
+                    page_text = page.extract_text(layout=True) or ""
+                    extracted_pages.append(f"--- [PAGE {i + 1}] ---\n{page_text}")
+                return "\n\n".join(extracted_pages).strip()
         return self.gemini.extract_text_from_image(content, mime_type)
 
     def detect_report_type(self, text: str) -> str:

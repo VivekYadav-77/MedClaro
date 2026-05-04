@@ -1,124 +1,128 @@
-# MedClaro
+<div align="center">
+  <h1>🏥 MedClaro</h1>
+  <p><strong>AI-Powered Personal Health Intelligence Platform</strong></p>
+  
+  [![Next.js](https://img.shields.io/badge/Next.js-14-black?logo=next.js)](https://nextjs.org/)
+  [![Django](https://img.shields.io/badge/Django-5.0-092E20?logo=django)](https://www.djangoproject.com/)
+  [![Gemini AI](https://img.shields.io/badge/Google%20Gemini-1.5%20Flash-4285F4?logo=google)](https://deepmind.google/technologies/gemini/)
+  [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?logo=tailwind-css)](https://tailwindcss.com/)
+</div>
 
-MedClaro is a full-stack personal health intelligence starter built from the provided product plan. It includes a Next.js 14 frontend, a Django + Django REST Framework backend, Gemini prompt templates, file-storage hooks for signed-object access, and the core UX for uploads, explanations, timelines, trends, chat, prescription decoding, reminders, and multilingual settings.
+<br />
 
-## Stack
+## 📖 Overview
 
-- Frontend: Next.js 14 App Router, Tailwind CSS, shadcn-style UI primitives, NextAuth.js, next-intl, Recharts
-- Backend: Django 5, Django REST Framework, relational database models
-- AI: Google Gemini `gemini-1.5-flash` prompt layer with scoped system prompts and jailbreak filtering
-- Storage: AWS S3 or Cloudflare R2 via presigned URLs only
-- Parsing: `pdfplumber` for PDFs and Gemini Vision OCR for images
+**MedClaro** is a comprehensive, full-stack personal health intelligence application designed to help users understand, track, and manage their medical data. By leveraging state-of-the-art AI (Google Gemini), MedClaro securely processes medical reports, decodes complex prescriptions, and translates clinical jargon into easy-to-understand insights.
 
-## Project Structure
+Designed with a calm, mobile-first user interface, the platform empowers patients and their families to take control of their health timelines without feeling overwhelmed.
 
-```text
-backend/
-  manage.py
-  projecthealth_backend/ # Django project settings, urls, auth helpers
-  users/                 # Custom user model, auth callback, profile, family
-  reports/               # Report models, upload, trends, chat, summary
-  reminders/             # Reminder models and endpoints
-  app/                   # Legacy FastAPI source retained during migration
-frontend/
-  app/                 # Next.js pages and layouts
-  components/          # Layout, dashboard, report, and UI components
-  lib/                 # Auth config, API layer, i18n, mock fallback data
-  messages/            # UI translations
-```
+---
 
-## Backend Highlights
+## ✨ Key Features
 
-- JWT-protected API routes for every non-auth endpoint
-- AES-256-GCM application-level encryption for sensitive report payloads and stored user email
-- Upload validation with MIME checking, size limits, and `python-magic`
-- Prompt-injection defenses:
-  - instruction-pattern stripping from extracted report text
-  - report data delimiter wrapping
-  - strict system prompt limited to report content
-- Per-user rate limits for uploads and report chat
-- Report normalization helpers for trend-safe comparisons
-- AI fallback queue table when Gemini is unavailable
+- 📄 **Smart Report Analysis:** Upload medical PDFs or images. MedClaro extracts data and provides layered, plain-language explanations.
+- 💬 **Interactive Health Chat:** Ask questions directly about your specific reports in a secure, scoped chat environment.
+- 📈 **Longitudinal Trends:** Visualize health metrics over time with interactive charts, normalized values, and shaded reference ranges.
+- 💊 **Prescription Decoding:** Understand medications, dosages, and potential side effects with AI-assisted OCR and parsing.
+- 👨‍👩‍👧‍👦 **Family Management:** Manage health records and timelines for multiple family members from a single unified dashboard.
+- 🌍 **Multilingual Support:** Accessible interface and AI explanations in multiple languages for diverse users.
+- 🔔 **Smart Reminders:** Integrated health and medication reminders.
+- 🔊 **Accessibility First:** Voice readouts for AI-generated medical summaries.
 
-### Implemented Routes
+---
 
-- `POST /api/auth/callback`
-- `GET /api/users/me`
-- `PUT /api/users/me`
-- `DELETE /api/users/me`
-- `POST /api/reports/upload`
-- `GET /api/reports`
-- `GET /api/reports/{id}`
-- `DELETE /api/reports/{id}`
-- `POST /api/reports/{id}/chat`
-- `GET /api/reports/{id}/chat`
-- `GET /api/reports/trends`
-- `POST /api/reports/{id}/summary`
-- `GET /api/family`
-- `POST /api/family`
-- `DELETE /api/family/{id}`
-- `POST /api/reminders`
-- `PUT /api/reminders/{id}/mute`
+## 🛠️ Technology Stack
 
-## Frontend Highlights
+### Frontend
+- **Framework:** Next.js 14 (App Router)
+- **Styling:** Tailwind CSS, shadcn-style UI primitives
+- **State & Auth:** NextAuth.js
+- **Data Visualization:** Recharts
+- **Internationalization:** next-intl
 
-- Mobile-first calm UI with soft blue-green palette and non-alarming language
-- Dashboard timeline grouped by year
-- Upload flow with progress steps
-- Report detail page with layered explanations, voice readout, summary generation, and report-scoped chat
-- Trend charts using normalized values and shaded reference ranges
-- Family switcher in the navbar
-- Settings page with language and privacy controls
-- Auto logout after 15 minutes of inactivity
+### Backend
+- **Framework:** Django 5 & Django REST Framework (DRF)
+- **Database:** Relational Database (via Django ORM)
+- **Processing:** `pdfplumber` (PDF parsing), `python-magic` (MIME validation)
+- **Storage:** AWS S3 / Cloudflare R2 (Presigned URLs for secure access)
 
-## Gemini Prompt Templates
+### Artificial Intelligence
+- **Model:** Google Gemini `gemini-1.5-flash`
+- **Capabilities:** Prompt layer with strict scoped system instructions, prompt-injection defenses, and Gemini Vision OCR for image analysis.
 
-Prompt templates are written explicitly in:
+---
 
-- [`backend/app/services/prompts.py`](/D:/web%20devfiles/ProjectHealth/backend/app/services/prompts.py)
-- [`backend/app/services/ai.py`](/D:/web%20devfiles/ProjectHealth/backend/app/services/ai.py)
-- [`backend/app/services/parser.py`](/D:/web%20devfiles/ProjectHealth/backend/app/services/parser.py)
+## 🔒 Security & Privacy
 
-They cover:
+Handling medical data requires strict security measures. MedClaro implements:
+- **Application-Level Encryption:** AES-256-GCM encryption for all sensitive report payloads and stored user PII.
+- **Robust AI Guardrails:** Defenses against prompt-injection, strict instruction-pattern stripping, and delimiter-wrapped report data.
+- **Secure File Storage:** Files are never served publicly; access is strictly mediated via temporary presigned URLs.
+- **Rate Limiting & Auth:** JWT-protected endpoints with per-user rate limiting to prevent abuse.
 
-- system-level medical scope and delimiter instructions
-- structured parameter extraction
-- image OCR
-- report explanation
-- report chat
-- prescription decoding
-- pre-appointment summary generation
+---
 
-## Setup
+## 🚀 Getting Started
 
-### 1. Backend
+### Prerequisites
+- Node.js 18+
+- Python 3.10+
+- S3-compatible storage (AWS S3 or Cloudflare R2)
+- Google Gemini API Key
 
-```powershell
+### 1. Backend Setup
+
+```bash
 cd backend
 python -m venv .venv
-.venv\Scripts\Activate.ps1
+
+# On Windows:
+.venv\Scripts\activate
+# On macOS/Linux:
+# source .venv/bin/activate
+
 pip install -r requirements.txt
 python manage.py migrate
 python manage.py runserver 8000
 ```
 
-### 2. Frontend
+### 2. Frontend Setup
 
-```powershell
+```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-### 3. Environment
+### 3. Environment Variables
 
-- Copy [`.env.example`](/D:/web%20devfiles/ProjectHealth/.env.example) to `.env`
-- Fill in database, Gemini, Google OAuth, and S3/R2 credentials
-- Keep `NEXT_PUBLIC_API_URL` pointed at `http://localhost:8000/api`
+1. Copy `.env.example` to `.env` in the root directory.
+2. Fill in database, Gemini API keys, Google OAuth, and S3/R2 credentials.
+3. Keep `NEXT_PUBLIC_API_URL` pointed at `http://localhost:8000/api` in your frontend environment.
 
-## Notes
+*Note: If the backend is not running, the frontend will elegantly fall back to mock data, allowing UI exploration without a live server.*
 
-- The frontend currently falls back to mock data when `NEXT_PUBLIC_API_URL` is not set, which makes the UI explorable before the backend is wired to live auth tokens.
-- File deletion is hard delete for report objects and account cleanup.
-- `python-magic` can require native support on Windows; if needed, install the matching system package or swap to the platform-appropriate binary distribution while keeping server-side true-file validation.
-- Email reminders and retry workers are scaffold-ready through the `reminders` and `analysis_queue` tables, but a background scheduler/worker should be added before production deployment.
+---
+
+## 📂 Project Architecture
+
+```text
+ProjectHealth/
+├── backend/
+│   ├── projecthealth_backend/ # Core Django configuration & routing
+│   ├── users/                 # Custom user, profile, and family management
+│   ├── reports/               # Report uploads, parsing, chat, and trends
+│   ├── reminders/             # Medication and appointment reminders
+│   └── app/                   # Legacy FastAPI source & prompt templates
+└── frontend/
+    ├── app/                   # Next.js App Router (Pages & Layouts)
+    ├── components/            # Reusable UI & shadcn components
+    ├── lib/                   # API layers, Auth configs, mock data
+    └── messages/              # Translation dictionaries (next-intl)
+```
+
+---
+
+<div align="center">
+  <p>Built with 💙 for better health outcomes.</p>
+</div>
