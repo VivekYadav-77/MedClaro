@@ -77,7 +77,7 @@ export default async function ReportDetailPage({
             "Should my next follow-up include B12, ferritin, and hemoglobin together?"
           ]}
         />
-        <ChatPanel initialMessages={report.chatHistory} />
+        <ChatPanel reportId={report._id} language={report.language} initialMessages={report.chatHistory} />
       </div>
     </div>
   );

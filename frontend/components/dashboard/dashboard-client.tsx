@@ -1,0 +1,243 @@
+"use client";
+
+import Link from "next/link";
+import { Plus, Sparkles, TrendingUp, Upload } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
+
+import { InlineUploader } from "@/components/dashboard/inline-uploader";
+import { EmergencyCard } from "@/components/dashboard/emergency-card";
+import { RemindersPanel } from "@/components/dashboard/reminders-panel";
+import { ReportDetailView } from "@/components/dashboard/report-detail-view";
+import { Timeline } from "@/components/dashboard/timeline";
+import { MilestoneToast } from "@/components/circles/milestone-toast";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Report, UserProfile } from "@/lib/types";
+
+export function DashboardClient({
+  user,
+  reports: initialReports
+}: {
+  user: UserProfile;
+  reports: Report[];
+}) {
+  const uploaderRef = useRef<HTMLDivElement>(null);
+  const { data: session } = useSession();
+  const [reports, setReports] = useState(initialReports);
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [timelineUpdating, setTimelineUpdating] = useState(false);
+  const [selectedFamilyMemberId, setSelectedFamilyMemberId] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const firstName = user.name.split(" ")[0];
+
+  const latestScore = reports[0]?.aiExplanation?.attentionScore;
+  const abnormalMarkers = useMemo(
+    () => reports.flatMap((report) => report.structuredData).filter((item) => item.flag !== "normal").length,
+    [reports]
+  );
+
+  const scrollToUploader = () => {
+    uploaderRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  useEffect(() => {
+    const memberId = window.localStorage.getItem("selectedFamilyMemberId");
+    setSelectedFamilyMemberId(memberId);
+
+    if (!process.env.NEXT_PUBLIC_API_URL || !memberId) return;
+
+    const loadFamilyReports = async () => {
+      setTimelineUpdating(true);
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports?familyMemberId=${memberId}`, {
+          headers: (session as any)?.accessToken ? { Authorization: `Bearer ${(session as any).accessToken}` } : undefined,
+          cache: "no-store"
+        });
+        if (response.ok) {
+          setReports(await response.json());
+        }
+      } finally {
+        setTimelineUpdating(false);
+      }
+    };
+
+    void loadFamilyReports();
+  }, [session?.accessToken]);
+
+  const clearFamilyFilter = () => {
+    window.localStorage.removeItem("selectedFamilyMemberId");
+    setSelectedFamilyMemberId(null);
+    setReports(initialReports);
+  };
+
+  const handleUploaded = (report: Report) => {
+    setReports((current) => [report, ...current.filter((item) => item._id !== report._id)]);
+    setSelectedReport(report);
+    const correlation = report.aiExplanation?.lifestyleCorrelation;
+    const hasPositive = correlation?.correlations?.some((item) => item.impact === "positive");
+    if (hasPositive && correlation?.overallMessage) {
+      setToastMessage(`${correlation.overallMessage} Check your Circles feed.`);
+    }
+  };
+
+  return (
+    <div className="space-y-8 animate-fade-in">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-medium text-slate-500">Good to see you,</p>
+          <h1 className="font-display text-3xl font-bold text-slate-900">{firstName}'s Health Timeline</h1>
+          {selectedFamilyMemberId ? (
+            <button className="mt-2 text-sm font-semibold text-brand-600 hover:text-brand-700" onClick={clearFamilyFilter}>
+              Viewing selected family profile. Clear filter
+            </button>
+          ) : null}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/trends">
+            <Button variant="outline" size="sm" className="gap-1.5">
+              <TrendingUp className="h-4 w-4" />
+              Trends
+            </Button>
+          </Link>
+          <Button size="sm" className="gap-1.5" onClick={scrollToUploader}>
+            <Plus className="h-4 w-4" />
+            Upload Report
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <StatCard label="Total Reports" value={String(reports.length)} sub="All time" accent="brand" />
+        <StatCard
+          label="Latest Attention Score"
+          value={typeof latestScore === "number" ? `${latestScore}/5` : "--"}
+          sub="Most recent report"
+          accent="teal"
+        />
+        <StatCard label="Out-of-range Markers" value={String(abnormalMarkers)} sub="Across visible reports" accent="amber" />
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
+        <section className="space-y-6">
+          <div ref={uploaderRef}>
+            <InlineUploader
+              onUploaded={handleUploaded}
+              onViewReport={setSelectedReport}
+              onProcessingChange={setTimelineUpdating}
+            />
+          </div>
+
+          <div>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-display text-xl font-semibold text-slate-800">Report History</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 text-brand-600 hover:bg-brand-50 hover:text-brand-700"
+                onClick={scrollToUploader}
+              >
+                <Upload className="h-3.5 w-3.5" />
+                Add report
+              </Button>
+            </div>
+            {reports.length ? (
+              <div className="relative">
+                <div className={`transition-all duration-300 ${timelineUpdating ? "blur-[1.5px] opacity-60" : "blur-0 opacity-100"}`}>
+                  <Timeline reports={reports} onSelectReport={setSelectedReport} />
+                </div>
+                {timelineUpdating ? (
+                  <div className="pointer-events-none absolute inset-x-0 top-6 mx-auto w-fit rounded-full border border-brand-100 bg-white/90 px-4 py-2 text-xs font-semibold text-brand-700 shadow-card">
+                    Updating timeline
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <div className={`rounded-2xl border-2 border-dashed border-slate-200 bg-white p-10 text-center shadow-card transition-all duration-300 ${timelineUpdating ? "opacity-60" : "opacity-100"}`}>
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50">
+                  <Upload className="h-7 w-7 text-brand-500" />
+                </div>
+                <h3 className="font-display text-lg font-semibold text-slate-900">No reports yet</h3>
+                <p className="mt-1 text-sm text-slate-500">Upload your first blood report to get started with AI analysis.</p>
+                <Button className="mt-5 gap-2" onClick={scrollToUploader}>
+                  <Plus className="h-4 w-4" />
+                  Upload your first report
+                </Button>
+              </div>
+            )}
+          </div>
+        </section>
+
+        <aside className="space-y-4">
+          <RemindersPanel reports={reports} />
+
+          <Card className="space-y-3 p-5">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Quick Actions</p>
+            <div className="space-y-2">
+              <button
+                className="flex w-full items-center gap-3 rounded-xl p-2.5 text-left transition-colors hover:bg-slate-50"
+                onClick={scrollToUploader}
+              >
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-100 text-brand-600">
+                  <Upload className="h-4 w-4" />
+                </span>
+                <span className="text-sm font-medium text-slate-700">Upload a new report</span>
+              </button>
+              <Link href="/trends" className="flex items-center gap-3 rounded-xl p-2.5 transition-colors hover:bg-slate-50">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-100 text-teal-600">
+                  <TrendingUp className="h-4 w-4" />
+                </span>
+                <span className="text-sm font-medium text-slate-700">View trend charts</span>
+              </Link>
+              <Link href="/family" className="flex items-center gap-3 rounded-xl p-2.5 transition-colors hover:bg-slate-50">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+                  <Sparkles className="h-4 w-4" />
+                </span>
+                <span className="text-sm font-medium text-slate-700">Manage family profiles</span>
+              </Link>
+            </div>
+          </Card>
+
+          <details className="rounded-2xl border border-red-100 bg-white p-4 shadow-card">
+            <summary className="cursor-pointer text-sm font-semibold text-slate-800">Emergency Card</summary>
+            <div className="mt-4">
+              <EmergencyCard user={user} latestReport={reports[0] ?? null} />
+            </div>
+          </details>
+        </aside>
+      </div>
+
+      <ReportDetailView report={selectedReport} onClose={() => setSelectedReport(null)} />
+      <MilestoneToast message={toastMessage} onClose={() => setToastMessage(null)} />
+    </div>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  sub,
+  accent
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  accent: "brand" | "teal" | "amber";
+}) {
+  const accents = {
+    brand: "from-brand-500 to-sky-400",
+    teal: "from-teal-500 to-emerald-400",
+    amber: "from-amber-400 to-orange-400"
+  };
+
+  return (
+    <Card className="group flex items-start gap-4 overflow-hidden p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover">
+      <div className={`h-12 w-1.5 flex-shrink-0 rounded-full bg-gradient-to-b ${accents[accent]}`} />
+      <div>
+        <p className="text-xs font-medium text-slate-500">{label}</p>
+        <p className="mt-0.5 font-display text-2xl font-bold text-slate-900">{value}</p>
+        <p className="mt-0.5 text-xs text-slate-400">{sub}</p>
+      </div>
+    </Card>
+  );
+}

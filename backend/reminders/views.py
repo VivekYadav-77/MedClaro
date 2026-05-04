@@ -8,6 +8,10 @@ from reports.models import Report
 
 
 class ReminderCreateView(APIView):
+    def get(self, request):
+        reminders = Reminder.objects.filter(user=request.user, muted=False)
+        return Response(ReminderRecordSerializer(reminders, many=True).data)
+
     def post(self, request):
         serializer = ReminderCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

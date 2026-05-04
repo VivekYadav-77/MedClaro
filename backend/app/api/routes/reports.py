@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+import logging
 from uuid import uuid4
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
@@ -23,6 +24,7 @@ storage = StorageService()
 rate_limiter = RateLimiter()
 encryptor = EncryptionService()
 trend_service = TrendService()
+logger = logging.getLogger(__name__)
 
 
 @router.post("/upload", response_model=ReportRecord)
@@ -31,9 +33,45 @@ async def upload_report(
     familyMemberId: str | None = None,
     current_user: dict = CurrentUser,
 ) -> ReportRecord:
-    await rate_limiter.enforce(current_user["_id"], "report_upload", settings.upload_limit_per_day)
-    parsed = await parser.parse_upload(file)
-    file_ref = storage.upload_bytes(parsed["file_key"], parsed["file_bytes"], parsed["mime_type"])
+    try:
+        await rate_limiter.enforce(current_user["_id"], "report_upload", settings.upload_limit_per_day)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Report upload rate limiter failed")
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": "Upload checks are temporarily unavailable. Please try again shortly.",
+                "code": "RATE_LIMIT_UNAVAILABLE",
+            },
+        ) from exc
+
+    try:
+        parsed = await parser.parse_upload(file)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Failed to parse uploaded report")
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "We could not read this report. Please upload a clear PDF, JPG, or PNG file.",
+                "code": "REPORT_PARSE_FAILED",
+            },
+        ) from exc
+
+    try:
+        file_ref = storage.upload_bytes(parsed["file_key"], parsed["file_bytes"], parsed["mime_type"])
+    except Exception as exc:
+        logger.exception("Failed to store uploaded report")
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": "Report storage is temporarily unavailable. Please try again shortly.",
+                "code": "REPORT_STORAGE_UNAVAILABLE",
+            },
+        ) from exc
     user_age = None
     if current_user.get("dob"):
         dob = current_user["dob"]

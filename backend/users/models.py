@@ -70,3 +70,17 @@ class FamilyMember(models.Model):
 
     def __str__(self) -> str:
         return f"{self.name} ({self.relationship})"
+
+
+class LifestyleLog(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, related_name="lifestyle_logs", on_delete=models.CASCADE)
+    note = models.CharField(max_length=200)
+    logged_at = models.DateTimeField(default=timezone.now)
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["-logged_at"]
+
+    def __str__(self) -> str:
+        return self.note

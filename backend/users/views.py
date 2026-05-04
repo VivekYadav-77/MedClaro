@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 from reports.models import Report
 from reports.services import StorageService
 from reminders.models import Reminder
-from users.models import FamilyMember, User
+from users.models import FamilyMember, LifestyleLog, User
 from users.serializers import (
     AuthCallbackSerializer,
     FamilyMemberCreateSerializer,
@@ -131,3 +131,22 @@ class FamilyDeleteView(APIView):
             member.delete()
         Report.objects.filter(user=request.user, family_member_id=member_id).delete()
         return Response({"message": "Family member removed"})
+
+
+class LifestyleLogView(APIView):
+    def get(self, request, log_id=None):
+        logs = request.user.lifestyle_logs.filter(active=True)
+        return Response([{"id": str(log.id), "note": log.note, "loggedAt": log.logged_at} for log in logs])
+
+    def post(self, request, log_id=None):
+        note = request.data.get("note", "").strip()
+        if not note or len(note) > 200:
+            return Response({"error": "Note must be 1-200 characters"}, status=status.HTTP_400_BAD_REQUEST)
+        log = LifestyleLog.objects.create(user=request.user, note=note)
+        return Response({"id": str(log.id), "note": log.note, "loggedAt": log.logged_at}, status=status.HTTP_201_CREATED)
+
+    def delete(self, request, log_id=None):
+        if not log_id:
+            return Response({"error": "Log id required"}, status=status.HTTP_400_BAD_REQUEST)
+        LifestyleLog.objects.filter(id=log_id, user=request.user).update(active=False)
+        return Response({"message": "Log removed"})

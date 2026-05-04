@@ -1,7 +1,9 @@
 import { TrendChart } from "@/components/reports/trend-chart";
+import { TrajectoryCard } from "@/components/reports/trajectory-card";
 import { Card } from "@/components/ui/card";
 import { getTrends } from "@/lib/api";
 import { TrendingUp, Calendar } from "lucide-react";
+import { TreatmentTab } from "@/app/(app)/trends/treatment-tab";
 
 export default async function TrendsPage() {
   const trends = await getTrends();
@@ -58,6 +60,28 @@ export default async function TrendsPage() {
           <p className="mt-1 text-sm text-slate-500">Upload at least two reports to start seeing trends.</p>
         </div>
       )}
+
+      {trends.trajectories?.length ? (
+        <section className="space-y-4">
+          <div>
+            <h2 className="font-display text-xl font-bold text-slate-900">AI Health Trajectories</h2>
+            <p className="mt-1 text-sm text-slate-500">Forward-looking analysis based on your report history.</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {trends.trajectories.map((trajectory) => (
+              <TrajectoryCard key={trajectory.parameter} trajectory={trajectory} />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <section className="space-y-4">
+        <div>
+          <h2 className="font-display text-xl font-bold text-slate-900">Treatment Effectiveness</h2>
+          <p className="mt-1 text-sm text-slate-500">Compares prescription timing against later report movement.</p>
+        </div>
+        <TreatmentTab />
+      </section>
     </div>
   );
 }

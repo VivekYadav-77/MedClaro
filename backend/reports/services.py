@@ -1,15 +1,19 @@
 import base64
 import io
 import json
+import logging
 import mimetypes
 import os
 import re
+import warnings
 from collections import defaultdict
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 
-import google.generativeai as genai
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", FutureWarning)
+    import google.generativeai as genai
 import pdfplumber
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from django.db import transaction
@@ -22,6 +26,8 @@ from app.utils.sanitizer import is_off_topic, sanitize_report_text
 from projecthealth_backend import settings
 from reports.models import AnalysisQueueEntry, ChatMessage, RateLimitEntry, Report, StructuredParameter
 
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = (
     "You are a medical report explanation assistant. You will only analyze content within "
@@ -46,6 +52,34 @@ REPORT_KEYWORDS = {
     "prescription": ("tablet", "capsule", "take once", "rx"),
     "xray_report": ("x-ray", "radiograph", "impression"),
 }
+
+
+def normalize_flag(flag) -> str:
+    if not isinstance(flag, str):
+        return "normal"
+    cleaned = flag.strip().lower()
+    if cleaned in {"h", "high", "above", "above_range"}:
+        return "high"
+    if cleaned in {"l", "low", "below", "below_range"}:
+        return "low"
+    return "normal"
+
+
+def is_expected_gemini_fallback(exc: Exception) -> bool:
+    message = str(exc).lower()
+    error_name = exc.__class__.__name__.lower()
+    return any(
+        marker in f"{error_name} {message}"
+        for marker in (
+            "deadlineexceeded",
+            "deadline exceeded",
+            "serviceunavailable",
+            "retryerror",
+            "timeout",
+            "proxy",
+            "unavailable",
+        )
+    )
 
 
 class EncryptionService:
@@ -89,24 +123,49 @@ class StorageService:
 
 
 class GeminiService:
+    LANGUAGE_REGION_MAP = {
+        "en": "general Indian",
+        "hi": "North Indian Hindi belt",
+        "ta": "Tamil Nadu South Indian",
+        "bn": "Bengali East Indian",
+        "te": "Andhra Telangana",
+        "mr": "Maharashtra Konkan",
+    }
+
     def __init__(self) -> None:
-        if settings.GEMINI_API_KEY:
-            genai.configure(api_key=settings.GEMINI_API_KEY)
-        self.text_model = genai.GenerativeModel(settings.GEMINI_MODEL_TEXT, system_instruction=SYSTEM_PROMPT)
-        self.vision_model = genai.GenerativeModel(settings.GEMINI_MODEL_VISION, system_instruction=SYSTEM_PROMPT)
+        self.extraction_model = self._make_model(settings.GEMINI_API_KEY_EXTRACTION, settings.GEMINI_MODEL_VISION)
+        self.analysis_model = self._make_model(settings.GEMINI_API_KEY_ANALYSIS, settings.GEMINI_MODEL_TEXT)
+        self.chat_model = self._make_model(settings.GEMINI_API_KEY_CHAT, settings.GEMINI_MODEL_CHAT)
+        self.text_model = self.analysis_model
+        self.vision_model = self.extraction_model
+        self.proxy_unavailable = any(
+            os.environ.get(name, "").rstrip("/") == "http://127.0.0.1:9"
+            for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy")
+        )
+
+    def _make_model(self, api_key: str, model_name: str):
+        if api_key:
+            genai.configure(api_key=api_key)
+        return genai.GenerativeModel(model_name, system_instruction=SYSTEM_PROMPT)
 
     def extract_text_from_image(self, content: bytes, mime_type: str) -> str:
-        response = self.vision_model.generate_content(
+        if self.proxy_unavailable:
+            raise RuntimeError("Gemini proxy is configured to unavailable localhost endpoint")
+        response = self.extraction_model.generate_content(
             [{"mime_type": mime_type, "data": content}, IMAGE_OCR_PROMPT],
             generation_config={"temperature": 0},
+            request_options={"timeout": 25},
         )
         return response.text.strip()
 
     def generate_json(self, prompt: str, report_text: str, report_type: str) -> str:
+        if self.proxy_unavailable:
+            raise RuntimeError("Gemini proxy is configured to unavailable localhost endpoint")
         wrapped = f"{prompt}\nReport type: {report_type}\n=== REPORT DATA START ===\n{report_text}\n=== REPORT DATA END ==="
-        response = self.text_model.generate_content(
+        response = self.analysis_model.generate_content(
             wrapped,
             generation_config={"temperature": 0.1, "response_mime_type": "application/json"},
+            request_options={"timeout": 25},
         )
         return response.text.strip()
 
@@ -137,7 +196,11 @@ User message: {message}
 Structured data: {json.dumps(structured_data, default=str)}
 Report type: {report_type}
 """
-        response = self.text_model.generate_content(prompt, generation_config={"temperature": 0.2})
+        response = self.chat_model.generate_content(
+            prompt,
+            generation_config={"temperature": 0.2},
+            request_options={"timeout": 25},
+        )
         return response.text.strip()
 
     def explain_prescription(self, language: str, extracted_text: str, related_reports: list[dict]) -> dict:
@@ -159,6 +222,57 @@ Current report: {json.dumps(report, default=str)}
 Previous report: {json.dumps(previous_report, default=str) if previous_report else 'null'}
 """
         raw = self.generate_json(prompt=prompt, report_text=json.dumps(report, default=str), report_type=report["reportType"])
+        return json.loads(raw)
+
+    def predict_trajectory(self, series_data: list[dict], language: str) -> dict:
+        prompt = f"""
+Analyze these health parameter series and return JSON with key 'trajectories'.
+Each trajectory must have: parameter, direction (improving/declining/stable),
+prediction (one sentence, plain language, future-looking),
+warningLevel (none/watch/alert based on rate of change and proximity to limits),
+advice (one actionable sentence, culturally neutral).
+Respond in language code {language}.
+Data: {json.dumps(series_data, default=str)}
+"""
+        raw = self.generate_json(prompt=prompt, report_text=json.dumps(series_data, default=str), report_type="trends")
+        return json.loads(raw)
+
+    def correlate_lifestyle(self, lifestyle_notes: list[str], old_report: dict | None, new_report: dict, language: str) -> dict:
+        prompt = f"""
+The user has made these lifestyle changes since their last blood report: {lifestyle_notes}
+Compare the old report (may be null) and new report structured data.
+For each lifestyle note, identify which blood markers may have been affected and whether the change was positive.
+Return JSON with keys: correlations (array with note, relatedMarkers, impact, message) and overallMessage.
+Respond in language code {language}. Use encouraging, plain language. Never diagnose.
+Old report data: {json.dumps(old_report, default=str) if old_report else "None (first report)"}
+New report data: {json.dumps(new_report["structuredData"], default=str)}
+"""
+        raw = self.generate_json(prompt=prompt, report_text="lifestyle", report_type="correlation")
+        return json.loads(raw)
+
+    def generate_diet_advice(self, abnormal_markers: list[dict], language: str) -> dict:
+        region = self.LANGUAGE_REGION_MAP.get(language, "general Indian")
+        prompt = f"""
+For a patient from the {region} region, provide hyper-local diet advice for these out-of-range blood markers.
+Suggest locally available, culturally familiar foods such as specific dals, millets, vegetables, and spices.
+Return JSON with key 'advice': array of objects with marker, currentStatus, dietSuggestions (list of 3), foodsToAvoid (list of 2).
+Respond in language code {language}. Never use generic Western foods like salmon or quinoa unless the region warrants it.
+Markers: {json.dumps(abnormal_markers, default=str)}
+"""
+        raw = self.generate_json(prompt=prompt, report_text="diet", report_type="diet_advice")
+        return json.loads(raw)
+
+    def analyze_treatment_effectiveness(self, prescriptions: list[dict], blood_reports: list[dict], language: str) -> dict:
+        prompt = f"""
+Analyze whether the prescribed medications appear to be producing expected results in the blood tests.
+For each active medication, find the marker it likely targets and check if that marker improved after the prescription date.
+Return JSON: findings array with medicationName, targetMarker, startDate, trend, recommendation, urgency.
+Also return overallAssessment (1 paragraph summary).
+Respond in language code {language}. Never tell user to stop medications.
+Prescription history: {json.dumps([{"date": p.get("reportDate"), "medications": p.get("medications", [])} for p in prescriptions], default=str)}
+Blood report history: {json.dumps([{"date": r.get("reportDate"), "markers": r["structuredData"]} for r in blood_reports], default=str)}
+"""
+        raw = self.generate_json(prompt=prompt, report_text="treatment", report_type="treatment_analysis")
         return json.loads(raw)
 
 
@@ -201,8 +315,16 @@ class ParserService:
         return "unknown"
 
     def build_structured_data(self, text: str, report_type: str) -> list[dict]:
-        raw = self.gemini.generate_json(prompt=STRUCTURED_EXTRACTION_PROMPT, report_text=text, report_type=report_type)
-        items = json.loads(raw) if raw else []
+        try:
+            raw = self.gemini.generate_json(prompt=STRUCTURED_EXTRACTION_PROMPT, report_text=text, report_type=report_type)
+            items = json.loads(raw) if raw else []
+        except Exception as exc:
+            if is_expected_gemini_fallback(exc):
+                logger.warning("Gemini structured extraction unavailable (%s); using local parser fallback", exc.__class__.__name__)
+            else:
+                logger.exception("Gemini structured extraction failed; using local parser fallback")
+            return self._build_structured_data_from_text(text)
+
         structured = []
         for item in items:
             value = item.get("value")
@@ -219,9 +341,53 @@ class ParserService:
                     "normalizedUnit": normalized_unit,
                     "referenceRangeLow": item.get("referenceRangeLow"),
                     "referenceRangeHigh": item.get("referenceRangeHigh"),
-                    "flag": item.get("flag", "normal"),
+                    "flag": normalize_flag(item.get("flag")),
                 }
             )
+        return structured
+
+    def _build_structured_data_from_text(self, text: str) -> list[dict]:
+        structured = []
+        row_pattern = re.compile(
+            r"^(?P<name>[A-Za-z][A-Za-z0-9 /()+%.-]*?)\s+"
+            r"(?P<value>[<>]?\d[\d,]*(?:\.\d+)?)\s*"
+            r"(?P<flag>[HL])?\s+"
+            r"(?P<unit>[A-Za-z/%µμ0-9.+-]+)?\s+"
+            r"(?P<low>\d[\d,]*(?:\.\d+)?)\s*(?:-|–)\s*"
+            r"(?P<high>\d[\d,]*(?:\.\d+)?)",
+            re.IGNORECASE,
+        )
+
+        for line in text.splitlines():
+            cleaned = " ".join(line.replace("–", "-").split())
+            match = row_pattern.match(cleaned)
+            if not match:
+                continue
+
+            raw_value = match.group("value").replace(",", "")
+            if raw_value.startswith("<") or raw_value.startswith(">"):
+                continue
+
+            value = float(raw_value)
+            unit = match.group("unit") or ""
+            normalized_value, normalized_unit = normalize_value(match.group("name"), value, unit)
+            flag_marker = (match.group("flag") or "").upper()
+            low = float(match.group("low").replace(",", ""))
+            high = float(match.group("high").replace(",", ""))
+
+            structured.append(
+                {
+                    "testName": match.group("name").strip(),
+                    "value": value,
+                    "unit": unit,
+                    "normalizedValue": normalized_value,
+                    "normalizedUnit": normalized_unit,
+                    "referenceRangeLow": low,
+                    "referenceRangeHigh": high,
+                    "flag": "low" if flag_marker == "L" else "high" if flag_marker == "H" else "normal",
+                }
+            )
+
         return structured
 
     def parse_upload(self, upload) -> dict:
@@ -243,14 +409,21 @@ class ParserService:
 
     def _detect_date(self, text: str):
         match = re.search(r"\b(\d{2}[/-]\d{2}[/-]\d{4})\b", text)
-        if not match:
-            return None
-        raw = match.group(1).replace("-", "/")
-        return datetime.strptime(raw, "%d/%m/%Y").replace(tzinfo=UTC)
+        if match:
+            raw = match.group(1).replace("-", "/")
+            return datetime.strptime(raw, "%d/%m/%Y").replace(tzinfo=UTC)
+
+        named_month = re.search(r"\b(\d{1,2})[-\s]([A-Za-z]{3,9})[-\s](\d{4})\b", text)
+        if named_month:
+            raw = " ".join(named_month.groups())
+            return datetime.strptime(raw, "%d %b %Y").replace(tzinfo=UTC)
+        return None
 
     def _detect_lab_name(self, text: str):
         for line in text.splitlines()[:8]:
             cleaned = line.strip()
+            if not cleaned or cleaned.startswith("--- [PAGE"):
+                continue
             if 4 < len(cleaned) < 60:
                 return cleaned
         return None
@@ -279,7 +452,7 @@ class RateLimiter:
 
 
 class TrendService:
-    def build(self, reports: list[dict]) -> dict:
+    def build(self, reports: list[dict], language: str = "en") -> dict:
         grouped = defaultdict(list)
         units = {}
         composite_score = []
@@ -325,11 +498,18 @@ class TrendService:
             months = {point["date"].month for point in points}
             if len(points) >= 3 and len(months) >= 3:
                 seasonal_insights.append(f"{parameter} shows enough history to inspect seasonal movement over time.")
+        try:
+            trajectory_data = GeminiService().predict_trajectory(series, language)
+            trajectories = trajectory_data.get("trajectories", [])
+        except Exception:
+            trajectories = []
+
         return {
             "reportCount": len(reports),
             "compositeScore": composite_score,
             "seasonalInsights": seasonal_insights,
             "series": series,
+            "trajectories": trajectories,
         }
 
 
@@ -391,16 +571,14 @@ class ReportService:
                 biological_sex=current_user.biological_sex,
                 structured_data=parsed["structured_data"],
             )
-        except Exception:
+        except Exception as exc:
+            if is_expected_gemini_fallback(exc):
+                logger.warning("Gemini report explanation unavailable (%s); using local fallback explanation", exc.__class__.__name__)
+            else:
+                logger.exception("Gemini report explanation failed; using local fallback explanation")
             report_id = uuid4()
             AnalysisQueueEntry.objects.create(id=report_id, user=current_user, reason="gemini_failed")
-            explanation_payload = {
-                "parameterLevel": [],
-                "holisticSummary": "AI analysis is temporarily unavailable. Your report has been saved and will be analyzed shortly.",
-                "attentionScore": 1,
-                "confidenceNote": "A follow-up explanation will be generated when analysis resumes.",
-                "disclaimer": f"This saved {parsed['report_type'].replace('_', ' ')} report still needs clinician context.",
-            }
+            explanation_payload = self._fallback_explanation(parsed["report_type"], parsed["structured_data"])
             report = Report.objects.create(
                 id=report_id,
                 user=current_user,
@@ -414,6 +592,7 @@ class ReportService:
                 language=current_user.preferred_language,
                 medications=medications,
             )
+            self._after_report_saved(report, parsed, current_user)
             return self.hydrator.hydrate(report)
 
         report = Report.objects.create(
@@ -441,9 +620,138 @@ class ReportService:
                 normalized_unit=item.get("normalizedUnit"),
                 reference_range_low=item.get("referenceRangeLow"),
                 reference_range_high=item.get("referenceRangeHigh"),
-                flag=item.get("flag", "normal"),
+                flag=normalize_flag(item.get("flag")),
             )
+        self._after_report_saved(report, parsed, current_user)
         return self.hydrator.hydrate(report)
+
+    def _after_report_saved(self, report: Report, parsed: dict, current_user) -> None:
+        previous = (
+            Report.objects.filter(user=current_user, report_type=parsed["report_type"])
+            .exclude(id=report.id)
+            .order_by("-upload_date")
+            .prefetch_related("chat_messages")
+            .first()
+        )
+        previous_hydrated = self.hydrator.hydrate(previous) if previous else None
+        self._publish_circle_upload(report, parsed, current_user)
+        self._apply_lifestyle_correlation(report, current_user, previous_hydrated)
+        self._publish_marker_milestones(report, parsed, current_user, previous_hydrated)
+
+    def _publish_circle_upload(self, report: Report, parsed: dict, current_user) -> None:
+        try:
+            from circles.models import ActivityFeedEntry, CircleMember, Notification
+        except Exception:
+            return
+
+        family_member_name = report.family_member.name if report.family_member else None
+        memberships = CircleMember.objects.filter(user=current_user).select_related("circle")
+        for membership in memberships:
+            entry = ActivityFeedEntry.objects.create(
+                circle=membership.circle,
+                actor=current_user,
+                event_type="report_uploaded",
+                payload={
+                    "reportType": parsed["report_type"],
+                    "reportId": str(report.id),
+                    "uploaderName": current_user.name,
+                    "familyMemberName": family_member_name,
+                },
+            )
+            other_members = CircleMember.objects.filter(circle=membership.circle).exclude(user=current_user).select_related("user")
+            Notification.objects.bulk_create([Notification(user=member.user, feed_entry=entry) for member in other_members])
+
+    def _apply_lifestyle_correlation(self, report: Report, current_user, previous_hydrated: dict | None) -> None:
+        lifestyle_notes = list(current_user.lifestyle_logs.filter(active=True).values_list("note", flat=True))
+        if not lifestyle_notes:
+            return
+        try:
+            correlation = self.ai.correlate_lifestyle(
+                lifestyle_notes=lifestyle_notes,
+                old_report=previous_hydrated,
+                new_report=self.hydrator.hydrate(report),
+                language=current_user.preferred_language,
+            )
+        except Exception:
+            return
+        explanation = report.ai_explanation or {}
+        explanation["lifestyleCorrelation"] = correlation
+        report.ai_explanation = explanation
+        report.save(update_fields=["ai_explanation"])
+
+    def _publish_marker_milestones(self, report: Report, parsed: dict, current_user, previous_hydrated: dict | None) -> None:
+        if not previous_hydrated:
+            return
+        try:
+            from circles.models import ActivityFeedEntry, CircleMember, Notification
+        except Exception:
+            return
+
+        previous_abnormal = {
+            item["testName"]
+            for item in previous_hydrated.get("structuredData", [])
+            if item.get("flag") != "normal"
+        }
+        now_normal = [
+            item
+            for item in parsed["structured_data"]
+            if item.get("flag") == "normal" and item.get("testName") in previous_abnormal
+        ]
+        if not now_normal:
+            return
+        milestone_markers = [item["testName"] for item in now_normal]
+        for membership in CircleMember.objects.filter(user=current_user).select_related("circle"):
+            entry = ActivityFeedEntry.objects.create(
+                circle=membership.circle,
+                actor=current_user,
+                event_type="marker_improved",
+                payload={
+                    "uploaderName": current_user.name,
+                    "memberName": current_user.name,
+                    "markerName": ", ".join(milestone_markers),
+                    "improvedMarkers": milestone_markers,
+                    "reportType": parsed["report_type"],
+                    "reportId": str(report.id),
+                },
+            )
+            other_members = CircleMember.objects.filter(circle=membership.circle).exclude(user=current_user).select_related("user")
+            Notification.objects.bulk_create([Notification(user=member.user, feed_entry=entry) for member in other_members])
+
+    def _fallback_explanation(self, report_type: str, structured_data: list[dict]) -> dict:
+        flagged = [item for item in structured_data if item.get("flag") in {"high", "low"}]
+        highlighted = flagged[:5]
+        parameter_level = [
+            {
+                "parameter": item.get("testName", "Parameter"),
+                "explanation": (
+                    f"Your value is {item.get('value')} {item.get('unit', '')}, "
+                    f"which is marked {item.get('flag')} against the report reference range."
+                ).strip(),
+                "confidence": "Generated from the report's visible value and reference range while AI service is unavailable.",
+            }
+            for item in highlighted
+        ]
+        if flagged:
+            names = ", ".join(item.get("testName", "a marker") for item in highlighted)
+            summary = (
+                f"Your {report_type.replace('_', ' ')} was saved and parsed. "
+                f"{len(flagged)} value(s) are outside the listed reference ranges, including {names}."
+            )
+            attention_score = 3 if len(flagged) <= 3 else 4
+        else:
+            summary = (
+                f"Your {report_type.replace('_', ' ')} was saved and parsed. "
+                "No clearly out-of-range values were detected by the local parser."
+            )
+            attention_score = 1
+
+        return {
+            "parameterLevel": parameter_level,
+            "holisticSummary": summary,
+            "attentionScore": attention_score,
+            "confidenceNote": "Gemini is currently unreachable, so this explanation uses a local fallback parser.",
+            "disclaimer": "This report explanation is for preparation and should be reviewed with a qualified clinician.",
+        }
 
     def chat_about_report(self, report: Report, message: str, current_user) -> dict:
         self.rate_limiter.enforce(current_user, "report_chat", settings.CHAT_LIMIT_PER_DAY)

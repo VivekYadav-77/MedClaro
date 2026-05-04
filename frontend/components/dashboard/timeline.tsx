@@ -1,7 +1,13 @@
 import { Report } from "@/lib/types";
 import { ReportCard } from "@/components/dashboard/report-card";
 
-export function Timeline({ reports }: { reports: Report[] }) {
+export function Timeline({
+  reports,
+  onSelectReport
+}: {
+  reports: Report[];
+  onSelectReport: (report: Report) => void;
+}) {
   const grouped = reports.reduce<Record<string, Report[]>>((acc, report) => {
     const year = new Date(report.reportDate).getFullYear().toString();
     acc[year] ??= [];
@@ -33,7 +39,7 @@ export function Timeline({ reports }: { reports: Report[] }) {
                 <div key={report._id} className="relative">
                   {/* Timeline dot */}
                   <div className="absolute -left-[18px] top-4 h-3 w-3 rounded-full border-2 border-brand-500 bg-white" />
-                  <ReportCard report={report} />
+                  <ReportCard report={report} onSelect={() => onSelectReport(report)} />
                 </div>
               ))}
             </div>

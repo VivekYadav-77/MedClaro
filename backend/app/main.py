@@ -1,3 +1,6 @@
+import logging
+import traceback
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -13,6 +16,7 @@ from app.db.indexes import ensure_indexes
 
 settings = get_settings()
 app = FastAPI(title=settings.app_name)
+logger = logging.getLogger(__name__)
 
 app.add_middleware(
     CORSMiddleware,
@@ -29,7 +33,9 @@ async def startup() -> None:
 
 
 @app.exception_handler(Exception)
-async def unhandled_exception_handler(_, __) -> JSONResponse:
+async def unhandled_exception_handler(_, exc: Exception) -> JSONResponse:
+    logger.error("Unhandled application error", exc_info=(type(exc), exc, exc.__traceback__))
+    traceback.print_exception(type(exc), exc, exc.__traceback__)
     return JSONResponse(
         status_code=500,
         content={"error": "Something went wrong. Please try again.", "code": "INTERNAL_SERVER_ERROR"},

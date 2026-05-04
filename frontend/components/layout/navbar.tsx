@@ -6,12 +6,14 @@ import { useState } from "react";
 import { Activity, HeartPulse, Menu, X } from "lucide-react";
 
 import { FamilySwitcher } from "@/components/layout/family-switcher";
+import { NotificationBell } from "@/components/layout/notification-bell";
 import { UserProfile } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const navLinks = [
   { href: "/dashboard", label: "Timeline" },
   { href: "/trends",    label: "Trends" },
+  { href: "/circles",   label: "Circles" },
   { href: "/family",    label: "Family" },
   { href: "/settings",  label: "Settings" },
 ];
@@ -64,6 +66,7 @@ export function Navbar({ user }: { user: UserProfile }) {
 
         {/* Right Actions */}
         <div className="flex items-center gap-2">
+          <NotificationBell />
           <FamilySwitcher members={user.familyMembers} />
 
           {/* Mobile hamburger */}

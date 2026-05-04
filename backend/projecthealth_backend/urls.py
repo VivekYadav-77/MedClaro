@@ -15,4 +15,5 @@ urlpatterns = [
     path(f"{settings.API_V1_PREFIX.strip('/')}/", include("users.urls")),
     path(f"{settings.API_V1_PREFIX.strip('/')}/", include("reports.urls")),
     path(f"{settings.API_V1_PREFIX.strip('/')}/", include("reminders.urls")),
+    path(f"{settings.API_V1_PREFIX.strip('/')}/", include("circles.urls")),
 ]

@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     "users",
     "reports",
     "reminders",
+    "circles",
 ]
 
 MIDDLEWARE = [
@@ -117,8 +118,12 @@ JWT_ALGORITHM = env("JWT_ALGORITHM", "HS256") or "HS256"
 JWT_EXPIRY_MINUTES = int(env("JWT_EXPIRY_MINUTES", "60") or "60")
 APP_ENCRYPTION_KEY = env("APP_ENCRYPTION_KEY", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=") or ""
 GEMINI_API_KEY = env("GEMINI_API_KEY", "") or ""
+GEMINI_API_KEY_EXTRACTION = env("GEMINI_API_KEY_EXTRACTION", GEMINI_API_KEY) or ""
+GEMINI_API_KEY_ANALYSIS = env("GEMINI_API_KEY_ANALYSIS", GEMINI_API_KEY) or ""
+GEMINI_API_KEY_CHAT = env("GEMINI_API_KEY_CHAT", GEMINI_API_KEY) or ""
 GEMINI_MODEL_TEXT = env("GEMINI_MODEL_TEXT", "gemini-1.5-flash") or "gemini-1.5-flash"
 GEMINI_MODEL_VISION = env("GEMINI_MODEL_VISION", "gemini-1.5-flash") or "gemini-1.5-flash"
+GEMINI_MODEL_CHAT = env("GEMINI_MODEL_CHAT", "gemini-1.5-flash") or "gemini-1.5-flash"
 
 ALLOWED_FILE_TYPES = tuple(
     item.strip()

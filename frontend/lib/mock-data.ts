@@ -159,5 +159,14 @@ export const mockTrends: TrendResponse = {
         { date: "2026-03-18T00:00:00.000Z", value: 11.2, low: 13.5, high: 17.5 }
       ]
     }
+  ],
+  trajectories: [
+    {
+      parameter: "Ferritin",
+      direction: "declining",
+      prediction: "Ferritin may remain below range if the current pattern continues.",
+      warningLevel: "watch",
+      advice: "Review iron intake, symptoms, and follow-up timing with your clinician."
+    }
   ]
 };
