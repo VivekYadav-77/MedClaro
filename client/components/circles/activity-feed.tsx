@@ -97,6 +97,15 @@ function descriptionFor(entry: FeedEntry) {
   if (entry.eventType === "circle_invite") {
     return `${entry.actorName} invited you to ${String(payload.circleName ?? "a circle")}`;
   }
+  if (entry.eventType === "circle_code_rotated") {
+    return `${entry.actorName} changed the circle code`;
+  }
+  if (entry.eventType === "member_role_changed") {
+    return `${entry.actorName} made ${String(payload.memberName ?? "a member")} a ${String(payload.role ?? "member")}`;
+  }
+  if (entry.eventType === "member_removed") {
+    return `${entry.actorName} removed ${String(payload.memberName ?? "a member")} from the circle`;
+  }
   return `${entry.actorName} updated the circle`;
 }
 

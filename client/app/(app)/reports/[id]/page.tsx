@@ -69,14 +69,7 @@ export default async function ReportDetailPage({
       ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <SummaryGenerator
-          summary={`What changed since last report:\n- Hemoglobin is now 11.2 g/dL, down from 11.7 g/dL.\n- Ferritin is 18 ng/mL, down from 23 ng/mL.\n\nOutside normal range:\n- Hemoglobin\n- Ferritin\n\nTrend concerns worth discussing:\n- Iron-related markers are drifting down together over repeated reports.`}
-          questions={[
-            "Could this lower hemoglobin plus ferritin pattern fit iron deficiency for me?",
-            "Would you want to check causes of low iron stores or repeat iron studies?",
-            "Should my next follow-up include B12, ferritin, and hemoglobin together?"
-          ]}
-        />
+        <SummaryGenerator reportId={report._id} />
         <ChatPanel reportId={report._id} language={report.language} initialMessages={report.chatHistory} />
       </div>
     </div>

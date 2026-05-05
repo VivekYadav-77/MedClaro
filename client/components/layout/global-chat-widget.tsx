@@ -16,20 +16,26 @@ export function GlobalChatWidget() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   async function sendMessage() {
     const message = draft.trim();
-    if (!message || loading || !API_URL) return;
+    if (!message || loading) return;
+    if (!API_URL || !session?.accessToken) {
+      setApiError("Assistant is unavailable until you are connected to the API.");
+      return;
+    }
     const userMessage: ChatMessage = { role: "user", content: message, timestamp: new Date().toISOString() };
     setMessages((current) => [...current, userMessage]);
     setDraft("");
     setLoading(true);
+    setApiError(null);
     try {
       const response = await fetch(`${API_URL}/reports/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : {}),
+          Authorization: `Bearer ${session.accessToken}`,
         },
         body: JSON.stringify({ message }),
       });
@@ -80,6 +86,7 @@ export function GlobalChatWidget() {
             {!messages.length ? <p className="text-sm text-slate-500">Ask about patterns across your reports.</p> : null}
           </div>
           <div className="space-y-2 border-t border-slate-100 p-4">
+            {apiError ? <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{apiError}</p> : null}
             <Textarea value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Ask a health history question..." />
             <Button className="w-full gap-2" onClick={() => void sendMessage()} disabled={loading || !draft.trim()}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <SendHorizontal className="h-4 w-4" />}

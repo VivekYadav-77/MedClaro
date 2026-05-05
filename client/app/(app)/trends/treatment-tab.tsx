@@ -29,14 +29,21 @@ export function TreatmentTab() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!session?.accessToken || !process.env.NEXT_PUBLIC_API_URL) return;
+    if (!session?.accessToken || !process.env.NEXT_PUBLIC_API_URL) {
+      setData({ findings: [], message: "Connect to the API to analyze treatment effectiveness." });
+      setLoading(false);
+      return;
+    }
     async function load() {
       setLoading(true);
       try {
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports/treatment-effectiveness`, {
           headers: session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : undefined,
         });
-        setData(await response.json());
+        const payload = await response.json().catch(() => null);
+        setData(response.ok ? payload : { findings: [], message: payload?.error ?? "Could not load treatment analysis." });
+      } catch {
+        setData({ findings: [], message: "Could not load treatment analysis." });
       } finally {
         setLoading(false);
       }

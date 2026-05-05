@@ -65,14 +65,42 @@ def normalize_flag(flag) -> str:
     return "normal"
 
 
+def parse_lab_number(value) -> float | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if not isinstance(value, str):
+        return None
+
+    cleaned = value.strip().replace(",", "")
+    cleaned = cleaned.lstrip("<>~ ")
+    match = re.match(r"^-?\d+(?:\.\d+)?", cleaned)
+    if not match:
+        return None
+    try:
+        return float(match.group(0))
+    except ValueError:
+        return None
+
+
+def marker_key(name: str | None) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", (name or "").lower()).strip()
+
+
 def is_expected_gemini_fallback(exc: Exception) -> bool:
     message = str(exc).lower()
     error_name = exc.__class__.__name__.lower()
     return any(
         marker in f"{error_name} {message}"
         for marker in (
+            "404",
             "deadlineexceeded",
             "deadline exceeded",
+            "notfound",
+            "not found",
+            "generatecontent",
+            "model",
             "serviceunavailable",
             "retryerror",
             "timeout",
@@ -80,6 +108,14 @@ def is_expected_gemini_fallback(exc: Exception) -> bool:
             "unavailable",
         )
     )
+
+
+def resolve_gemini_model(model_name: str) -> str:
+    deprecated_model_map = {
+        "gemini-1.5-flash": "gemini-2.0-flash",
+        "models/gemini-1.5-flash": "gemini-2.0-flash",
+    }
+    return deprecated_model_map.get(model_name, model_name)
 
 
 class EncryptionService:
@@ -146,7 +182,7 @@ class GeminiService:
     def _make_model(self, api_key: str, model_name: str):
         if api_key:
             genai.configure(api_key=api_key)
-        return genai.GenerativeModel(model_name, system_instruction=SYSTEM_PROMPT)
+        return genai.GenerativeModel(resolve_gemini_model(model_name), system_instruction=SYSTEM_PROMPT)
 
     def extract_text_from_image(self, content: bytes, mime_type: str) -> str:
         if self.proxy_unavailable:
@@ -184,7 +220,12 @@ Context:
         return json.loads(raw)
 
     def answer_chat(self, report_type: str, language: str, structured_data: list[dict], chat_history: list[dict], message: str) -> str:
-        if is_off_topic(message):
+        lowered = message.lower()
+        mentions_report_marker = any(
+            item.get("testName") and item.get("testName", "").lower() in lowered
+            for item in structured_data
+        )
+        if is_off_topic(message) and not mentions_report_marker:
             return "I can only answer questions about your uploaded reports"
         prompt = f"""
 Answer only with content grounded in the structured report data.
@@ -224,6 +265,82 @@ Previous report: {json.dumps(previous_report, default=str) if previous_report el
         raw = self.generate_json(prompt=prompt, report_text=json.dumps(report, default=str), report_type=report["reportType"])
         return json.loads(raw)
 
+    def generate_specialty_prebrief(self, reports: list[dict], specialty: str, language: str) -> dict:
+        compact_reports = [
+            {
+                "type": report.get("reportType"),
+                "date": str(report.get("reportDate") or report.get("uploadDate"))[:10],
+                "abnormalMarkers": [
+                    item for item in report.get("structuredData", []) if item.get("flag") != "normal"
+                ][:12],
+                "medications": report.get("medications", []),
+                "summary": report.get("aiExplanation", {}).get("holisticSummary", ""),
+            }
+            for report in reports[:8]
+        ]
+        prompt = f"""
+Create a one-page doctor visit pre-brief for specialty: {specialty}.
+Focus only on markers, medication notes, and changes relevant to that specialty.
+Return JSON with keys summaryMarkdown, doctorQuestions (3 to 5), shareText, focusedMarkers.
+Respond in language code {language}. Use high-contrast printable wording. Never diagnose.
+Reports: {json.dumps(compact_reports, default=str)}
+"""
+        raw = self.generate_json(prompt=prompt, report_text=json.dumps(compact_reports, default=str), report_type="prebrief")
+        return json.loads(raw)
+
+    def fallback_specialty_prebrief(self, reports: list[dict], specialty: str) -> dict:
+        specialty_terms = {
+            "cardiology": ("cholesterol", "ldl", "hdl", "triglyceride", "bp", "crp", "troponin"),
+            "endocrinology": ("glucose", "sugar", "hba1c", "tsh", "t3", "t4", "insulin"),
+            "nephrology": ("creatinine", "urea", "egfr", "urine", "protein", "albumin", "sodium", "potassium"),
+            "hematology": ("hemoglobin", "ferritin", "iron", "wbc", "rbc", "platelet", "b12"),
+            "general": (),
+        }
+        terms = specialty_terms.get(marker_key(specialty), specialty_terms["general"])
+        markers = []
+        medications = []
+        for report in reports[:8]:
+            medications.extend(report.get("medications") or [])
+            for item in report.get("structuredData", []):
+                key = marker_key(item.get("testName"))
+                if item.get("flag") != "normal" and (not terms or any(term in key for term in terms)):
+                    markers.append({
+                        "name": item.get("testName", "Marker"),
+                        "value": item.get("value"),
+                        "unit": item.get("unit", ""),
+                        "flag": item.get("flag", "out of range"),
+                        "date": str(report.get("reportDate") or report.get("uploadDate"))[:10],
+                    })
+        marker_lines = [
+            f"- {item['name']}: {item['value']} {item['unit']} ({item['flag']}) on {item['date']}".strip()
+            for item in markers[:10]
+        ] or ["- No specialty-focused out-of-range markers were found in saved reports."]
+        med_names = sorted({med.get("name", "") for med in medications if med.get("name")})
+        summary = "\n".join([
+            f"# {specialty.title()} Visit Pre-Brief",
+            "",
+            "## Focused markers",
+            *marker_lines,
+            "",
+            "## Active or recent medications",
+            ", ".join(med_names[:12]) if med_names else "No medications extracted from uploaded prescriptions.",
+            "",
+            "## Safety note",
+            "This is a preparation summary from saved reports, not a diagnosis.",
+        ])
+        questions = [
+            f"Which of these {specialty} markers should we track before the next visit?",
+            "Do any current medicines need monitoring with repeat blood tests?",
+            "Are there warning symptoms that should trigger an earlier appointment?",
+        ]
+        return {
+            "summaryMarkdown": summary,
+            "doctorQuestions": questions,
+            "shareText": f"{specialty.title()} visit notes:\n" + "\n".join(marker_lines[:6]),
+            "focusedMarkers": markers[:10],
+            "message": "Gemini is unavailable, so this pre-brief uses a local specialty filter.",
+        }
+
     def predict_trajectory(self, series_data: list[dict], language: str) -> dict:
         prompt = f"""
 Analyze these health parameter series and return JSON with key 'trajectories'.
@@ -250,6 +367,74 @@ New report data: {json.dumps(new_report["structuredData"], default=str)}
         raw = self.generate_json(prompt=prompt, report_text="lifestyle", report_type="correlation")
         return json.loads(raw)
 
+    def fallback_lifestyle_correlation(self, lifestyle_notes: list[str], old_report: dict | None, new_report: dict) -> dict:
+        old_markers = {
+            marker_key(item.get("testName")): item
+            for item in (old_report or {}).get("structuredData", [])
+        }
+        new_markers = {
+            marker_key(item.get("testName")): item
+            for item in new_report.get("structuredData", [])
+        }
+        marker_terms = {
+            "walk": ("glucose", "sugar", "hba1c", "triglyceride", "cholesterol", "ldl"),
+            "exercise": ("glucose", "sugar", "hba1c", "triglyceride", "cholesterol", "ldl"),
+            "sugar": ("glucose", "sugar", "hba1c", "triglyceride"),
+            "rice": ("glucose", "sugar", "hba1c", "triglyceride"),
+            "fried": ("cholesterol", "ldl", "triglyceride"),
+            "oil": ("cholesterol", "ldl", "triglyceride"),
+            "iron": ("hemoglobin", "ferritin", "iron"),
+            "sleep": ("glucose", "sugar", "hba1c"),
+        }
+        correlations = []
+        for note in lifestyle_notes[:5]:
+            note_key = marker_key(note)
+            terms = {
+                term
+                for trigger, values in marker_terms.items()
+                if trigger in note_key
+                for term in values
+            }
+            related = []
+            improved = 0
+            worsened = 0
+            for key, new_item in new_markers.items():
+                if terms and not any(term in key for term in terms):
+                    continue
+                old_item = old_markers.get(key)
+                if not old_item:
+                    continue
+                before = parse_lab_number(old_item.get("normalizedValue") or old_item.get("value"))
+                after = parse_lab_number(new_item.get("normalizedValue") or new_item.get("value"))
+                if before is None or after is None:
+                    continue
+                lower_is_better = not any(term in key for term in ("hdl", "hemoglobin", "ferritin", "iron"))
+                is_better = after < before if lower_is_better else after > before
+                is_worse = after > before if lower_is_better else after < before
+                improved += 1 if is_better else 0
+                worsened += 1 if is_worse else 0
+                related.append(new_item.get("testName", key))
+
+            impact = "positive" if improved > worsened else "negative" if worsened > improved else "neutral"
+            if related:
+                message = (
+                    f"Related markers tracked after this change: {', '.join(related[:4])}. "
+                    "This is a correlation clue, not proof of cause."
+                )
+            else:
+                message = "There is not enough matching before-and-after marker data yet to connect this note to a report change."
+            correlations.append({
+                "note": note,
+                "relatedMarkers": related[:4],
+                "impact": impact,
+                "message": message,
+            })
+
+        return {
+            "correlations": correlations,
+            "overallMessage": "Gemini is unavailable, so these lifestyle links use simple before-and-after marker matching.",
+        }
+
     def generate_diet_advice(self, abnormal_markers: list[dict], language: str) -> dict:
         region = self.LANGUAGE_REGION_MAP.get(language, "general Indian")
         prompt = f"""
@@ -274,6 +459,189 @@ Blood report history: {json.dumps([{"date": r.get("reportDate"), "markers": r["s
 """
         raw = self.generate_json(prompt=prompt, report_text="treatment", report_type="treatment_analysis")
         return json.loads(raw)
+
+    def analyze_medication_conflicts(self, reports: list[dict], language: str) -> dict:
+        medications = [
+            medication
+            for report in reports
+            for medication in (report.get("medications") or [])
+        ]
+        recent_markers = [
+            item
+            for report in reports[:5]
+            for item in report.get("structuredData", [])
+            if item.get("flag") != "normal"
+        ]
+        prompt = f"""
+Screen these active/recent medications against each other and against recent abnormal blood markers.
+Return JSON with key conflicts: array of objects containing severity (low/medium/high), title, medications, reason, action.
+Also return overallMessage. Never tell the user to stop medication; recommend doctor/pharmacist review.
+Respond in language code {language}.
+Medications: {json.dumps(medications, default=str)}
+Recent abnormal markers: {json.dumps(recent_markers, default=str)}
+"""
+        raw = self.generate_json(prompt=prompt, report_text="medication_conflicts", report_type="medication_conflicts")
+        return json.loads(raw)
+
+    def fallback_medication_conflicts(self, reports: list[dict]) -> dict:
+        medications = [
+            medication
+            for report in reports
+            for medication in (report.get("medications") or [])
+        ]
+        marker_keys = {
+            marker_key(item.get("testName")): item
+            for report in reports[:5]
+            for item in report.get("structuredData", [])
+            if item.get("flag") != "normal"
+        }
+        conflicts = []
+        seen = set()
+        med_names = [med.get("name", "") for med in medications if med.get("name")]
+        for name in med_names:
+            key = marker_key(name)
+            if "metformin" in key and any("creatinine" in marker or "egfr" in marker for marker in marker_keys):
+                seen.add("metformin-kidney")
+                conflicts.append({
+                    "severity": "medium",
+                    "title": "Diabetes medicine and kidney markers need review",
+                    "medications": [name],
+                    "reason": "Metformin commonly requires kidney-function awareness, and a kidney-related marker is abnormal in recent reports.",
+                    "action": "Ask your doctor whether kidney monitoring or dose review is needed.",
+                })
+            if any(term in key for term in ("atorvastatin", "rosuvastatin", "statin")) and any("liver" in marker or "alt" in marker or "ast" in marker for marker in marker_keys):
+                seen.add("statin-liver")
+                conflicts.append({
+                    "severity": "medium",
+                    "title": "Cholesterol medicine and liver markers need review",
+                    "medications": [name],
+                    "reason": "Statins are often monitored with liver enzymes, and a liver-related marker is abnormal.",
+                    "action": "Bring this up during your next medication review.",
+                })
+            if any(term in key for term in ("ibuprofen", "diclofenac", "naproxen")) and any("creatinine" in marker or "egfr" in marker for marker in marker_keys):
+                seen.add("nsaid-kidney")
+                conflicts.append({
+                    "severity": "high",
+                    "title": "Painkiller and kidney marker caution",
+                    "medications": [name],
+                    "reason": "NSAID painkillers can be risky for some people with kidney-function concerns.",
+                    "action": "Ask a doctor or pharmacist before repeated use.",
+                })
+        if len(med_names) >= 5 and "polypharmacy" not in seen:
+            conflicts.append({
+                "severity": "low",
+                "title": "Multiple active medications",
+                "medications": med_names[:8],
+                "reason": "Several medications were found across prescriptions, which increases review complexity.",
+                "action": "Carry this list to each specialist and ask whether anything overlaps.",
+            })
+        return {
+            "conflicts": conflicts,
+            "overallMessage": "Gemini is unavailable, so this is a conservative rules-based medication safety screen.",
+        }
+
+    def fallback_diet_advice(self, abnormal_markers: list[dict], language: str) -> dict:
+        region = self.LANGUAGE_REGION_MAP.get(language, "general Indian")
+        advice = []
+        for marker in abnormal_markers[:8]:
+            name = marker.get("testName", "Marker")
+            key = marker_key(name)
+            status = f"{marker.get('value', '')} {marker.get('unit', '')} is marked {marker.get('flag', 'out of range')}".strip()
+            suggestions = [
+                f"Prefer home-cooked {region} meals with vegetables, dal, curd, and controlled portions.",
+                "Keep a simple food and symptom note until your next doctor review.",
+                "Pair carbohydrates with protein or fiber to reduce sharp post-meal swings.",
+            ]
+            avoid = ["Sugary drinks and packaged snacks", "Large late-night meals"]
+            if any(term in key for term in ("glucose", "sugar", "hba1c")):
+                suggestions = [
+                    f"Use smaller portions of rice or roti and add dal, curd, sprouts, or paneer in familiar {region} meals.",
+                    "Choose millets or mixed-grain options when they fit your routine.",
+                    "Take a short walk after meals if your clinician has allowed activity.",
+                ]
+                avoid = ["Sweet tea, desserts, fruit juices", "Large portions of white rice or refined flour"]
+            elif any(term in key for term in ("cholesterol", "ldl", "triglyceride", "hdl")):
+                suggestions = [
+                    "Use roasted or steamed snacks instead of fried snacks most days.",
+                    "Add soluble-fiber foods such as oats, barley, beans, dal, fruits, and vegetables.",
+                    "Use nuts or seeds in small portions instead of repeated fried foods.",
+                ]
+                avoid = ["Deep-fried snacks and bakery items", "Frequent ghee, butter, or cream-heavy meals"]
+            elif any(term in key for term in ("hemoglobin", "ferritin", "iron")):
+                suggestions = [
+                    "Include iron-rich foods such as leafy greens, chana, rajma, lentils, sesame, or dates.",
+                    "Pair iron-rich meals with lemon, amla, guava, or other vitamin-C foods.",
+                    "Discuss persistent low iron markers with your clinician before using supplements.",
+                ]
+                avoid = ["Tea or coffee immediately with iron-rich meals", "Skipping follow-up if fatigue or dizziness continues"]
+            elif any(term in key for term in ("vitamin d", "b12")):
+                suggestions = [
+                    "Ask your clinician whether supplementation is needed for this marker.",
+                    "Include fortified foods or suitable vegetarian/non-vegetarian sources based on your diet.",
+                    "Get brief safe sunlight exposure when practical.",
+                ]
+                avoid = ["Self-prescribing high-dose supplements", "Ignoring repeat testing when advised"]
+            advice.append({
+                "marker": name,
+                "currentStatus": status,
+                "dietSuggestions": suggestions,
+                "foodsToAvoid": avoid,
+            })
+        return {
+            "advice": advice,
+            "message": "Gemini is unavailable, so these are conservative local suggestions to discuss with your clinician.",
+        }
+
+    def fallback_treatment_effectiveness(self, prescriptions: list[dict], blood_reports: list[dict], language: str) -> dict:
+        latest_prescription = prescriptions[-1] if prescriptions else {}
+        medications = latest_prescription.get("medications") or []
+        first_report, last_report = blood_reports[0], blood_reports[-1]
+        first_markers = {marker_key(item.get("testName")): item for item in first_report.get("structuredData", [])}
+        last_markers = {marker_key(item.get("testName")): item for item in last_report.get("structuredData", [])}
+        target_terms = {
+            "statin": ("ldl", "cholesterol", "triglyceride"),
+            "atorvastatin": ("ldl", "cholesterol", "triglyceride"),
+            "rosuvastatin": ("ldl", "cholesterol", "triglyceride"),
+            "metformin": ("glucose", "sugar", "hba1c"),
+            "insulin": ("glucose", "sugar", "hba1c"),
+            "thyroxine": ("tsh", "t3", "t4"),
+            "levothyroxine": ("tsh", "t3", "t4"),
+            "iron": ("hemoglobin", "ferritin", "iron"),
+        }
+        findings = []
+        for medication in medications[:8]:
+            med_name = medication.get("name", "Medication")
+            med_key = marker_key(med_name)
+            terms = next((value for key, value in target_terms.items() if key in med_key), ())
+            matched_key = next((key for key in last_markers if any(term in key for term in terms)), None)
+            if not matched_key or matched_key not in first_markers:
+                continue
+            before = parse_lab_number(first_markers[matched_key].get("normalizedValue") or first_markers[matched_key].get("value"))
+            after = parse_lab_number(last_markers[matched_key].get("normalizedValue") or last_markers[matched_key].get("value"))
+            if before is None or after is None:
+                continue
+            lower_is_better = not any(term in matched_key for term in ("hdl", "hemoglobin", "ferritin", "iron"))
+            improved = after < before if lower_is_better else after > before
+            worsened = after > before if lower_is_better else after < before
+            trend = "improving" if improved else "worsening" if worsened else "not_improving"
+            findings.append({
+                "medicationName": med_name,
+                "targetMarker": last_markers[matched_key].get("testName", matched_key),
+                "startDate": str(latest_prescription.get("reportDate") or latest_prescription.get("uploadDate") or "")[:10],
+                "trend": trend,
+                "recommendation": (
+                    f"{last_markers[matched_key].get('testName', 'This marker')} moved from {before:g} to {after:g}. "
+                    "Use this as a pre-visit discussion point; do not change medication without your doctor."
+                ),
+                "urgency": "medium" if trend == "worsening" else "low",
+            })
+        return {
+            "findings": findings,
+            "overallAssessment": (
+                "Gemini is unavailable, so this screening uses simple marker movement against known medication targets. "
+                "It is useful for preparing questions, not for changing treatment."
+            ),
+        }
 
 
 class ParserService:
@@ -502,7 +870,7 @@ class TrendService:
             trajectory_data = GeminiService().predict_trajectory(series, language)
             trajectories = trajectory_data.get("trajectories", [])
         except Exception:
-            trajectories = []
+            trajectories = self._fallback_trajectories(series)
 
         return {
             "reportCount": len(reports),
@@ -511,6 +879,48 @@ class TrendService:
             "series": series,
             "trajectories": trajectories,
         }
+
+    def _fallback_trajectories(self, series: list[dict]) -> list[dict]:
+        trajectories = []
+        for item in series:
+            points = item.get("points", [])
+            if len(points) < 2:
+                continue
+            first = parse_lab_number(points[0].get("value"))
+            last = parse_lab_number(points[-1].get("value"))
+            if first is None or last is None:
+                continue
+            delta = ((last - first) / first) * 100 if first else 0
+            low = parse_lab_number(points[-1].get("low"))
+            high = parse_lab_number(points[-1].get("high"))
+            direction = "stable" if abs(delta) < 5 else "improving" if self._moving_toward_range(first, last, low, high) else "declining"
+            warning_level = "none"
+            if high is not None and last > high:
+                warning_level = "alert" if direction == "declining" else "watch"
+            if low is not None and last < low:
+                warning_level = "alert" if direction == "declining" else "watch"
+            trajectories.append({
+                "parameter": item.get("parameter", "Parameter"),
+                "direction": direction,
+                "prediction": (
+                    f"{item.get('parameter', 'This marker')} changed by {abs(delta):.1f}% across "
+                    f"{len(points)} reports. Keep watching the next result for confirmation."
+                ),
+                "warningLevel": warning_level,
+                "advice": "Use this trend as a pre-visit discussion point and keep testing on the schedule your clinician recommends.",
+            })
+        return trajectories[:8]
+
+    def _moving_toward_range(self, first: float, last: float, low: float | None, high: float | None) -> bool:
+        if high is not None and first > high:
+            return last < first
+        if low is not None and first < low:
+            return last > first
+        if high is not None and last > high:
+            return False
+        if low is not None and last < low:
+            return False
+        return True
 
 
 class ReportHydrator:
@@ -592,6 +1002,7 @@ class ReportService:
                 language=current_user.preferred_language,
                 medications=medications,
             )
+            self._persist_structured_parameters(report, parsed["structured_data"])
             self._after_report_saved(report, parsed, current_user)
             return self.hydrator.hydrate(report)
 
@@ -607,23 +1018,31 @@ class ReportService:
             language=current_user.preferred_language,
             medications=medications,
         )
-        for index, item in enumerate(parsed["structured_data"]):
-            value = item.get("value")
-            StructuredParameter.objects.create(
-                report=report,
-                position=index,
-                test_name=item.get("testName", "Unknown"),
-                numeric_value=float(value) if isinstance(value, (int, float)) else None,
-                raw_value_text="" if isinstance(value, (int, float)) else str(value),
-                unit=item.get("unit", ""),
-                normalized_value=item.get("normalizedValue"),
-                normalized_unit=item.get("normalizedUnit"),
-                reference_range_low=item.get("referenceRangeLow"),
-                reference_range_high=item.get("referenceRangeHigh"),
-                flag=normalize_flag(item.get("flag")),
-            )
+        self._persist_structured_parameters(report, parsed["structured_data"])
         self._after_report_saved(report, parsed, current_user)
         return self.hydrator.hydrate(report)
+
+    def _persist_structured_parameters(self, report: Report, structured_data: list[dict]) -> None:
+        parameters = []
+        for index, item in enumerate(structured_data):
+            value = item.get("value")
+            numeric_value = parse_lab_number(value)
+            parameters.append(
+                StructuredParameter(
+                    report=report,
+                    position=index,
+                    test_name=item.get("testName", "Unknown"),
+                    numeric_value=numeric_value,
+                    raw_value_text="" if isinstance(value, (int, float)) else str(value),
+                    unit=item.get("unit", ""),
+                    normalized_value=parse_lab_number(item.get("normalizedValue")),
+                    normalized_unit=item.get("normalizedUnit"),
+                    reference_range_low=parse_lab_number(item.get("referenceRangeLow")),
+                    reference_range_high=parse_lab_number(item.get("referenceRangeHigh")),
+                    flag=normalize_flag(item.get("flag")),
+                )
+            )
+        StructuredParameter.objects.bulk_create(parameters)
 
     def _after_report_saved(self, report: Report, parsed: dict, current_user) -> None:
         previous = (
@@ -673,7 +1092,11 @@ class ReportService:
                 language=current_user.preferred_language,
             )
         except Exception:
-            return
+            correlation = self.ai.fallback_lifestyle_correlation(
+                lifestyle_notes=lifestyle_notes,
+                old_report=previous_hydrated,
+                new_report=self.hydrator.hydrate(report),
+            )
         explanation = report.ai_explanation or {}
         explanation["lifestyleCorrelation"] = correlation
         report.ai_explanation = explanation
@@ -756,13 +1179,47 @@ class ReportService:
     def chat_about_report(self, report: Report, message: str, current_user) -> dict:
         self.rate_limiter.enforce(current_user, "report_chat", settings.CHAT_LIMIT_PER_DAY)
         hydrated = self.hydrator.hydrate(report)
-        answer = self.ai.answer_chat(
-            report_type=hydrated["reportType"],
-            language=hydrated["language"],
-            structured_data=hydrated["structuredData"],
-            chat_history=hydrated.get("chatHistory", []),
-            message=message,
-        )
+        try:
+            answer = self.ai.answer_chat(
+                report_type=hydrated["reportType"],
+                language=hydrated["language"],
+                structured_data=hydrated["structuredData"],
+                chat_history=hydrated.get("chatHistory", []),
+                message=message,
+            )
+        except Exception as exc:
+            if is_expected_gemini_fallback(exc):
+                logger.warning("Gemini report chat unavailable (%s); using local fallback answer", exc.__class__.__name__)
+            else:
+                logger.exception("Gemini report chat failed; using local fallback answer")
+            answer = self._fallback_chat_answer(hydrated["structuredData"], message)
         ChatMessage.objects.create(report=report, role="user", content=message)
         ChatMessage.objects.create(report=report, role="assistant", content=answer)
         return {"message": answer}
+
+    def _fallback_chat_answer(self, structured_data: list[dict], message: str) -> str:
+        lowered = message.lower()
+        matching_markers = [
+            item
+            for item in structured_data
+            if item.get("testName") and item.get("testName", "").lower() in lowered
+        ]
+        if is_off_topic(message) and not matching_markers:
+            return "I can only answer questions about your uploaded reports."
+
+        markers = matching_markers or [item for item in structured_data if item.get("flag") in {"high", "low"}]
+        markers = markers[:5]
+        if not markers:
+            return (
+                "I saved your report data, but the AI chat service is temporarily unavailable. "
+                "I do not see any clearly out-of-range markers in the parsed report data."
+            )
+
+        marker_text = ", ".join(
+            f"{item.get('testName', 'Parameter')}: {item.get('value')} {item.get('unit', '')} ({item.get('flag', 'normal')})".strip()
+            for item in markers
+        )
+        return (
+            "The AI chat service is temporarily unavailable, so here is a basic answer from the parsed report data: "
+            f"{marker_text}. Please review these values with your clinician for medical interpretation."
+        )

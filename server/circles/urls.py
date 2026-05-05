@@ -5,6 +5,9 @@ from circles.views import (
     CircleFeedView,
     CircleInviteAcceptView,
     CircleInviteView,
+    CircleJoinByCodeView,
+    CircleJoinCodeRotateView,
+    CircleMemberDetailView,
     CircleListCreateView,
     CircleMemberView,
     FeedReactionView,
@@ -15,8 +18,11 @@ from circles.views import (
 
 urlpatterns = [
     path("circles", CircleListCreateView.as_view()),
+    path("circles/join", CircleJoinByCodeView.as_view()),
     path("circles/<uuid:circle_id>", CircleDetailView.as_view()),
+    path("circles/<uuid:circle_id>/join-code/rotate", CircleJoinCodeRotateView.as_view()),
     path("circles/<uuid:circle_id>/members", CircleMemberView.as_view()),
+    path("circles/<uuid:circle_id>/members/<uuid:member_id>", CircleMemberDetailView.as_view()),
     path("circles/<uuid:circle_id>/invite", CircleInviteView.as_view()),
     path("circles/invite/<uuid:invite_id>/accept", CircleInviteAcceptView.as_view()),
     path("circles/<uuid:circle_id>/feed", CircleFeedView.as_view()),

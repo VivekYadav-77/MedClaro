@@ -9,6 +9,8 @@ import { ChatPanel } from "@/components/reports/chat-panel";
 import { DietAdvicePanel } from "@/components/reports/diet-advice-panel";
 import { LifestyleCorrelationCard } from "@/components/reports/lifestyle-correlation-card";
 import { MedicationCard } from "@/components/reports/medication-card";
+import { MedicationConflictPanel } from "@/components/reports/medication-conflict-panel";
+import { SummaryGenerator } from "@/components/reports/summary-generator";
 import { VoiceReadout } from "@/components/reports/voice-readout";
 import { Report } from "@/lib/types";
 
@@ -136,6 +138,8 @@ export function ReportDetailView({
 
           <LifestyleCorrelationCard correlation={displayReport.aiExplanation.lifestyleCorrelation} />
 
+          <SummaryGenerator reportId={displayReport._id} />
+
           {displayReport.medications?.length ? (
             <section className="space-y-3">
               <h3 className="flex items-center gap-2 font-semibold text-slate-900">
@@ -145,6 +149,7 @@ export function ReportDetailView({
               {displayReport.medications.map((medication) => (
                 <MedicationCard key={medication.name} medication={medication} />
               ))}
+              <MedicationConflictPanel />
             </section>
           ) : null}
 

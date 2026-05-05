@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, Loader2 } from "lucide-react";
+import { Bell, Check, Loader2 } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(false);
+  const [actingId, setActingId] = useState<string | null>(null);
   const token = session?.accessToken;
 
   useEffect(() => {
@@ -45,6 +46,23 @@ export function NotificationBell() {
     if (response.ok) setNotifications((current) => current.filter((item) => item.id !== id));
   }
 
+  async function acceptInvite(notification: AppNotification) {
+    const inviteId = notification.feedEntry.payload.inviteId;
+    if (!API_URL || !token || typeof inviteId !== "string") return;
+    setActingId(notification.id);
+    try {
+      const response = await fetch(`${API_URL}/circles/invite/${inviteId}/accept`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        setNotifications((current) => current.filter((item) => item.id !== notification.id));
+      }
+    } finally {
+      setActingId(null);
+    }
+  }
+
   return (
     <div className="relative">
       <Button variant="ghost" size="icon" onClick={() => setOpen((value) => !value)} aria-label="Notifications">
@@ -61,14 +79,27 @@ export function NotificationBell() {
             {notifications.slice(0, 10).map((notification) => (
               <div key={notification.id} className="rounded-lg bg-slate-50 p-3">
                 <p className="text-sm text-slate-800">{notificationText(notification)}</p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="mt-2 h-7 px-2"
-                  onClick={() => void markRead(notification.id)}
-                >
-                  Mark read
-                </Button>
+                <div className="mt-2 flex items-center gap-2">
+                  {notification.feedEntry.eventType === "circle_invite" ? (
+                    <Button
+                      size="sm"
+                      className="h-7 gap-1.5 px-2"
+                      onClick={() => void acceptInvite(notification)}
+                      disabled={actingId === notification.id}
+                    >
+                      {actingId === notification.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                      Accept
+                    </Button>
+                  ) : null}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2"
+                    onClick={() => void markRead(notification.id)}
+                  >
+                    Mark read
+                  </Button>
+                </div>
               </div>
             ))}
             {!notifications.length ? <p className="py-4 text-center text-sm text-slate-500">No unread notifications.</p> : null}

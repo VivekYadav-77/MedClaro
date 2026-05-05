@@ -121,9 +121,9 @@ GEMINI_API_KEY = env("GEMINI_API_KEY", "") or ""
 GEMINI_API_KEY_EXTRACTION = env("GEMINI_API_KEY_EXTRACTION", GEMINI_API_KEY) or ""
 GEMINI_API_KEY_ANALYSIS = env("GEMINI_API_KEY_ANALYSIS", GEMINI_API_KEY) or ""
 GEMINI_API_KEY_CHAT = env("GEMINI_API_KEY_CHAT", GEMINI_API_KEY) or ""
-GEMINI_MODEL_TEXT = env("GEMINI_MODEL_TEXT", "gemini-1.5-flash") or "gemini-1.5-flash"
-GEMINI_MODEL_VISION = env("GEMINI_MODEL_VISION", "gemini-1.5-flash") or "gemini-1.5-flash"
-GEMINI_MODEL_CHAT = env("GEMINI_MODEL_CHAT", "gemini-1.5-flash") or "gemini-1.5-flash"
+GEMINI_MODEL_TEXT = env("GEMINI_MODEL_TEXT", "gemini-2.0-flash") or "gemini-2.0-flash"
+GEMINI_MODEL_VISION = env("GEMINI_MODEL_VISION", "gemini-2.0-flash") or "gemini-2.0-flash"
+GEMINI_MODEL_CHAT = env("GEMINI_MODEL_CHAT", "gemini-2.0-flash") or "gemini-2.0-flash"
 
 ALLOWED_FILE_TYPES = tuple(
     item.strip()

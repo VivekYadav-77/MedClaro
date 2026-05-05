@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2, SendHorizontal } from "lucide-react";
 import { useSession } from "next-auth/react";
 
@@ -24,12 +24,19 @@ export function ChatPanel({
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
+  useEffect(() => {
+    setMessages(initialMessages);
+    setDraft("");
+    setApiError(null);
+    setLoading(false);
+  }, [reportId, initialMessages]);
+
   const sendMessage = async () => {
     const message = draft.trim();
     if (!message || loading) return;
 
-    if (!process.env.NEXT_PUBLIC_API_URL) {
-      setApiError("Chat is unavailable until the API URL is configured.");
+    if (!process.env.NEXT_PUBLIC_API_URL || !session?.accessToken) {
+      setApiError("Chat is unavailable until you are connected to the API.");
       return;
     }
 
@@ -49,7 +56,7 @@ export function ChatPanel({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...((session as any)?.accessToken ? { Authorization: `Bearer ${(session as any).accessToken}` } : {})
+          Authorization: `Bearer ${session.accessToken}`
         },
         body: JSON.stringify({ message })
       });

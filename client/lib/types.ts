@@ -118,6 +118,7 @@ export type Circle = {
   createdBy?: string;
   memberCount: number;
   myRole: "admin" | "contributor" | "viewer";
+  joinCode?: string;
 };
 
 export type CircleMember = {

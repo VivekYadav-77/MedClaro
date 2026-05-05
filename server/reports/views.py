@@ -89,16 +89,16 @@ class ReportSummaryView(APIView):
         if not report:
             return Response({"error": "Report not found", "code": "REPORT_NOT_FOUND"}, status=status.HTTP_404_NOT_FOUND)
         hydrator = ReportHydrator()
-        hydrated = hydrator.hydrate(report)
-        previous = (
-            Report.objects.filter(user=request.user, report_type=report.report_type)
-            .exclude(id=report.id)
-            .order_by("-report_date", "-upload_date")
-            .prefetch_related("chat_messages")
-            .first()
-        )
-        previous_hydrated = hydrator.hydrate(previous) if previous else None
-        return Response(ReportService().ai.generate_summary(hydrated, previous_hydrated, hydrated["language"]))
+        specialty = request.data.get("specialty", "general").strip() or "general"
+        reports = [
+            hydrator.hydrate(item)
+            for item in Report.objects.filter(user=request.user).order_by("-upload_date").prefetch_related("chat_messages")[:8]
+        ]
+        try:
+            result = ReportService().ai.generate_specialty_prebrief(reports, specialty, request.user.preferred_language)
+        except Exception:
+            result = ReportService().ai.fallback_specialty_prebrief(reports, specialty)
+        return Response(result)
 
 
 class ReportDietAdviceView(APIView):
@@ -111,9 +111,10 @@ class ReportDietAdviceView(APIView):
         if not abnormal:
             return Response({"advice": [], "message": "All markers are within normal range."})
         try:
-            result = GeminiService().generate_diet_advice(abnormal, request.user.preferred_language)
+            ai = GeminiService()
+            result = ai.generate_diet_advice(abnormal, request.user.preferred_language)
         except Exception:
-            result = {"advice": [], "message": "Diet advice temporarily unavailable."}
+            result = GeminiService().fallback_diet_advice(abnormal, request.user.preferred_language)
         return Response(result)
 
 
@@ -132,13 +133,37 @@ class TreatmentEffectivenessView(APIView):
                 "message": "Need at least one prescription and two blood reports to analyze treatment effectiveness.",
             })
         try:
-            result = GeminiService().analyze_treatment_effectiveness(
+            ai = GeminiService()
+            result = ai.analyze_treatment_effectiveness(
                 prescriptions=prescriptions,
                 blood_reports=blood_reports,
                 language=request.user.preferred_language,
             )
         except Exception:
-            result = {"findings": [], "message": "Analysis temporarily unavailable."}
+            result = GeminiService().fallback_treatment_effectiveness(
+                prescriptions=prescriptions,
+                blood_reports=blood_reports,
+                language=request.user.preferred_language,
+            )
+        return Response(result)
+
+
+class MedicationConflictView(APIView):
+    def get(self, request):
+        hydrator = ReportHydrator()
+        reports = [
+            hydrator.hydrate(report)
+            for report in Report.objects.filter(user=request.user).order_by("-upload_date").prefetch_related("chat_messages")[:12]
+        ]
+        if not any(report.get("medications") for report in reports):
+            return Response({
+                "conflicts": [],
+                "overallMessage": "Upload at least one prescription to screen medication conflicts.",
+            })
+        try:
+            result = GeminiService().analyze_medication_conflicts(reports, request.user.preferred_language)
+        except Exception:
+            result = GeminiService().fallback_medication_conflicts(reports)
         return Response(result)
 
 
@@ -186,5 +211,35 @@ Health state: {json.dumps(health_state, default=str)}
             )
             answer = response.text.strip()
         except Exception:
-            answer = "I'm having trouble connecting right now. Please try again in a moment."
+            answer = self._fallback_global_answer(health_state, message)
         return Response({"message": answer})
+
+    def _fallback_global_answer(self, health_state: dict, message: str) -> str:
+        lowered = message.lower()
+        reports = health_state.get("reports", [])
+        all_markers = [
+            marker
+            for report in reports
+            for marker in report.get("abnormalMarkers", [])
+        ]
+        matching = [
+            marker for marker in all_markers
+            if marker.get("name") and marker.get("name", "").lower() in lowered
+        ]
+        markers = matching or all_markers[:5]
+        if markers:
+            marker_text = ", ".join(
+                f"{marker.get('name')}: {marker.get('value')} {marker.get('unit', '')} ({marker.get('flag')})".strip()
+                for marker in markers[:5]
+            )
+            return (
+                "Gemini is unavailable, so I can only summarize saved report data right now. "
+                f"Relevant abnormal markers I found: {marker_text}. "
+                "Please use this as preparation for a clinician discussion."
+            )
+        if reports:
+            return (
+                "Gemini is unavailable, but I found saved reports and no abnormal markers in the compact health state. "
+                "Ask about a specific report or marker and I can summarize the stored values."
+            )
+        return "I do not see saved reports to answer from yet. Upload reports first, then ask again."

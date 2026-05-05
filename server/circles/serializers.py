@@ -5,12 +5,13 @@ from circles.models import ActivityFeedEntry, Circle, CircleMember, Notification
 
 class CircleSerializer(serializers.ModelSerializer):
     createdBy = serializers.CharField(source="created_by.name", read_only=True)
-    memberCount = serializers.IntegerField(source="members.count", read_only=True)
+    memberCount = serializers.SerializerMethodField()
     myRole = serializers.SerializerMethodField()
+    joinCode = serializers.CharField(source="join_code", read_only=True)
 
     class Meta:
         model = Circle
-        fields = ["id", "name", "createdBy", "memberCount", "myRole"]
+        fields = ["id", "name", "createdBy", "memberCount", "myRole", "joinCode"]
 
     def get_myRole(self, obj):
         user = self.context.get("request").user if self.context.get("request") else None
@@ -18,6 +19,9 @@ class CircleSerializer(serializers.ModelSerializer):
             return None
         membership = obj.members.filter(user=user).first()
         return membership.role if membership else None
+
+    def get_memberCount(self, obj):
+        return obj.members.count()
 
 
 class CircleMemberSerializer(serializers.ModelSerializer):
@@ -55,9 +59,12 @@ class ActivityFeedSerializer(serializers.ModelSerializer):
 
 
 class NotificationSerializer(serializers.ModelSerializer):
-    feedEntry = ActivityFeedSerializer(source="feed_entry")
+    feedEntry = serializers.SerializerMethodField()
     createdAt = serializers.DateTimeField(source="created_at")
 
     class Meta:
         model = Notification
         fields = ["id", "read", "feedEntry", "createdAt"]
+
+    def get_feedEntry(self, obj):
+        return ActivityFeedSerializer(obj.feed_entry, context=self.context).data

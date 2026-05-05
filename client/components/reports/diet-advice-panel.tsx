@@ -22,16 +22,30 @@ export function DietAdvicePanel({ reportId }: { reportId: string }) {
   const [fetched, setFetched] = useState(false);
 
   async function fetchAdvice() {
-    if (!process.env.NEXT_PUBLIC_API_URL || loading) return;
+    if (loading) return;
+    if (!process.env.NEXT_PUBLIC_API_URL || !session?.accessToken) {
+      setMessage("Connect to the API to load diet suggestions.");
+      return;
+    }
     setLoading(true);
     setMessage(null);
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports/${reportId}/diet-advice`, {
-        headers: session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : undefined,
+        headers: { Authorization: `Bearer ${session.accessToken}` },
       });
-      const data = await response.json();
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        setMessage(data?.error ?? "Could not load diet suggestions.");
+        setAdvice([]);
+        setFetched(true);
+        return;
+      }
       setAdvice(data.advice ?? []);
       setMessage(data.message ?? null);
+      setFetched(true);
+    } catch {
+      setMessage("Could not load diet suggestions.");
+      setAdvice([]);
       setFetched(true);
     } finally {
       setLoading(false);

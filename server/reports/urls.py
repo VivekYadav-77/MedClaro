@@ -6,6 +6,7 @@ from reports.views import (
     ReportChatView,
     ReportDetailView,
     ReportListCreateView,
+    MedicationConflictView,
     ReportSummaryView,
     ReportTrendsView,
     ReportUploadView,
@@ -16,6 +17,7 @@ from reports.views import (
 urlpatterns = [
     path("reports", ReportListCreateView.as_view()),
     path("reports/chat", GlobalChatView.as_view()),
+    path("reports/medication-conflicts", MedicationConflictView.as_view()),
     path("reports/treatment-effectiveness", TreatmentEffectivenessView.as_view()),
     path("reports/upload", ReportUploadView.as_view()),
     path("reports/trends", ReportTrendsView.as_view()),

@@ -1,13 +1,22 @@
 import uuid
+from secrets import choice
 
 from django.conf import settings
 from django.db import models
+
+
+JOIN_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+
+
+def generate_join_code() -> str:
+    return "".join(choice(JOIN_CODE_ALPHABET) for _ in range(8))
 
 
 class Circle(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="owned_circles", on_delete=models.CASCADE)
+    join_code = models.CharField(max_length=12, unique=True, default=generate_join_code)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Radio, Square, Volume2 } from "lucide-react";
 import QRCode from "qrcode";
 
@@ -17,6 +17,7 @@ export function EmergencyCard({
 }) {
   const [broadcasting, setBroadcasting] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const broadcastingRef = useRef(false);
 
   const medications = useMemo(() => latestReport?.medications?.map((medication) => medication.name) ?? [], [latestReport]);
   const abnormalMarkers = useMemo(
@@ -41,16 +42,28 @@ export function EmergencyCard({
   function broadcast() {
     if (!("speechSynthesis" in window)) return;
     if (broadcasting) {
+      broadcastingRef.current = false;
       window.speechSynthesis.cancel();
       setBroadcasting(false);
       return;
     }
-    const utterance = new SpeechSynthesisUtterance(emergencyText);
-    utterance.rate = 0.85;
-    utterance.lang = "en-US";
-    utterance.onend = () => setBroadcasting(false);
+    const speak = () => {
+      if (!broadcastingRef.current) return;
+      const utterance = new SpeechSynthesisUtterance(emergencyText);
+      utterance.rate = 0.85;
+      utterance.lang = "en-US";
+      utterance.onend = () => {
+        if (broadcastingRef.current) {
+          window.setTimeout(speak, 700);
+        } else {
+          setBroadcasting(false);
+        }
+      };
+      window.speechSynthesis.speak(utterance);
+    };
+    broadcastingRef.current = true;
     setBroadcasting(true);
-    window.speechSynthesis.speak(utterance);
+    speak();
   }
 
   return (
