@@ -11,10 +11,27 @@ from reports.services import GeminiService, RateLimiter, ReportHydrator, ReportS
 from reminders.models import Reminder
 
 
+def get_accessible_report_queryset(user, circle_id=None):
+    if not circle_id:
+        return Report.objects.filter(user=user)
+
+    try:
+        from circles.models import CircleMember
+    except Exception:
+        return Report.objects.none()
+
+    membership = CircleMember.objects.filter(circle_id=circle_id, user=user).first()
+    if not membership:
+        return Report.objects.none()
+    circle_user_ids = CircleMember.objects.filter(circle_id=circle_id).values_list("user_id", flat=True)
+    return Report.objects.filter(user_id__in=circle_user_ids)
+
+
 class ReportListCreateView(APIView):
     def get(self, request):
         family_member_id = request.query_params.get("familyMemberId")
-        reports = Report.objects.filter(user=request.user)
+        circle_id = request.query_params.get("circleId")
+        reports = get_accessible_report_queryset(request.user, circle_id)
         if family_member_id:
             reports = reports.filter(family_member_id=family_member_id)
         hydrator = ReportHydrator()
@@ -30,7 +47,18 @@ class ReportUploadView(APIView):
         if not upload:
             return Response({"error": "File is required", "code": "FILE_REQUIRED"}, status=status.HTTP_400_BAD_REQUEST)
         family_member_id = request.data.get("familyMemberId")
-        data = ReportService().create_report(upload, family_member_id, request.user)
+        circle_id = request.data.get("circleId")
+        if circle_id:
+            try:
+                from circles.models import CircleMember
+            except Exception:
+                return Response({"error": "Circle support is unavailable"}, status=status.HTTP_400_BAD_REQUEST)
+            membership = CircleMember.objects.filter(circle_id=circle_id, user=request.user).first()
+            if not membership:
+                return Response({"error": "Circle not found"}, status=status.HTTP_404_NOT_FOUND)
+            if membership.role == "viewer":
+                return Response({"error": "Viewers cannot upload reports to a circle"}, status=status.HTTP_403_FORBIDDEN)
+        data = ReportService().create_report(upload, family_member_id, request.user, circle_id=circle_id)
         return Response(data)
 
 
@@ -59,7 +87,11 @@ class ReportDetailView(APIView):
 class ReportTrendsView(APIView):
     def get(self, request):
         hydrator = ReportHydrator()
-        reports = [hydrator.hydrate(report) for report in Report.objects.filter(user=request.user).prefetch_related("chat_messages")]
+        circle_id = request.query_params.get("circleId")
+        reports = [
+            hydrator.hydrate(report)
+            for report in get_accessible_report_queryset(request.user, circle_id).prefetch_related("chat_messages")
+        ]
         return Response(TrendService().build(reports, request.user.preferred_language))
 
 
@@ -175,12 +207,20 @@ class GlobalChatView(APIView):
             return Response({"error": "message required"}, status=status.HTTP_400_BAD_REQUEST)
 
         hydrator = ReportHydrator()
-        reports = Report.objects.filter(user=request.user).prefetch_related("chat_messages").order_by("-upload_date")[:10]
+        circle_id = request.data.get("circleId")
+        reports = (
+            get_accessible_report_queryset(request.user, circle_id)
+            .select_related("user", "family_member")
+            .prefetch_related("chat_messages")
+            .order_by("-upload_date")[:10]
+        )
         all_reports = [hydrator.hydrate(report) for report in reports]
         health_state = {
             "reportCount": len(all_reports),
             "reports": [
                 {
+                    "owner": report.get("ownerName"),
+                    "familyMember": report.get("familyMemberName"),
                     "type": report["reportType"],
                     "date": str(report.get("reportDate") or report["uploadDate"])[:10],
                     "abnormalMarkers": [

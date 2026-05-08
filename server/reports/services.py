@@ -935,7 +935,9 @@ class ReportHydrator:
         return {
             "_id": str(report.id),
             "userId": str(report.user_id),
+            "ownerName": report.user.name if report.user_id and hasattr(report, "user") else "",
             "familyMemberId": str(report.family_member_id) if report.family_member_id else None,
+            "familyMemberName": report.family_member.name if report.family_member_id and hasattr(report, "family_member") else None,
             "reportType": report.report_type,
             "reportDate": report.report_date,
             "uploadDate": report.upload_date,
@@ -962,8 +964,10 @@ class ReportService:
         self.hydrator = ReportHydrator()
 
     @transaction.atomic
-    def create_report(self, upload, family_member_id: str | None, current_user) -> dict:
+    def create_report(self, upload, family_member_id: str | None, current_user, circle_id: str | None = None) -> dict:
         self.rate_limiter.enforce(current_user, "report_upload", settings.UPLOAD_LIMIT_PER_DAY)
+        if family_member_id and not current_user.family_members.filter(id=family_member_id).exists():
+            raise exceptions.PermissionDenied({"error": "Family member not found", "code": "FAMILY_MEMBER_NOT_FOUND"})
         parsed = self.parser.parse_upload(upload)
         file_ref = self.storage.upload_bytes(parsed["file_key"], parsed["file_bytes"], parsed["mime_type"])
         user_age = None
@@ -1003,7 +1007,7 @@ class ReportService:
                 medications=medications,
             )
             self._persist_structured_parameters(report, parsed["structured_data"])
-            self._after_report_saved(report, parsed, current_user)
+            self._after_report_saved(report, parsed, current_user, circle_id=circle_id)
             return self.hydrator.hydrate(report)
 
         report = Report.objects.create(
@@ -1019,7 +1023,7 @@ class ReportService:
             medications=medications,
         )
         self._persist_structured_parameters(report, parsed["structured_data"])
-        self._after_report_saved(report, parsed, current_user)
+        self._after_report_saved(report, parsed, current_user, circle_id=circle_id)
         return self.hydrator.hydrate(report)
 
     def _persist_structured_parameters(self, report: Report, structured_data: list[dict]) -> None:
@@ -1044,7 +1048,7 @@ class ReportService:
             )
         StructuredParameter.objects.bulk_create(parameters)
 
-    def _after_report_saved(self, report: Report, parsed: dict, current_user) -> None:
+    def _after_report_saved(self, report: Report, parsed: dict, current_user, circle_id: str | None = None) -> None:
         previous = (
             Report.objects.filter(user=current_user, report_type=parsed["report_type"])
             .exclude(id=report.id)
@@ -1053,11 +1057,11 @@ class ReportService:
             .first()
         )
         previous_hydrated = self.hydrator.hydrate(previous) if previous else None
-        self._publish_circle_upload(report, parsed, current_user)
+        self._publish_circle_upload(report, parsed, current_user, circle_id=circle_id)
         self._apply_lifestyle_correlation(report, current_user, previous_hydrated)
-        self._publish_marker_milestones(report, parsed, current_user, previous_hydrated)
+        self._publish_marker_milestones(report, parsed, current_user, previous_hydrated, circle_id=circle_id)
 
-    def _publish_circle_upload(self, report: Report, parsed: dict, current_user) -> None:
+    def _publish_circle_upload(self, report: Report, parsed: dict, current_user, circle_id: str | None = None) -> None:
         try:
             from circles.models import ActivityFeedEntry, CircleMember, Notification
         except Exception:
@@ -1065,6 +1069,8 @@ class ReportService:
 
         family_member_name = report.family_member.name if report.family_member else None
         memberships = CircleMember.objects.filter(user=current_user).select_related("circle")
+        if circle_id:
+            memberships = memberships.filter(circle_id=circle_id)
         for membership in memberships:
             entry = ActivityFeedEntry.objects.create(
                 circle=membership.circle,
@@ -1102,7 +1108,14 @@ class ReportService:
         report.ai_explanation = explanation
         report.save(update_fields=["ai_explanation"])
 
-    def _publish_marker_milestones(self, report: Report, parsed: dict, current_user, previous_hydrated: dict | None) -> None:
+    def _publish_marker_milestones(
+        self,
+        report: Report,
+        parsed: dict,
+        current_user,
+        previous_hydrated: dict | None,
+        circle_id: str | None = None,
+    ) -> None:
         if not previous_hydrated:
             return
         try:
@@ -1123,7 +1136,10 @@ class ReportService:
         if not now_normal:
             return
         milestone_markers = [item["testName"] for item in now_normal]
-        for membership in CircleMember.objects.filter(user=current_user).select_related("circle"):
+        memberships = CircleMember.objects.filter(user=current_user).select_related("circle")
+        if circle_id:
+            memberships = memberships.filter(circle_id=circle_id)
+        for membership in memberships:
             entry = ActivityFeedEntry.objects.create(
                 circle=membership.circle,
                 actor=current_user,

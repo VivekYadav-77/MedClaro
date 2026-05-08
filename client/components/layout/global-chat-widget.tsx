@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2, MessageCircle, SendHorizontal, X } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ChatMessage } from "@/lib/types";
+import { ChatMessage, Circle } from "@/lib/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -17,6 +18,26 @@ export function GlobalChatWidget() {
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [circles, setCircles] = useState<Circle[]>([]);
+  const [circleId, setCircleId] = useState<string>("");
+
+  useEffect(() => {
+    if (!API_URL || !session?.accessToken) return;
+    const storedCircleId = window.localStorage.getItem("selectedCircleId") ?? "";
+    setCircleId(storedCircleId);
+    fetch(`${API_URL}/circles`, {
+      headers: { Authorization: `Bearer ${session.accessToken}` },
+    })
+      .then((response) => (response.ok ? response.json() : []))
+      .then((data: Circle[]) => {
+        setCircles(data);
+        if (storedCircleId && !data.some((circle) => circle.id === storedCircleId)) {
+          window.localStorage.removeItem("selectedCircleId");
+          setCircleId("");
+        }
+      })
+      .catch(() => setCircles([]));
+  }, [session?.accessToken]);
 
   async function sendMessage() {
     const message = draft.trim();
@@ -37,7 +58,7 @@ export function GlobalChatWidget() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.accessToken}`,
         },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, ...(circleId ? { circleId } : {}) }),
       });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw new Error(data?.error ?? "Chat failed");
@@ -87,6 +108,28 @@ export function GlobalChatWidget() {
           </div>
           <div className="space-y-2 border-t border-slate-100 p-4">
             {apiError ? <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{apiError}</p> : null}
+            {circles.length ? (
+              <Select
+                value={circleId}
+                onChange={(event) => {
+                  const nextCircleId = event.target.value;
+                  setCircleId(nextCircleId);
+                  if (nextCircleId) {
+                    window.localStorage.setItem("selectedCircleId", nextCircleId);
+                  } else {
+                    window.localStorage.removeItem("selectedCircleId");
+                  }
+                }}
+                aria-label="Assistant context"
+              >
+                <option value="">My reports only</option>
+                {circles.map((circle) => (
+                  <option key={circle.id} value={circle.id}>
+                    {circle.name}
+                  </option>
+                ))}
+              </Select>
+            ) : null}
             <Textarea value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Ask a health history question..." />
             <Button className="w-full gap-2" onClick={() => void sendMessage()} disabled={loading || !draft.trim()}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <SendHorizontal className="h-4 w-4" />}

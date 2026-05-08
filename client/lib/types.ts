@@ -64,6 +64,9 @@ export type Reminder = {
 
 export type Report = {
   _id: string;
+  ownerName?: string;
+  familyMemberId?: string | null;
+  familyMemberName?: string | null;
   reportType: string;
   reportDate: string;
   uploadDate: string;

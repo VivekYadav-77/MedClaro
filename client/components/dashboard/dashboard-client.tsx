@@ -42,12 +42,12 @@ export function DashboardClient({
   };
 
   useEffect(() => {
-    const memberId = window.localStorage.getItem("selectedFamilyMemberId");
-    setSelectedFamilyMemberId(memberId);
-
-    if (!process.env.NEXT_PUBLIC_API_URL || !memberId) return;
-
-    const loadFamilyReports = async () => {
+    const loadFamilyReports = async (memberId: string | null) => {
+      setSelectedFamilyMemberId(memberId);
+      if (!process.env.NEXT_PUBLIC_API_URL || !memberId) {
+        setReports(initialReports);
+        return;
+      }
       setTimelineUpdating(true);
       try {
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports?familyMemberId=${memberId}`, {
@@ -62,8 +62,14 @@ export function DashboardClient({
       }
     };
 
-    void loadFamilyReports();
-  }, [session?.accessToken]);
+    void loadFamilyReports(window.localStorage.getItem("selectedFamilyMemberId"));
+    const onFamilyProfileChange = (event: Event) => {
+      const memberId = (event as CustomEvent<{ memberId: string | null }>).detail?.memberId ?? null;
+      void loadFamilyReports(memberId);
+    };
+    window.addEventListener("family-profile-change", onFamilyProfileChange);
+    return () => window.removeEventListener("family-profile-change", onFamilyProfileChange);
+  }, [initialReports, session?.accessToken]);
 
   const clearFamilyFilter = () => {
     window.localStorage.removeItem("selectedFamilyMemberId");
@@ -143,27 +149,27 @@ export function DashboardClient({
             </div>
             {reports.length ? (
               <div className="relative">
-                <div className={`transition-all duration-300 ${timelineUpdating ? "blur-[1.5px] opacity-60" : "blur-0 opacity-100"}`}>
+                <div className={timelineUpdating ? "sr-only" : ""}>
                   <Timeline reports={reports} onSelectReport={setSelectedReport} />
                 </div>
-                {timelineUpdating ? (
-                  <div className="pointer-events-none absolute inset-x-0 top-6 mx-auto w-fit rounded-full border border-brand-100 bg-white/90 px-4 py-2 text-xs font-semibold text-brand-700 shadow-card">
-                    Updating timeline
-                  </div>
-                ) : null}
+                {timelineUpdating ? <TimelineSkeleton /> : null}
               </div>
             ) : (
-              <div className={`rounded-2xl border-2 border-dashed border-slate-200 bg-white p-10 text-center shadow-card transition-all duration-300 ${timelineUpdating ? "opacity-60" : "opacity-100"}`}>
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50">
-                  <Upload className="h-7 w-7 text-brand-500" />
+              timelineUpdating ? (
+                <TimelineSkeleton />
+              ) : (
+                <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-white p-10 text-center shadow-card">
+                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50">
+                    <Upload className="h-7 w-7 text-brand-500" />
+                  </div>
+                  <h3 className="font-display text-lg font-semibold text-slate-900">No reports yet</h3>
+                  <p className="mt-1 text-sm text-slate-500">Upload your first blood report to get started with AI analysis.</p>
+                  <Button className="mt-5 gap-2" onClick={scrollToUploader}>
+                    <Plus className="h-4 w-4" />
+                    Upload your first report
+                  </Button>
                 </div>
-                <h3 className="font-display text-lg font-semibold text-slate-900">No reports yet</h3>
-                <p className="mt-1 text-sm text-slate-500">Upload your first blood report to get started with AI analysis.</p>
-                <Button className="mt-5 gap-2" onClick={scrollToUploader}>
-                  <Plus className="h-4 w-4" />
-                  Upload your first report
-                </Button>
-              </div>
+              )
             )}
           </div>
         </section>
@@ -209,6 +215,23 @@ export function DashboardClient({
 
       <ReportDetailView report={selectedReport} onClose={() => setSelectedReport(null)} />
       <MilestoneToast message={toastMessage} onClose={() => setToastMessage(null)} />
+    </div>
+  );
+}
+
+function TimelineSkeleton() {
+  return (
+    <div className="space-y-3" aria-label="Updating timeline">
+      {[0, 1, 2].map((item) => (
+        <Card key={item} className="flex animate-pulse items-start gap-4 p-4">
+          <div className="h-11 w-11 rounded-xl bg-slate-200" />
+          <div className="flex-1 space-y-3">
+            <div className="h-4 w-40 rounded bg-slate-200" />
+            <div className="h-3 w-full max-w-lg rounded bg-slate-100" />
+            <div className="h-3 w-2/3 rounded bg-slate-100" />
+          </div>
+        </Card>
+      ))}
     </div>
   );
 }

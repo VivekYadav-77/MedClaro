@@ -40,6 +40,7 @@ export function CirclesClient() {
 
   useEffect(() => {
     if (!token || !selectedId) return;
+    window.localStorage.setItem("selectedCircleId", selectedId);
     void Promise.all([loadMembers(selectedId), loadFeed(selectedId)]);
   }, [selectedId, token]);
 

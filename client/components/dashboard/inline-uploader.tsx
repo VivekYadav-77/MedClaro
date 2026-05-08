@@ -220,6 +220,10 @@ async function uploadToApi(file: File, accessToken?: string): Promise<Report> {
   if (familyMemberId) {
     formData.append("familyMemberId", familyMemberId);
   }
+  const circleId = window.localStorage.getItem("selectedCircleId");
+  if (circleId) {
+    formData.append("circleId", circleId);
+  }
 
   const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports/upload`, {
     method: "POST",
