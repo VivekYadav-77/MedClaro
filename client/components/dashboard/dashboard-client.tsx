@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Plus, Sparkles, TrendingUp, Upload } from "lucide-react";
+import { Plus, Sparkles, TrendingUp, Upload, UsersRound } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 
@@ -13,7 +13,8 @@ import { Timeline } from "@/components/dashboard/timeline";
 import { MilestoneToast } from "@/components/circles/milestone-toast";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Report, UserProfile } from "@/lib/types";
+import { Select } from "@/components/ui/select";
+import { Circle, Report, UserProfile } from "@/lib/types";
 
 export function DashboardClient({
   user,
@@ -28,6 +29,8 @@ export function DashboardClient({
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [timelineUpdating, setTimelineUpdating] = useState(false);
   const [selectedFamilyMemberId, setSelectedFamilyMemberId] = useState<string | null>(null);
+  const [circles, setCircles] = useState<Circle[]>([]);
+  const [selectedCircleId, setSelectedCircleId] = useState<string>("");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const firstName = user.name.split(" ")[0];
 
@@ -42,15 +45,33 @@ export function DashboardClient({
   };
 
   useEffect(() => {
-    const loadFamilyReports = async (memberId: string | null) => {
+    if (!process.env.NEXT_PUBLIC_API_URL || !session?.accessToken) return;
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/circles`, {
+      headers: { Authorization: `Bearer ${(session as any).accessToken}` },
+      cache: "no-store"
+    })
+      .then((response) => (response.ok ? response.json() : []))
+      .then((data: Circle[]) => {
+        const storedCircleId = window.localStorage.getItem("selectedCircleId") ?? "";
+        setCircles(data);
+        setSelectedCircleId(data.some((circle) => circle.id === storedCircleId) ? storedCircleId : "");
+      })
+      .catch(() => setCircles([]));
+  }, [session?.accessToken]);
+
+  useEffect(() => {
+    const loadScopedReports = async (memberId: string | null, circleId: string) => {
       setSelectedFamilyMemberId(memberId);
-      if (!process.env.NEXT_PUBLIC_API_URL || !memberId) {
+      if (!process.env.NEXT_PUBLIC_API_URL || (!memberId && !circleId)) {
         setReports(initialReports);
         return;
       }
       setTimelineUpdating(true);
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports?familyMemberId=${memberId}`, {
+        const params = new URLSearchParams();
+        if (memberId) params.set("familyMemberId", memberId);
+        if (circleId) params.set("circleId", circleId);
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports?${params.toString()}`, {
           headers: (session as any)?.accessToken ? { Authorization: `Bearer ${(session as any).accessToken}` } : undefined,
           cache: "no-store"
         });
@@ -62,19 +83,32 @@ export function DashboardClient({
       }
     };
 
-    void loadFamilyReports(window.localStorage.getItem("selectedFamilyMemberId"));
+    void loadScopedReports(window.localStorage.getItem("selectedFamilyMemberId"), selectedCircleId);
     const onFamilyProfileChange = (event: Event) => {
       const memberId = (event as CustomEvent<{ memberId: string | null }>).detail?.memberId ?? null;
-      void loadFamilyReports(memberId);
+      void loadScopedReports(memberId, selectedCircleId);
     };
     window.addEventListener("family-profile-change", onFamilyProfileChange);
     return () => window.removeEventListener("family-profile-change", onFamilyProfileChange);
-  }, [initialReports, session?.accessToken]);
+  }, [initialReports, selectedCircleId, session?.accessToken]);
 
   const clearFamilyFilter = () => {
     window.localStorage.removeItem("selectedFamilyMemberId");
     setSelectedFamilyMemberId(null);
-    setReports(initialReports);
+    if (selectedCircleId) {
+      window.dispatchEvent(new CustomEvent("family-profile-change", { detail: { memberId: null } }));
+    } else {
+      setReports(initialReports);
+    }
+  };
+
+  const changeCircle = (circleId: string) => {
+    setSelectedCircleId(circleId);
+    if (circleId) {
+      window.localStorage.setItem("selectedCircleId", circleId);
+    } else {
+      window.localStorage.removeItem("selectedCircleId");
+    }
   };
 
   const handleUploaded = (report: Report) => {
@@ -99,19 +133,43 @@ export function DashboardClient({
             </button>
           ) : null}
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/trends">
-            <Button variant="outline" size="sm" className="gap-1.5">
-              <TrendingUp className="h-4 w-4" />
-              Trends
+        <div className="flex flex-col gap-2 sm:min-w-80">
+          {circles.length ? (
+            <Select value={selectedCircleId} onChange={(event) => changeCircle(event.target.value)} aria-label="Care Circle report scope">
+              <option value="">My private reports</option>
+              {circles.map((circle) => (
+                <option key={circle.id} value={circle.id}>
+                  {circle.name}
+                </option>
+              ))}
+            </Select>
+          ) : null}
+          <div className="flex flex-wrap gap-2 sm:justify-end">
+            <Link href="/trends">
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <TrendingUp className="h-4 w-4" />
+                Trends
+              </Button>
+            </Link>
+            <Button size="sm" className="gap-1.5" onClick={scrollToUploader}>
+              <Plus className="h-4 w-4" />
+              Upload Report
             </Button>
-          </Link>
-          <Button size="sm" className="gap-1.5" onClick={scrollToUploader}>
-            <Plus className="h-4 w-4" />
-            Upload Report
-          </Button>
+          </div>
         </div>
       </div>
+
+      {selectedCircleId ? (
+        <div className="flex flex-col gap-3 rounded-2xl border border-brand-100 bg-brand-50 px-4 py-3 text-sm text-brand-900 sm:flex-row sm:items-center sm:justify-between">
+          <span className="inline-flex items-center gap-2 font-medium">
+            <UsersRound className="h-4 w-4" />
+            Showing reports shared inside {circles.find((circle) => circle.id === selectedCircleId)?.name ?? "selected Care Circle"}.
+          </span>
+          <Link href="/circles" className="font-semibold text-brand-700 hover:text-brand-900">
+            Manage roles
+          </Link>
+        </div>
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label="Total Reports" value={String(reports.length)} sub="All time" accent="brand" />

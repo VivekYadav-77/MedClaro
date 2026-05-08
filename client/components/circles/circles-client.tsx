@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { KeyRound, Loader2, LogIn, Plus, RefreshCw, SendHorizontal, Trash2, UsersRound } from "lucide-react";
+import { ClipboardCopy, KeyRound, Loader2, LogIn, Plus, RefreshCw, SendHorizontal, ShieldCheck, Trash2, UserCheck, UsersRound } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 import { ActivityFeed } from "@/components/circles/activity-feed";
@@ -14,6 +14,12 @@ import { Circle, CircleMember, FeedEntry } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+const roleDescriptions: Record<CircleMember["role"], string> = {
+  admin: "Can invite people, manage roles, remove members, and coordinate shared care.",
+  contributor: "Can upload reports and add health updates for the circle.",
+  viewer: "Can view shared reports, trends, feed updates, and assistant answers.",
+};
 
 export function CirclesClient() {
   const { data: session } = useSession();
@@ -157,6 +163,12 @@ export function CirclesClient() {
     }
   }
 
+  async function copyJoinCode() {
+    if (!selectedCircle?.joinCode) return;
+    await navigator.clipboard?.writeText(selectedCircle.joinCode);
+    setMessage("Circle code copied.");
+  }
+
   async function updateMemberRole(memberId: string, role: CircleMember["role"]) {
     if (!selectedId || selectedCircle?.myRole !== "admin") return;
     try {
@@ -193,11 +205,18 @@ export function CirclesClient() {
   const canAdminister = selectedCircle?.myRole === "admin";
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-      <Card className="space-y-4 p-4">
+    <div className="grid gap-6 lg:grid-cols-[340px_1fr]">
+      <Card className="space-y-5 p-5">
         <div className="flex items-center justify-between">
-          <h2 className="font-display text-xl font-bold text-slate-900">Care Circles</h2>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-brand-600">Shared care</p>
+            <h2 className="font-display text-xl font-bold text-slate-900">Care Circles</h2>
+          </div>
           {loading ? <Loader2 className="h-4 w-4 animate-spin text-slate-400" /> : null}
+        </div>
+        <div className="rounded-xl border border-teal-100 bg-teal-50 p-3 text-sm leading-6 text-teal-900">
+          <ShieldCheck className="mb-2 h-4 w-4" />
+          Invite only people who should see shared health records. Roles can be changed later by an admin.
         </div>
         <form onSubmit={createCircle} className="flex gap-2">
           <Input value={newCircleName} onChange={(event) => setNewCircleName(event.target.value)} placeholder="Circle name" />
@@ -231,20 +250,32 @@ export function CirclesClient() {
               </span>
             </button>
           ))}
-          {!loading && !circles.length ? <p className="text-sm text-slate-500">Create your first circle to invite family.</p> : null}
+          {!loading && !circles.length ? <p className="text-sm leading-6 text-slate-500">Create your first circle to invite family and share reports with explicit roles.</p> : null}
         </div>
       </Card>
 
       <div className="space-y-5">
         {message ? <p className="rounded-xl border border-green-100 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</p> : null}
-        <Card className="space-y-4 p-5">
+        <Card className="space-y-5 p-5">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-brand-600">{selectedCircle?.myRole ?? "Circle"}</p>
             <h1 className="font-display text-2xl font-bold text-slate-900">{selectedCircle?.name ?? "Select a circle"}</h1>
           </div>
           {selectedCircle ? (
             <>
-              <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="grid gap-3 md:grid-cols-3">
+                {(["admin", "contributor", "viewer"] as CircleMember["role"][]).map((role) => (
+                  <div key={role} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <div className="flex items-center gap-2">
+                      <UserCheck className="h-4 w-4 text-brand-600" />
+                      <p className="font-medium capitalize text-slate-900">{role}</p>
+                    </div>
+                    <p className="mt-2 text-xs leading-5 text-slate-500">{roleDescriptions[role]}</p>
+                  </div>
+                ))}
+              </div>
+              {canAdminister ? (
+              <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Circle code</p>
                   <p className="mt-1 inline-flex items-center gap-2 font-mono text-lg font-semibold tracking-wider text-slate-900">
@@ -252,13 +283,22 @@ export function CirclesClient() {
                     {selectedCircle.joinCode ?? "Unavailable"}
                   </p>
                 </div>
-                {selectedCircle.myRole === "admin" ? (
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => void copyJoinCode()} disabled={!selectedCircle.joinCode}>
+                    <ClipboardCopy className="h-4 w-4" />
+                    Copy
+                  </Button>
                   <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => void rotateJoinCode()} disabled={rotatingCode}>
                     {rotatingCode ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                     Change
                   </Button>
-                ) : null}
+                </div>
               </div>
+              ) : (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm leading-6 text-slate-600">
+                  Your role is <span className="font-semibold text-slate-900">{selectedCircle.myRole}</span>. Ask a circle admin if you need upload or invite access.
+                </div>
+              )}
               {canAdminister ? (
                 <form onSubmit={invite} className="flex gap-2">
                   <Input type="email" value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder="Invite by email" />
@@ -269,7 +309,10 @@ export function CirclesClient() {
                 </form>
               ) : null}
               <section className="space-y-3">
-                <h2 className="font-semibold text-slate-900">Members</h2>
+                <div>
+                  <h2 className="font-semibold text-slate-900">Members</h2>
+                  <p className="text-sm text-slate-500">Keep roles conservative so every family member sees only what they need.</p>
+                </div>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {members.map((member) => (
                     <div key={member.id} className="rounded-xl border border-slate-200 p-3">

@@ -169,9 +169,14 @@ class GeminiService:
     }
 
     def __init__(self) -> None:
-        self.extraction_model = self._make_model(settings.GEMINI_API_KEY_EXTRACTION, settings.GEMINI_MODEL_VISION)
-        self.analysis_model = self._make_model(settings.GEMINI_API_KEY_ANALYSIS, settings.GEMINI_MODEL_TEXT)
-        self.chat_model = self._make_model(settings.GEMINI_API_KEY_CHAT, settings.GEMINI_MODEL_CHAT)
+        self.extraction_api_key = settings.GEMINI_API_KEY_EXTRACTION
+        self.analysis_api_key = settings.GEMINI_API_KEY_ANALYSIS
+        self.feature_api_key = settings.GEMINI_API_KEY_FEATURES
+        self.chat_api_key = settings.GEMINI_API_KEY_CHAT
+        self.extraction_model = self._make_model(settings.GEMINI_MODEL_VISION)
+        self.analysis_model = self._make_model(settings.GEMINI_MODEL_TEXT)
+        self.feature_model = self._make_model(settings.GEMINI_MODEL_FEATURES)
+        self.chat_model = self._make_model(settings.GEMINI_MODEL_CHAT)
         self.text_model = self.analysis_model
         self.vision_model = self.extraction_model
         self.proxy_unavailable = any(
@@ -179,29 +184,56 @@ class GeminiService:
             for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy")
         )
 
-    def _make_model(self, api_key: str, model_name: str):
+    def _make_model(self, model_name: str):
+        return genai.GenerativeModel(resolve_gemini_model(model_name), system_instruction=SYSTEM_PROMPT)
+
+    def _generate_content(self, model, api_key: str, *args, **kwargs):
         if api_key:
             genai.configure(api_key=api_key)
-        return genai.GenerativeModel(resolve_gemini_model(model_name), system_instruction=SYSTEM_PROMPT)
+        return model.generate_content(*args, **kwargs)
+
+    def _model_for_workload(self, workload: str):
+        if workload == "extraction":
+            return self.extraction_model, self.extraction_api_key
+        if workload == "feature":
+            return self.feature_model, self.feature_api_key
+        return self.analysis_model, self.analysis_api_key
 
     def extract_text_from_image(self, content: bytes, mime_type: str) -> str:
         if self.proxy_unavailable:
             raise RuntimeError("Gemini proxy is configured to unavailable localhost endpoint")
-        response = self.extraction_model.generate_content(
+        response = self._generate_content(
+            self.extraction_model,
+            self.extraction_api_key,
             [{"mime_type": mime_type, "data": content}, IMAGE_OCR_PROMPT],
             generation_config={"temperature": 0},
             request_options={"timeout": 25},
         )
         return response.text.strip()
 
-    def generate_json(self, prompt: str, report_text: str, report_type: str) -> str:
+    def generate_json(self, prompt: str, report_text: str, report_type: str, workload: str = "analysis") -> str:
         if self.proxy_unavailable:
             raise RuntimeError("Gemini proxy is configured to unavailable localhost endpoint")
         wrapped = f"{prompt}\nReport type: {report_type}\n=== REPORT DATA START ===\n{report_text}\n=== REPORT DATA END ==="
-        response = self.analysis_model.generate_content(
+        model, api_key = self._model_for_workload(workload)
+        response = self._generate_content(
+            model,
+            api_key,
             wrapped,
             generation_config={"temperature": 0.1, "response_mime_type": "application/json"},
             request_options={"timeout": 25},
+        )
+        return response.text.strip()
+
+    def generate_chat_text(self, prompt: str, timeout: int = 25) -> str:
+        if self.proxy_unavailable:
+            raise RuntimeError("Gemini proxy is configured to unavailable localhost endpoint")
+        response = self._generate_content(
+            self.chat_model,
+            self.chat_api_key,
+            prompt,
+            generation_config={"temperature": 0.2},
+            request_options={"timeout": timeout},
         )
         return response.text.strip()
 
@@ -237,12 +269,7 @@ User message: {message}
 Structured data: {json.dumps(structured_data, default=str)}
 Report type: {report_type}
 """
-        response = self.chat_model.generate_content(
-            prompt,
-            generation_config={"temperature": 0.2},
-            request_options={"timeout": 25},
-        )
-        return response.text.strip()
+        return self.generate_chat_text(prompt)
 
     def explain_prescription(self, language: str, extracted_text: str, related_reports: list[dict]) -> dict:
         prompt = f"""
@@ -262,7 +289,7 @@ Respond in language code {language}.
 Current report: {json.dumps(report, default=str)}
 Previous report: {json.dumps(previous_report, default=str) if previous_report else 'null'}
 """
-        raw = self.generate_json(prompt=prompt, report_text=json.dumps(report, default=str), report_type=report["reportType"])
+        raw = self.generate_json(prompt=prompt, report_text=json.dumps(report, default=str), report_type=report["reportType"], workload="feature")
         return json.loads(raw)
 
     def generate_specialty_prebrief(self, reports: list[dict], specialty: str, language: str) -> dict:
@@ -285,7 +312,7 @@ Return JSON with keys summaryMarkdown, doctorQuestions (3 to 5), shareText, focu
 Respond in language code {language}. Use high-contrast printable wording. Never diagnose.
 Reports: {json.dumps(compact_reports, default=str)}
 """
-        raw = self.generate_json(prompt=prompt, report_text=json.dumps(compact_reports, default=str), report_type="prebrief")
+        raw = self.generate_json(prompt=prompt, report_text=json.dumps(compact_reports, default=str), report_type="prebrief", workload="feature")
         return json.loads(raw)
 
     def fallback_specialty_prebrief(self, reports: list[dict], specialty: str) -> dict:
@@ -351,7 +378,7 @@ advice (one actionable sentence, culturally neutral).
 Respond in language code {language}.
 Data: {json.dumps(series_data, default=str)}
 """
-        raw = self.generate_json(prompt=prompt, report_text=json.dumps(series_data, default=str), report_type="trends")
+        raw = self.generate_json(prompt=prompt, report_text=json.dumps(series_data, default=str), report_type="trends", workload="feature")
         return json.loads(raw)
 
     def correlate_lifestyle(self, lifestyle_notes: list[str], old_report: dict | None, new_report: dict, language: str) -> dict:
@@ -364,7 +391,7 @@ Respond in language code {language}. Use encouraging, plain language. Never diag
 Old report data: {json.dumps(old_report, default=str) if old_report else "None (first report)"}
 New report data: {json.dumps(new_report["structuredData"], default=str)}
 """
-        raw = self.generate_json(prompt=prompt, report_text="lifestyle", report_type="correlation")
+        raw = self.generate_json(prompt=prompt, report_text="lifestyle", report_type="correlation", workload="feature")
         return json.loads(raw)
 
     def fallback_lifestyle_correlation(self, lifestyle_notes: list[str], old_report: dict | None, new_report: dict) -> dict:
@@ -444,7 +471,7 @@ Return JSON with key 'advice': array of objects with marker, currentStatus, diet
 Respond in language code {language}. Never use generic Western foods like salmon or quinoa unless the region warrants it.
 Markers: {json.dumps(abnormal_markers, default=str)}
 """
-        raw = self.generate_json(prompt=prompt, report_text="diet", report_type="diet_advice")
+        raw = self.generate_json(prompt=prompt, report_text="diet", report_type="diet_advice", workload="feature")
         return json.loads(raw)
 
     def analyze_treatment_effectiveness(self, prescriptions: list[dict], blood_reports: list[dict], language: str) -> dict:
@@ -457,7 +484,7 @@ Respond in language code {language}. Never tell user to stop medications.
 Prescription history: {json.dumps([{"date": p.get("reportDate"), "medications": p.get("medications", [])} for p in prescriptions], default=str)}
 Blood report history: {json.dumps([{"date": r.get("reportDate"), "markers": r["structuredData"]} for r in blood_reports], default=str)}
 """
-        raw = self.generate_json(prompt=prompt, report_text="treatment", report_type="treatment_analysis")
+        raw = self.generate_json(prompt=prompt, report_text="treatment", report_type="treatment_analysis", workload="feature")
         return json.loads(raw)
 
     def analyze_medication_conflicts(self, reports: list[dict], language: str) -> dict:
@@ -480,7 +507,7 @@ Respond in language code {language}.
 Medications: {json.dumps(medications, default=str)}
 Recent abnormal markers: {json.dumps(recent_markers, default=str)}
 """
-        raw = self.generate_json(prompt=prompt, report_text="medication_conflicts", report_type="medication_conflicts")
+        raw = self.generate_json(prompt=prompt, report_text="medication_conflicts", report_type="medication_conflicts", workload="feature")
         return json.loads(raw)
 
     def fallback_medication_conflicts(self, reports: list[dict]) -> dict:
@@ -684,7 +711,12 @@ class ParserService:
 
     def build_structured_data(self, text: str, report_type: str) -> list[dict]:
         try:
-            raw = self.gemini.generate_json(prompt=STRUCTURED_EXTRACTION_PROMPT, report_text=text, report_type=report_type)
+            raw = self.gemini.generate_json(
+                prompt=STRUCTURED_EXTRACTION_PROMPT,
+                report_text=text,
+                report_type=report_type,
+                workload="extraction",
+            )
             items = json.loads(raw) if raw else []
         except Exception as exc:
             if is_expected_gemini_fallback(exc):

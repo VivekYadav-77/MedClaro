@@ -148,3 +148,26 @@ export type AppNotification = {
   feedEntry: FeedEntry;
   createdAt: string;
 };
+
+export type HealthContext = {
+  reportCount: number;
+  activeMedicationCount: number;
+  watchMarkerCount: number;
+  medications: {
+    name?: string;
+    dosage?: string;
+    frequency?: string;
+    purpose?: string;
+    sourceDate?: string;
+  }[];
+  watchMarkers: Parameter[];
+  reports: {
+    owner?: string;
+    familyMember?: string | null;
+    type: string;
+    date: string;
+    abnormalMarkers: { name: string; value: number | string; unit: string; flag: string }[];
+    medications: string[];
+    summary: string;
+  }[];
+};

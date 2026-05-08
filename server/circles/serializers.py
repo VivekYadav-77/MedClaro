@@ -7,7 +7,7 @@ class CircleSerializer(serializers.ModelSerializer):
     createdBy = serializers.CharField(source="created_by.name", read_only=True)
     memberCount = serializers.SerializerMethodField()
     myRole = serializers.SerializerMethodField()
-    joinCode = serializers.CharField(source="join_code", read_only=True)
+    joinCode = serializers.SerializerMethodField()
 
     class Meta:
         model = Circle
@@ -22,6 +22,13 @@ class CircleSerializer(serializers.ModelSerializer):
 
     def get_memberCount(self, obj):
         return obj.members.count()
+
+    def get_joinCode(self, obj):
+        user = self.context.get("request").user if self.context.get("request") else None
+        if not user or not user.is_authenticated:
+            return None
+        membership = obj.members.filter(user=user).first()
+        return obj.join_code if membership and membership.role == "admin" else None
 
 
 class CircleMemberSerializer(serializers.ModelSerializer):

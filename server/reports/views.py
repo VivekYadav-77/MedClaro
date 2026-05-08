@@ -1,6 +1,7 @@
 import json
 
 from django.conf import settings
+from django.db.models import Q
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -25,6 +26,70 @@ def get_accessible_report_queryset(user, circle_id=None):
         return Report.objects.none()
     circle_user_ids = CircleMember.objects.filter(circle_id=circle_id).values_list("user_id", flat=True)
     return Report.objects.filter(user_id__in=circle_user_ids)
+
+
+def get_shared_report_queryset(user):
+    try:
+        from circles.models import CircleMember
+    except Exception:
+        return Report.objects.filter(user=user)
+
+    shared_user_ids = CircleMember.objects.filter(
+        circle_id__in=CircleMember.objects.filter(user=user).values("circle_id")
+    ).values_list("user_id", flat=True)
+    return Report.objects.filter(Q(user=user) | Q(user_id__in=shared_user_ids)).distinct()
+
+
+def build_health_context(user, circle_id=None, limit=10):
+    hydrator = ReportHydrator()
+    reports = (
+        get_accessible_report_queryset(user, circle_id)
+        .select_related("user", "family_member")
+        .prefetch_related("chat_messages")
+        .order_by("-upload_date")[:limit]
+    )
+    all_reports = [hydrator.hydrate(report) for report in reports]
+    medications = [
+        {
+            "name": medication.get("name"),
+            "dosage": medication.get("dosage"),
+            "frequency": medication.get("frequency"),
+            "purpose": medication.get("purpose"),
+            "sourceDate": str(report.get("reportDate") or report.get("uploadDate") or "")[:10],
+        }
+        for report in all_reports
+        for medication in (report.get("medications") or [])
+        if medication.get("name")
+    ]
+    chronic_watch_markers = [
+        marker
+        for report in all_reports
+        for marker in report.get("structuredData", [])
+        if marker.get("flag") != "normal"
+    ][:18]
+    return {
+        "reportCount": len(all_reports),
+        "activeMedicationCount": len({item["name"].lower() for item in medications if item.get("name")}),
+        "watchMarkerCount": len(chronic_watch_markers),
+        "medications": medications[:20],
+        "watchMarkers": chronic_watch_markers,
+        "reports": [
+            {
+                "owner": report.get("ownerName"),
+                "familyMember": report.get("familyMemberName"),
+                "type": report["reportType"],
+                "date": str(report.get("reportDate") or report["uploadDate"])[:10],
+                "abnormalMarkers": [
+                    {"name": item["testName"], "value": item["value"], "unit": item["unit"], "flag": item["flag"]}
+                    for item in report["structuredData"]
+                    if item.get("flag") != "normal"
+                ][:10],
+                "medications": [medication["name"] for medication in (report.get("medications") or [])],
+                "summary": report["aiExplanation"].get("holisticSummary", ""),
+            }
+            for report in all_reports
+        ],
+    }
 
 
 class ReportListCreateView(APIView):
@@ -64,7 +129,7 @@ class ReportUploadView(APIView):
 
 class ReportDetailView(APIView):
     def get_report(self, request, report_id):
-        return Report.objects.filter(id=report_id, user=request.user).prefetch_related("chat_messages").first()
+        return get_shared_report_queryset(request.user).filter(id=report_id).prefetch_related("chat_messages").first()
 
     def get(self, request, report_id):
         report = self.get_report(request, report_id)
@@ -73,7 +138,7 @@ class ReportDetailView(APIView):
         return Response(ReportHydrator().hydrate(report))
 
     def delete(self, request, report_id):
-        report = self.get_report(request, report_id)
+        report = Report.objects.filter(id=report_id, user=request.user).prefetch_related("chat_messages").first()
         if not report:
             return Response({"error": "Report not found", "code": "REPORT_NOT_FOUND"}, status=status.HTTP_404_NOT_FOUND)
         service = ReportService()
@@ -97,7 +162,7 @@ class ReportTrendsView(APIView):
 
 class ReportChatView(APIView):
     def get_report(self, request, report_id):
-        return Report.objects.filter(id=report_id, user=request.user).prefetch_related("chat_messages").first()
+        return get_shared_report_queryset(request.user).filter(id=report_id).prefetch_related("chat_messages").first()
 
     def get(self, request, report_id):
         report = self.get_report(request, report_id)
@@ -117,7 +182,7 @@ class ReportChatView(APIView):
 
 class ReportSummaryView(APIView):
     def post(self, request, report_id):
-        report = Report.objects.filter(id=report_id, user=request.user).prefetch_related("chat_messages").first()
+        report = get_shared_report_queryset(request.user).filter(id=report_id).prefetch_related("chat_messages").first()
         if not report:
             return Response({"error": "Report not found", "code": "REPORT_NOT_FOUND"}, status=status.HTTP_404_NOT_FOUND)
         hydrator = ReportHydrator()
@@ -135,7 +200,7 @@ class ReportSummaryView(APIView):
 
 class ReportDietAdviceView(APIView):
     def get(self, request, report_id):
-        report = Report.objects.filter(id=report_id, user=request.user).prefetch_related("chat_messages").first()
+        report = get_shared_report_queryset(request.user).filter(id=report_id).prefetch_related("chat_messages").first()
         if not report:
             return Response({"error": "Report not found"}, status=status.HTTP_404_NOT_FOUND)
         hydrated = ReportHydrator().hydrate(report)
@@ -200,56 +265,31 @@ class MedicationConflictView(APIView):
 
 
 class GlobalChatView(APIView):
+    def get(self, request):
+        circle_id = request.query_params.get("circleId")
+        return Response({"healthContext": build_health_context(request.user, circle_id=circle_id, limit=10)})
+
     def post(self, request):
         RateLimiter().enforce(request.user, "global_chat", settings.CHAT_LIMIT_PER_DAY)
         message = request.data.get("message", "").strip()
         if not message:
             return Response({"error": "message required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        hydrator = ReportHydrator()
         circle_id = request.data.get("circleId")
-        reports = (
-            get_accessible_report_queryset(request.user, circle_id)
-            .select_related("user", "family_member")
-            .prefetch_related("chat_messages")
-            .order_by("-upload_date")[:10]
-        )
-        all_reports = [hydrator.hydrate(report) for report in reports]
-        health_state = {
-            "reportCount": len(all_reports),
-            "reports": [
-                {
-                    "owner": report.get("ownerName"),
-                    "familyMember": report.get("familyMemberName"),
-                    "type": report["reportType"],
-                    "date": str(report.get("reportDate") or report["uploadDate"])[:10],
-                    "abnormalMarkers": [
-                        {"name": item["testName"], "value": item["value"], "unit": item["unit"], "flag": item["flag"]}
-                        for item in report["structuredData"]
-                        if item.get("flag") != "normal"
-                    ],
-                    "medications": [medication["name"] for medication in (report.get("medications") or [])],
-                    "summary": report["aiExplanation"].get("holisticSummary", ""),
-                }
-                for report in all_reports
-            ],
-        }
+        health_state = build_health_context(request.user, circle_id=circle_id, limit=10)
         language = request.user.preferred_language
         prompt = f"""
 You are a personal health assistant with full access to the user's medical history.
 Answer only based on the provided health state. Cite specific values when relevant.
 If asked about something not in the data, say so plainly.
-Never diagnose. Respond in language code {language}.
+Use medication and chronic-condition context when it is relevant.
+Never diagnose, never tell the user to start/stop/change medicine, and recommend clinician review for safety-critical concerns.
+Respond in language code {language}.
 User question: {message}
 Health state: {json.dumps(health_state, default=str)}
 """
         try:
-            response = GeminiService().chat_model.generate_content(
-                prompt,
-                generation_config={"temperature": 0.2},
-                request_options={"timeout": 30},
-            )
-            answer = response.text.strip()
+            answer = GeminiService().generate_chat_text(prompt, timeout=30)
         except Exception:
             answer = self._fallback_global_answer(health_state, message)
         return Response({"message": answer})
