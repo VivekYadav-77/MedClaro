@@ -35,10 +35,14 @@ export function Timeline({
               {/* Connecting line */}
               <div className="absolute left-2 top-2 bottom-2 w-px bg-slate-200" />
 
-              {yearReports.map((report) => (
-                <div key={report._id} className="relative">
+              {yearReports.map((report, index) => (
+                <div
+                  key={report._id}
+                  className="group relative animate-slide-up"
+                  style={{ animationDelay: `${Math.min(index * 45, 180)}ms` }}
+                >
                   {/* Timeline dot */}
-                  <div className="absolute -left-[18px] top-4 h-3 w-3 rounded-full border-2 border-brand-500 bg-white" />
+                  <div className="absolute -left-[18px] top-4 h-3 w-3 rounded-full border-2 border-brand-500 bg-white transition-transform duration-200 group-hover:scale-110" />
                   <ReportCard report={report} onSelect={() => onSelectReport(report)} />
                 </div>
               ))}

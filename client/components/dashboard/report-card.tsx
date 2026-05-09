@@ -27,6 +27,13 @@ export function ReportCard({
   const meta = reportMeta[report.reportType as keyof typeof reportMeta] ?? reportMeta.default;
   const Icon = meta.icon;
   const score = report.aiExplanation?.attentionScore ?? 0;
+  const ownerLabel = report.familyMemberName ?? report.ownerName;
+  const ownerInitials = ownerLabel
+    ?.split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 
   return (
     <button
@@ -43,6 +50,14 @@ export function ReportCard({
           <div>
             <p className="font-semibold capitalize text-slate-900">{report.reportType.replace(/_/g, " ")}</p>
             <p className="text-sm text-slate-500">{report.labName || "Unknown lab"}</p>
+            {ownerLabel ? (
+              <span className="mt-2 inline-flex items-center gap-2 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-teal-100 text-[10px] text-teal-700">
+                  {ownerInitials}
+                </span>
+                {ownerLabel}
+              </span>
+            ) : null}
           </div>
         </div>
 

@@ -222,7 +222,7 @@ export function AssistantClient() {
                 <div key={`${report.type}-${report.date}-${report.owner}`} className="rounded-xl border border-slate-200 p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-medium text-slate-900">{report.type.replaceAll("_", " ")}</p>
+                      <p className="font-medium text-slate-900">{report.type.replace(/_/g, " ")}</p>
                       <p className="text-xs text-slate-500">{report.familyMember || report.owner || "Saved profile"} - {report.date}</p>
                     </div>
                     <Badge>{report.abnormalMarkers.length} flags</Badge>

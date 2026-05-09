@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Plus, Sparkles, TrendingUp, Upload, UsersRound } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, CalendarClock, Plus, ShieldAlert, Sparkles, TrendingUp, Upload, UsersRound, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 
 import { InlineUploader } from "@/components/dashboard/inline-uploader";
@@ -23,10 +23,10 @@ export function DashboardClient({
   user: UserProfile;
   reports: Report[];
 }) {
-  const uploaderRef = useRef<HTMLDivElement>(null);
   const { data: session } = useSession();
   const [reports, setReports] = useState(initialReports);
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [timelineUpdating, setTimelineUpdating] = useState(false);
   const [selectedFamilyMemberId, setSelectedFamilyMemberId] = useState<string | null>(null);
   const [circles, setCircles] = useState<Circle[]>([]);
@@ -34,15 +34,21 @@ export function DashboardClient({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const firstName = user.name.split(" ")[0];
 
-  const latestScore = reports[0]?.aiExplanation?.attentionScore;
-  const abnormalMarkers = useMemo(
-    () => reports.flatMap((report) => report.structuredData).filter((item) => item.flag !== "normal").length,
+  const abnormalMarkers = useMemo(() => {
+    return reports.flatMap((report) =>
+      report.structuredData
+        .filter((item) => item.flag !== "normal")
+        .map((item) => ({ ...item, report }))
+    );
+  }, [reports]);
+  const highestRiskReport = useMemo(
+    () => [...reports].sort((a, b) => (b.aiExplanation?.attentionScore ?? 0) - (a.aiExplanation?.attentionScore ?? 0))[0],
     [reports]
   );
-
-  const scrollToUploader = () => {
-    uploaderRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-  };
+  const nextReminderCount = useMemo(() => reports.filter((report) => (report.aiExplanation?.attentionScore ?? 0) >= 3).length, [reports]);
+  const activeCircleName = circles.find((circle) => circle.id === selectedCircleId)?.name;
+  const contextLabel = selectedCircleId ? activeCircleName ?? "selected Care Circle" : selectedFamilyMemberId ? "selected family profile" : "my private reports";
+  const primaryAlert = abnormalMarkers[0];
 
   useEffect(() => {
     if (!process.env.NEXT_PUBLIC_API_URL || !session?.accessToken) return;
@@ -114,6 +120,7 @@ export function DashboardClient({
   const handleUploaded = (report: Report) => {
     setReports((current) => [report, ...current.filter((item) => item._id !== report._id)]);
     setSelectedReport(report);
+    setUploadOpen(false);
     const correlation = report.aiExplanation?.lifestyleCorrelation;
     const hasPositive = correlation?.correlations?.some((item) => item.impact === "positive");
     if (hasPositive && correlation?.overallMessage) {
@@ -127,11 +134,7 @@ export function DashboardClient({
         <div>
           <p className="text-sm font-medium text-slate-500">Good to see you,</p>
           <h1 className="font-display text-3xl font-bold text-slate-900">{firstName}'s Health Timeline</h1>
-          {selectedFamilyMemberId ? (
-            <button className="mt-2 text-sm font-semibold text-brand-600 hover:text-brand-700" onClick={clearFamilyFilter}>
-              Viewing selected family profile. Clear filter
-            </button>
-          ) : null}
+          <p className="mt-2 text-sm text-slate-500">A unified view of {contextLabel}.</p>
         </div>
         <div className="flex flex-col gap-2 sm:min-w-80">
           {circles.length ? (
@@ -151,7 +154,7 @@ export function DashboardClient({
                 Trends
               </Button>
             </Link>
-            <Button size="sm" className="gap-1.5" onClick={scrollToUploader}>
+            <Button size="sm" className="gap-1.5" onClick={() => setUploadOpen(true)}>
               <Plus className="h-4 w-4" />
               Upload Report
             </Button>
@@ -159,39 +162,64 @@ export function DashboardClient({
         </div>
       </div>
 
-      {selectedCircleId ? (
-        <div className="flex flex-col gap-3 rounded-2xl border border-brand-100 bg-brand-50 px-4 py-3 text-sm text-brand-900 sm:flex-row sm:items-center sm:justify-between">
-          <span className="inline-flex items-center gap-2 font-medium">
-            <UsersRound className="h-4 w-4" />
-            Showing reports shared inside {circles.find((circle) => circle.id === selectedCircleId)?.name ?? "selected Care Circle"}.
-          </span>
-          <Link href="/circles" className="font-semibold text-brand-700 hover:text-brand-900">
-            Manage roles
-          </Link>
+      <div className="overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-card">
+        <div className="flex flex-col gap-4 bg-gradient-to-r from-amber-50 via-white to-teal-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
+              {primaryAlert ? <ShieldAlert className="h-5 w-5" /> : <Sparkles className="h-5 w-5" />}
+            </span>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">
+                {primaryAlert ? "Action Required" : "Circle Health Snapshot"}
+              </p>
+              <h2 className="mt-1 font-display text-lg font-bold text-slate-900">
+                {primaryAlert
+                  ? `${primaryAlert.report.familyMemberName ?? primaryAlert.report.ownerName ?? firstName}'s ${primaryAlert.testName} is ${primaryAlert.flag}`
+                  : "No out-of-range markers in the visible timeline"}
+              </h2>
+              <p className="mt-1 text-sm leading-6 text-slate-600">
+                {primaryAlert
+                  ? `${primaryAlert.value} ${primaryAlert.unit} from ${primaryAlert.report.labName || "the latest visible report"}. Review this report or ask the assistant for context across ${contextLabel}.`
+                  : `Everything visible in ${contextLabel} looks calm. Keep adding reports to improve longitudinal insight.`}
+              </p>
+              {selectedFamilyMemberId ? (
+                <button className="mt-2 text-sm font-semibold text-brand-600 hover:text-brand-700" onClick={clearFamilyFilter}>
+                  Clear family filter
+                </button>
+              ) : null}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 sm:justify-end">
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => primaryAlert && setSelectedReport(primaryAlert.report)} disabled={!primaryAlert}>
+              <AlertTriangle className="h-4 w-4" />
+              Review alert
+            </Button>
+            {selectedCircleId ? (
+              <Link href="/circles">
+                <Button variant="soft" size="sm" className="gap-1.5">
+                  <UsersRound className="h-4 w-4" />
+                  Manage roles
+                </Button>
+              </Link>
+            ) : null}
+          </div>
         </div>
-      ) : null}
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Total Reports" value={String(reports.length)} sub="All time" accent="brand" />
+        <StatCard label={selectedCircleId ? "Circle Reports" : "Visible Reports"} value={String(reports.length)} sub={contextLabel} accent="brand" icon={UsersRound} />
         <StatCard
-          label="Latest Attention Score"
-          value={typeof latestScore === "number" ? `${latestScore}/5` : "--"}
-          sub="Most recent report"
+          label="Highest Attention"
+          value={typeof highestRiskReport?.aiExplanation?.attentionScore === "number" ? `${highestRiskReport.aiExplanation.attentionScore}/5` : "--"}
+          sub={highestRiskReport?.labName || "No reports yet"}
           accent="teal"
+          icon={ShieldAlert}
         />
-        <StatCard label="Out-of-range Markers" value={String(abnormalMarkers)} sub="Across visible reports" accent="amber" />
+        <StatCard label="Follow-up Signals" value={String(nextReminderCount)} sub={`${abnormalMarkers.length} marker flags`} accent="amber" icon={CalendarClock} />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
         <section className="space-y-6">
-          <div ref={uploaderRef}>
-            <InlineUploader
-              onUploaded={handleUploaded}
-              onViewReport={setSelectedReport}
-              onProcessingChange={setTimelineUpdating}
-            />
-          </div>
-
           <div>
             <div className="mb-4 flex items-center justify-between">
               <h2 className="font-display text-xl font-semibold text-slate-800">Report History</h2>
@@ -199,7 +227,7 @@ export function DashboardClient({
                 variant="ghost"
                 size="sm"
                 className="gap-1.5 text-brand-600 hover:bg-brand-50 hover:text-brand-700"
-                onClick={scrollToUploader}
+                onClick={() => setUploadOpen(true)}
               >
                 <Upload className="h-3.5 w-3.5" />
                 Add report
@@ -222,7 +250,7 @@ export function DashboardClient({
                   </div>
                   <h3 className="font-display text-lg font-semibold text-slate-900">No reports yet</h3>
                   <p className="mt-1 text-sm text-slate-500">Upload your first blood report to get started with AI analysis.</p>
-                  <Button className="mt-5 gap-2" onClick={scrollToUploader}>
+                  <Button className="mt-5 gap-2" onClick={() => setUploadOpen(true)}>
                     <Plus className="h-4 w-4" />
                     Upload your first report
                   </Button>
@@ -233,6 +261,7 @@ export function DashboardClient({
         </section>
 
         <aside className="space-y-4">
+          <EmergencyCard user={user} latestReport={reports[0] ?? null} />
           <RemindersPanel reports={reports} />
 
           <Card className="space-y-3 p-5">
@@ -240,7 +269,7 @@ export function DashboardClient({
             <div className="space-y-2">
               <button
                 className="flex w-full items-center gap-3 rounded-xl p-2.5 text-left transition-colors hover:bg-slate-50"
-                onClick={scrollToUploader}
+                onClick={() => setUploadOpen(true)}
               >
                 <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-100 text-brand-600">
                   <Upload className="h-4 w-4" />
@@ -262,15 +291,31 @@ export function DashboardClient({
             </div>
           </Card>
 
-          <details className="rounded-2xl border border-red-100 bg-white p-4 shadow-card">
-            <summary className="cursor-pointer text-sm font-semibold text-slate-800">Emergency Card</summary>
-            <div className="mt-4">
-              <EmergencyCard user={user} latestReport={reports[0] ?? null} />
-            </div>
-          </details>
         </aside>
       </div>
 
+      {uploadOpen ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 px-4 py-6 backdrop-blur-sm sm:items-center">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-dialog animate-scale-in">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-brand-600">Upload Report</p>
+                <h2 className="mt-1 font-display text-xl font-bold text-slate-900">Add analysis to {contextLabel}</h2>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setUploadOpen(false)} aria-label="Close upload modal">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="p-5">
+              <InlineUploader
+                onUploaded={handleUploaded}
+                onViewReport={setSelectedReport}
+                onProcessingChange={setTimelineUpdating}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
       <ReportDetailView report={selectedReport} onClose={() => setSelectedReport(null)} />
       <MilestoneToast message={toastMessage} onClose={() => setToastMessage(null)} />
     </div>
@@ -298,26 +343,32 @@ function StatCard({
   label,
   value,
   sub,
-  accent
+  accent,
+  icon: Icon
 }: {
   label: string;
   value: string;
   sub: string;
   accent: "brand" | "teal" | "amber";
+  icon: typeof UsersRound;
 }) {
   const accents = {
-    brand: "from-brand-500 to-sky-400",
-    teal: "from-teal-500 to-emerald-400",
-    amber: "from-amber-400 to-orange-400"
+    brand: "from-brand-600 via-sky-500 to-teal-400",
+    teal: "from-teal-600 via-emerald-500 to-lime-400",
+    amber: "from-amber-500 via-orange-500 to-rose-400"
   };
 
   return (
-    <Card className="group flex items-start gap-4 overflow-hidden p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover">
-      <div className={`h-12 w-1.5 flex-shrink-0 rounded-full bg-gradient-to-b ${accents[accent]}`} />
-      <div>
-        <p className="text-xs font-medium text-slate-500">{label}</p>
-        <p className="mt-0.5 font-display text-2xl font-bold text-slate-900">{value}</p>
-        <p className="mt-0.5 text-xs text-slate-400">{sub}</p>
+    <Card className={`group overflow-hidden border-0 bg-gradient-to-br ${accents[accent]} p-px transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover`}>
+      <div className="flex h-full items-start gap-4 rounded-2xl bg-white/90 p-5 backdrop-blur">
+        <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-white text-slate-800 shadow-sm">
+          <Icon className="h-5 w-5" />
+        </span>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</p>
+          <p className="mt-0.5 font-display text-2xl font-bold text-slate-900">{value}</p>
+          <p className="mt-0.5 text-xs text-slate-500">{sub}</p>
+        </div>
       </div>
     </Card>
   );

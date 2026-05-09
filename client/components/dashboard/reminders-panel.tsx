@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Bell, BellOff, CalendarPlus, Loader2 } from "lucide-react";
+import { Bell, BellOff, CalendarPlus, ChevronDown, Loader2, Plus } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ export function RemindersPanel({ reports }: { reports: Report[] }) {
   const [reminderDate, setReminderDate] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const reportLookup = useMemo(() => new Map(reports.map((report) => [report._id, report])), [reports]);
@@ -68,6 +69,7 @@ export function RemindersPanel({ reports }: { reports: Report[] }) {
       const reminder = await response.json();
       setReminders((current) => [reminder, ...current.filter((item) => item._id !== reminder._id)]);
       setReminderDate("");
+      setFormOpen(false);
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "Could not create reminder.");
     } finally {
@@ -92,30 +94,38 @@ export function RemindersPanel({ reports }: { reports: Report[] }) {
 
   return (
     <Card className="space-y-4 border-l-4 border-l-amber-400 p-5 shadow-card">
-      <div className="flex items-center gap-2">
-        <Bell className="h-4 w-4 text-amber-500" />
-        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Smart Reminders</p>
-      </div>
-
-      <div className="space-y-3">
-        <select
-          className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-700"
-          value={reportId}
-          onChange={(event) => setReportId(event.target.value)}
-          disabled={!reports.length}
-        >
-          {reports.map((report) => (
-            <option key={report._id} value={report._id}>
-              {report.labName || report.reportType}
-            </option>
-          ))}
-        </select>
-        <Input type="datetime-local" value={reminderDate} onChange={(event) => setReminderDate(event.target.value)} />
-        <Button className="w-full gap-2" onClick={() => void createReminder()} disabled={!reports.length || !reminderDate || saving}>
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarPlus className="h-4 w-4" />}
-          Add reminder
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Bell className="h-4 w-4 text-amber-500" />
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Smart Reminders</p>
+        </div>
+        <Button variant="ghost" size="sm" className="gap-1 text-amber-700 hover:bg-amber-50" onClick={() => setFormOpen((value) => !value)}>
+          {formOpen ? <ChevronDown className="h-4 w-4 rotate-180" /> : <Plus className="h-4 w-4" />}
+          Add
         </Button>
       </div>
+
+      {formOpen ? (
+        <div className="space-y-3 rounded-xl border border-amber-100 bg-amber-50/70 p-3 animate-slide-up">
+          <select
+            className="h-10 w-full rounded-xl border border-amber-200 bg-white px-3 text-sm text-slate-700"
+            value={reportId}
+            onChange={(event) => setReportId(event.target.value)}
+            disabled={!reports.length}
+          >
+            {reports.map((report) => (
+              <option key={report._id} value={report._id}>
+                {report.labName || report.reportType}
+              </option>
+            ))}
+          </select>
+          <Input type="datetime-local" value={reminderDate} onChange={(event) => setReminderDate(event.target.value)} />
+          <Button className="w-full gap-2" onClick={() => void createReminder()} disabled={!reports.length || !reminderDate || saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarPlus className="h-4 w-4" />}
+            Save reminder
+          </Button>
+        </div>
+      ) : null}
 
       {error ? <p className="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
 
@@ -124,23 +134,27 @@ export function RemindersPanel({ reports }: { reports: Report[] }) {
           <p className="text-sm text-slate-500">Loading reminders...</p>
         ) : reminders.length ? (
           reminders.map((reminder) => (
-            <div key={reminder._id} className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2.5">
-              <p className="text-sm font-semibold text-slate-900">
-                {reportLookup.get(reminder.reportId)?.labName ?? "Report follow-up"}
-              </p>
-              <p className="text-xs text-amber-900">{new Date(reminder.reminderDate).toLocaleString()}</p>
+            <div key={reminder._id} className="flex items-start justify-between gap-3 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2.5">
+              <div>
+                <p className="text-sm font-semibold text-slate-900">
+                  {reportLookup.get(reminder.reportId)?.labName ?? "Report follow-up"}
+                </p>
+                <p className="text-xs text-amber-900">{new Date(reminder.reminderDate).toLocaleString()}</p>
+              </div>
               <button
                 type="button"
-                className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-slate-900"
+                className="mt-0.5 inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-white hover:text-slate-900"
                 onClick={() => void muteReminder(reminder._id)}
+                aria-label="Mute reminder"
               >
                 <BellOff className="h-3.5 w-3.5" />
-                Mute
               </button>
             </div>
           ))
         ) : (
-          <p className="text-sm leading-relaxed text-slate-600">No active reminders yet.</p>
+          <div className="rounded-xl border border-dashed border-slate-200 px-3 py-4 text-sm leading-relaxed text-slate-600">
+            No active reminders yet.
+          </div>
         )}
       </div>
     </Card>
