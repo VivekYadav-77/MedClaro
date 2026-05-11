@@ -35,7 +35,9 @@ export function MedicationConflictPanel() {
     async function load() {
       setLoading(true);
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports/medication-conflicts`, {
+        const circleId = window.localStorage.getItem("selectedCircleId");
+        const suffix = circleId ? `?circleId=${circleId}` : "";
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports/medication-conflicts${suffix}`, {
           headers: { Authorization: `Bearer ${session?.accessToken}` },
         });
         const payload = await response.json().catch(() => null);

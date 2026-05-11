@@ -25,6 +25,29 @@ class Report(models.Model):
         ordering = ["-upload_date"]
 
 
+class ReportShare(models.Model):
+    ACCESS_CHOICES = [("view", "View")]
+    STATUS_CHOICES = [("active", "Active"), ("revoked", "Revoked")]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    report = models.ForeignKey(Report, related_name="shares", on_delete=models.CASCADE)
+    circle = models.ForeignKey("circles.Circle", related_name="report_shares", on_delete=models.CASCADE)
+    shared_by = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="report_shares_created", on_delete=models.CASCADE)
+    consent_granted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name="report_share_consents",
+        on_delete=models.CASCADE,
+    )
+    access_level = models.CharField(max_length=20, choices=ACCESS_CHOICES, default="view")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="active")
+    created_at = models.DateTimeField(default=timezone.now)
+    revoked_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        unique_together = ("report", "circle")
+        ordering = ["-created_at"]
+
+
 class StructuredParameter(models.Model):
     report = models.ForeignKey(Report, related_name="structured_parameters", on_delete=models.CASCADE)
     position = models.PositiveIntegerField(default=0)

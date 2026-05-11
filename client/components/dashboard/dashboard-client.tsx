@@ -1,7 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle, CalendarClock, Plus, ShieldAlert, Sparkles, TrendingUp, Upload, UsersRound, X } from "lucide-react";
+import {
+  AlertTriangle,
+  Bot,
+  CalendarClock,
+  ClipboardCheck,
+  FileText,
+  Plus,
+  ShieldAlert,
+  TrendingUp,
+  Upload,
+  UsersRound,
+  X,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 
@@ -11,9 +23,11 @@ import { RemindersPanel } from "@/components/dashboard/reminders-panel";
 import { ReportDetailView } from "@/components/dashboard/report-detail-view";
 import { Timeline } from "@/components/dashboard/timeline";
 import { MilestoneToast } from "@/components/circles/milestone-toast";
+import { FeatureStatusGrid } from "@/components/clinical/feature-status-grid";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
+import { buildClinicalFeatureCards, buildMedicationRiskSummary, collectAbnormalMarkers } from "@/lib/clinical-features";
 import { Circle, Report, UserProfile } from "@/lib/types";
 
 export function DashboardClient({
@@ -34,13 +48,7 @@ export function DashboardClient({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const firstName = user.name.split(" ")[0];
 
-  const abnormalMarkers = useMemo(() => {
-    return reports.flatMap((report) =>
-      report.structuredData
-        .filter((item) => item.flag !== "normal")
-        .map((item) => ({ ...item, report }))
-    );
-  }, [reports]);
+  const abnormalMarkers = useMemo(() => collectAbnormalMarkers(reports), [reports]);
   const highestRiskReport = useMemo(
     () => [...reports].sort((a, b) => (b.aiExplanation?.attentionScore ?? 0) - (a.aiExplanation?.attentionScore ?? 0))[0],
     [reports]
@@ -49,6 +57,10 @@ export function DashboardClient({
   const activeCircleName = circles.find((circle) => circle.id === selectedCircleId)?.name;
   const contextLabel = selectedCircleId ? activeCircleName ?? "selected Care Circle" : selectedFamilyMemberId ? "selected family profile" : "my private reports";
   const primaryAlert = abnormalMarkers[0];
+  const features = useMemo(() => buildClinicalFeatureCards(reports, circles.length), [reports, circles.length]);
+  const medicationRisk = useMemo(() => buildMedicationRiskSummary(reports), [reports]);
+  const liveCount = features.filter((feature) => feature.status === "live").length;
+  const pendingCount = features.filter((feature) => feature.status === "backend_pending").length;
 
   useEffect(() => {
     if (!process.env.NEXT_PUBLIC_API_URL || !session?.accessToken) return;
@@ -129,12 +141,14 @@ export function DashboardClient({
   };
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm font-medium text-slate-500">Good to see you,</p>
-          <h1 className="font-display text-3xl font-bold text-slate-900">{firstName}'s Health Timeline</h1>
-          <p className="mt-2 text-sm text-slate-500">A unified view of {contextLabel}.</p>
+    <div className="space-y-6 animate-fade-in">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Clinical Command Center</p>
+          <h1 className="font-display text-2xl font-bold text-slate-950">{firstName}'s family health operations view</h1>
+          <p className="max-w-3xl text-sm leading-6 text-slate-600">
+            A dense view of {contextLabel}: urgent markers, shared-care access, medication safety, follow-ups, and roadmap readiness.
+          </p>
         </div>
         <div className="flex flex-col gap-2 sm:min-w-80">
           {circles.length ? (
@@ -162,51 +176,57 @@ export function DashboardClient({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-card">
-        <div className="flex flex-col gap-4 bg-gradient-to-r from-amber-50 via-white to-teal-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3">
-            <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-700">
-              {primaryAlert ? <ShieldAlert className="h-5 w-5" /> : <Sparkles className="h-5 w-5" />}
-            </span>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-amber-700">
-                {primaryAlert ? "Action Required" : "Circle Health Snapshot"}
-              </p>
-              <h2 className="mt-1 font-display text-lg font-bold text-slate-900">
-                {primaryAlert
-                  ? `${primaryAlert.report.familyMemberName ?? primaryAlert.report.ownerName ?? firstName}'s ${primaryAlert.testName} is ${primaryAlert.flag}`
-                  : "No out-of-range markers in the visible timeline"}
-              </h2>
-              <p className="mt-1 text-sm leading-6 text-slate-600">
-                {primaryAlert
-                  ? `${primaryAlert.value} ${primaryAlert.unit} from ${primaryAlert.report.labName || "the latest visible report"}. Review this report or ask the assistant for context across ${contextLabel}.`
-                  : `Everything visible in ${contextLabel} looks calm. Keep adding reports to improve longitudinal insight.`}
-              </p>
-              {selectedFamilyMemberId ? (
-                <button className="mt-2 text-sm font-semibold text-brand-600 hover:text-brand-700" onClick={clearFamilyFilter}>
-                  Clear family filter
-                </button>
-              ) : null}
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
+        <Card className="border-amber-200 p-4 shadow-none">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-3">
+              <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-amber-100 text-amber-700">
+                {primaryAlert ? <ShieldAlert className="h-5 w-5" /> : <ClipboardCheck className="h-5 w-5" />}
+              </span>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                  {primaryAlert ? "Highest active signal" : "No urgent visible marker"}
+                </p>
+                <h2 className="mt-1 text-base font-semibold text-slate-900">
+                  {primaryAlert
+                    ? `${primaryAlert.report.familyMemberName ?? primaryAlert.report.ownerName ?? firstName}: ${primaryAlert.testName} is ${primaryAlert.flag}`
+                    : `Everything visible in ${contextLabel} looks calm`}
+                </h2>
+                <p className="mt-1 text-sm leading-6 text-slate-600">
+                  {primaryAlert
+                    ? `${primaryAlert.value} ${primaryAlert.unit} from ${primaryAlert.report.labName || "latest visible report"}. Review before changing any care plan.`
+                    : "Keep adding repeat reports so trend, variance, and guideline modules can become more useful."}
+                </p>
+                {selectedFamilyMemberId ? (
+                  <button className="mt-2 text-sm font-semibold text-brand-600 hover:text-brand-700" onClick={clearFamilyFilter}>
+                    Clear family filter
+                  </button>
+                ) : null}
+              </div>
             </div>
-          </div>
-          <div className="flex flex-wrap gap-2 sm:justify-end">
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => primaryAlert && setSelectedReport(primaryAlert.report)} disabled={!primaryAlert}>
-              <AlertTriangle className="h-4 w-4" />
-              Review alert
-            </Button>
-            {selectedCircleId ? (
-              <Link href="/circles">
+            <div className="flex flex-wrap gap-2 sm:justify-end">
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => primaryAlert && setSelectedReport(primaryAlert.report)} disabled={!primaryAlert}>
+                <AlertTriangle className="h-4 w-4" />
+                Review
+              </Button>
+              <Link href="/assistant">
                 <Button variant="soft" size="sm" className="gap-1.5">
-                  <UsersRound className="h-4 w-4" />
-                  Manage roles
+                  <Bot className="h-4 w-4" />
+                  Ask
                 </Button>
               </Link>
-            ) : null}
+            </div>
           </div>
-        </div>
+        </Card>
+        <Card className="grid grid-cols-2 gap-3 p-4 shadow-none sm:grid-cols-4 lg:grid-cols-2">
+          <CommandMetric label="Live modules" value={`${liveCount}/15`} icon={ClipboardCheck} />
+          <CommandMetric label="Backend pending" value={String(pendingCount)} icon={FileText} />
+          <CommandMetric label="Medication risk" value={medicationRisk.polypharmacyRisk} icon={ShieldAlert} />
+          <CommandMetric label="Follow-ups" value={String(nextReminderCount)} icon={CalendarClock} />
+        </Card>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-3">
         <StatCard label={selectedCircleId ? "Circle Reports" : "Visible Reports"} value={String(reports.length)} sub={contextLabel} accent="brand" icon={UsersRound} />
         <StatCard
           label="Highest Attention"
@@ -218,11 +238,13 @@ export function DashboardClient({
         <StatCard label="Follow-up Signals" value={String(nextReminderCount)} sub={`${abnormalMarkers.length} marker flags`} accent="amber" icon={CalendarClock} />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
+      <FeatureStatusGrid features={features} title="Feature readiness across Featurefix.md" />
+
+      <div className="grid gap-5 xl:grid-cols-[1fr_340px]">
         <section className="space-y-6">
           <div>
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-display text-xl font-semibold text-slate-800">Report History</h2>
+              <h2 className="font-display text-lg font-semibold text-slate-900">Report History</h2>
               <Button
                 variant="ghost"
                 size="sm"
@@ -244,8 +266,8 @@ export function DashboardClient({
               timelineUpdating ? (
                 <TimelineSkeleton />
               ) : (
-                <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-white p-10 text-center shadow-card">
-                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50">
+                <div className="rounded-lg border-2 border-dashed border-slate-200 bg-white p-8 text-center shadow-card">
+                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-brand-50">
                     <Upload className="h-7 w-7 text-brand-500" />
                   </div>
                   <h3 className="font-display text-lg font-semibold text-slate-900">No reports yet</h3>
@@ -264,7 +286,7 @@ export function DashboardClient({
           <EmergencyCard user={user} latestReport={reports[0] ?? null} />
           <RemindersPanel reports={reports} />
 
-          <Card className="space-y-3 p-5">
+          <Card className="space-y-3 p-4">
             <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Quick Actions</p>
             <div className="space-y-2">
               <button
@@ -284,7 +306,7 @@ export function DashboardClient({
               </Link>
               <Link href="/family" className="flex items-center gap-3 rounded-xl p-2.5 transition-colors hover:bg-slate-50">
                 <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
-                  <Sparkles className="h-4 w-4" />
+                  <UsersRound className="h-4 w-4" />
                 </span>
                 <span className="text-sm font-medium text-slate-700">Manage family profiles</span>
               </Link>
@@ -296,7 +318,7 @@ export function DashboardClient({
 
       {uploadOpen ? (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 px-4 py-6 backdrop-blur-sm sm:items-center">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-dialog animate-scale-in">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white shadow-dialog animate-scale-in">
             <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-brand-600">Upload Report</p>
@@ -318,6 +340,26 @@ export function DashboardClient({
       ) : null}
       <ReportDetailView report={selectedReport} onClose={() => setSelectedReport(null)} />
       <MilestoneToast message={toastMessage} onClose={() => setToastMessage(null)} />
+    </div>
+  );
+}
+
+function CommandMetric({
+  label,
+  value,
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  icon: typeof UsersRound;
+}) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <Icon className="h-3.5 w-3.5" />
+        {label}
+      </div>
+      <p className="mt-2 truncate font-display text-xl font-bold capitalize text-slate-950">{value}</p>
     </div>
   );
 }

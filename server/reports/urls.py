@@ -6,6 +6,7 @@ from reports.views import (
     ReportChatView,
     ReportDetailView,
     ReportListCreateView,
+    ReportShareView,
     MedicationConflictView,
     ReportSummaryView,
     ReportTrendsView,
@@ -24,5 +25,6 @@ urlpatterns = [
     path("reports/<uuid:report_id>", ReportDetailView.as_view()),
     path("reports/<uuid:report_id>/chat", ReportChatView.as_view()),
     path("reports/<uuid:report_id>/diet-advice", ReportDietAdviceView.as_view()),
+    path("reports/<uuid:report_id>/shares", ReportShareView.as_view()),
     path("reports/<uuid:report_id>/summary", ReportSummaryView.as_view()),
 ]

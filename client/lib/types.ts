@@ -64,6 +64,7 @@ export type Reminder = {
 
 export type Report = {
   _id: string;
+  userId?: string;
   ownerName?: string;
   familyMemberId?: string | null;
   familyMemberName?: string | null;
@@ -77,6 +78,18 @@ export type Report = {
   aiExplanation: ReportExplanation;
   medications?: MedicationCard[];
   chatHistory: ChatMessage[];
+};
+
+export type ReportShare = {
+  id: string;
+  circleId: string;
+  circleName: string;
+  status: "active" | "revoked";
+  accessLevel: "view";
+  sharedBy: string;
+  consentGrantedBy: string;
+  createdAt: string;
+  revokedAt?: string | null;
 };
 
 export type UserProfile = {
@@ -120,7 +133,7 @@ export type Circle = {
   name: string;
   createdBy?: string;
   memberCount: number;
-  myRole: "admin" | "contributor" | "viewer";
+  myRole: "admin" | "caregiver" | "viewer";
   joinCode?: string;
 };
 
@@ -128,7 +141,7 @@ export type CircleMember = {
   id: string;
   userId: string;
   name: string;
-  role: "admin" | "contributor" | "viewer";
+  role: "admin" | "caregiver" | "viewer";
   joinedAt: string;
 };
 
@@ -170,4 +183,55 @@ export type HealthContext = {
     medications: string[];
     summary: string;
   }[];
+};
+
+export type FeatureStatus = "live" | "needs_setup" | "backend_pending" | "no_data";
+
+export type ClinicalFeatureCard = {
+  id: string;
+  title: string;
+  shortTitle: string;
+  description: string;
+  status: FeatureStatus;
+  route?: string;
+  actionLabel: string;
+  category: "safety" | "clinical" | "daily" | "integration" | "care";
+};
+
+export type EmergencySosState = {
+  status: FeatureStatus;
+  adminRecipients: number;
+  locationPermission: "unknown" | "granted" | "denied" | "unsupported";
+  smsProviderConnected: boolean;
+};
+
+export type EhrExportRow = {
+  marker: string;
+  value: number | string;
+  unit: string;
+  loincCode?: string;
+  delta?: string;
+  risk: "normal" | "watch" | "high";
+};
+
+export type MedicationRiskSummary = {
+  medicationCount: number;
+  polypharmacyRisk: "low" | "moderate" | "high";
+  anticholinergicBurdenStatus: FeatureStatus;
+  refillPrompts: string[];
+};
+
+export type ScreeningTask = {
+  title: string;
+  dueStatus: "due" | "upcoming" | "not_applicable" | "needs_profile";
+  reason: string;
+  actionLabel: string;
+};
+
+export type RemissionPathway = {
+  condition: "prediabetes" | "fatty_liver" | "hypertension";
+  status: FeatureStatus;
+  progressPercent: number;
+  currentWeek: number;
+  nextHabit: string;
 };

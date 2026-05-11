@@ -37,7 +37,9 @@ export function TreatmentTab() {
     async function load() {
       setLoading(true);
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports/treatment-effectiveness`, {
+        const circleId = window.localStorage.getItem("selectedCircleId");
+        const suffix = circleId ? `?circleId=${circleId}` : "";
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports/treatment-effectiveness${suffix}`, {
           headers: session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : undefined,
         });
         const payload = await response.json().catch(() => null);

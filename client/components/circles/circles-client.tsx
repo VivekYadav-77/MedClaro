@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { ClipboardCopy, KeyRound, Loader2, LogIn, Plus, RefreshCw, SendHorizontal, ShieldCheck, Trash2, UserCheck, UsersRound } from "lucide-react";
+import { ClipboardCopy, FileText, KeyRound, Loader2, LogIn, Plus, RefreshCw, SendHorizontal, ShieldCheck, Trash2, UserCheck, UsersRound } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 import { ActivityFeed } from "@/components/circles/activity-feed";
@@ -17,7 +17,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const roleDescriptions: Record<CircleMember["role"], string> = {
   admin: "Can invite people, manage roles, remove members, and coordinate shared care.",
-  contributor: "Can upload reports and add health updates for the circle.",
+  caregiver: "Can share reports and add health updates for the circle.",
   viewer: "Can view shared reports, trends, feed updates, and assistant answers.",
 };
 
@@ -206,7 +206,7 @@ export function CirclesClient() {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[340px_1fr]">
-      <Card className="space-y-5 p-5">
+      <Card className="space-y-4 p-4">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-brand-600">Shared care</p>
@@ -214,7 +214,7 @@ export function CirclesClient() {
           </div>
           {loading ? <Loader2 className="h-4 w-4 animate-spin text-slate-400" /> : null}
         </div>
-        <div className="rounded-xl border border-teal-100 bg-teal-50 p-3 text-sm leading-6 text-teal-900">
+        <div className="rounded-lg border border-teal-100 bg-teal-50 p-3 text-sm leading-6 text-teal-900">
           <ShieldCheck className="mb-2 h-4 w-4" />
           Invite only people who should see shared health records. Roles can be changed later by an admin.
         </div>
@@ -236,7 +236,7 @@ export function CirclesClient() {
               key={circle.id}
               onClick={() => setSelectedId(circle.id)}
               className={cn(
-                "w-full rounded-xl border p-3 text-left transition-colors",
+                "w-full rounded-lg border p-3 text-left transition-colors",
                 selectedId === circle.id ? "border-brand-200 bg-brand-50" : "border-slate-200 bg-white hover:bg-slate-50"
               )}
             >
@@ -256,7 +256,7 @@ export function CirclesClient() {
 
       <div className="space-y-5">
         {message ? <p className="rounded-xl border border-green-100 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</p> : null}
-        <Card className="space-y-5 p-5">
+        <Card className="space-y-4 p-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-brand-600">{selectedCircle?.myRole ?? "Circle"}</p>
             <h1 className="font-display text-2xl font-bold text-slate-900">{selectedCircle?.name ?? "Select a circle"}</h1>
@@ -264,8 +264,8 @@ export function CirclesClient() {
           {selectedCircle ? (
             <>
               <div className="grid gap-3 md:grid-cols-3">
-                {(["admin", "contributor", "viewer"] as CircleMember["role"][]).map((role) => (
-                  <div key={role} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                {(["admin", "caregiver", "viewer"] as CircleMember["role"][]).map((role) => (
+                  <div key={role} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
                     <div className="flex items-center gap-2">
                       <UserCheck className="h-4 w-4 text-brand-600" />
                       <p className="font-medium capitalize text-slate-900">{role}</p>
@@ -275,7 +275,7 @@ export function CirclesClient() {
                 ))}
               </div>
               {canAdminister ? (
-              <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Circle code</p>
                   <p className="mt-1 inline-flex items-center gap-2 font-mono text-lg font-semibold tracking-wider text-slate-900">
@@ -295,7 +295,7 @@ export function CirclesClient() {
                 </div>
               </div>
               ) : (
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm leading-6 text-slate-600">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm leading-6 text-slate-600">
                   Your role is <span className="font-semibold text-slate-900">{selectedCircle.myRole}</span>. Ask a circle admin if you need upload or invite access.
                 </div>
               )}
@@ -315,7 +315,7 @@ export function CirclesClient() {
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {members.map((member) => (
-                    <div key={member.id} className="rounded-xl border border-slate-200 p-3">
+                    <div key={member.id} className="rounded-lg border border-slate-200 p-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="truncate font-medium text-slate-900">{member.name}</p>
@@ -341,18 +341,27 @@ export function CirclesClient() {
                           onChange={(event) => void updateMemberRole(member.id, event.target.value as CircleMember["role"])}
                         >
                           <option value="admin">Admin</option>
-                          <option value="contributor">Contributor</option>
-                          <option value="viewer">Viewer</option>
+                          <option value="caregiver">Caregiver</option>
+                          <option value="viewer">View-only</option>
                         </Select>
                       ) : null}
                     </div>
                   ))}
                 </div>
               </section>
+              <section className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <h2 className="flex items-center gap-2 font-semibold text-slate-900">
+                  <FileText className="h-4 w-4 text-brand-600" />
+                  Shared reports
+                </h2>
+                <p className="mt-1 text-sm leading-6 text-slate-600">
+                  Explicit report sharing is managed from each report drawer. Circle dashboards only show reports with active consent.
+                </p>
+              </section>
             </>
           ) : null}
         </Card>
-        <Card className="space-y-4 p-5">
+        <Card className="space-y-4 p-4">
           <h2 className="font-semibold text-slate-900">Activity Feed</h2>
           <ActivityFeed entries={feed} />
         </Card>

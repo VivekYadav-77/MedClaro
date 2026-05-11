@@ -1,46 +1,27 @@
 import json
 
 from django.conf import settings
-from django.db.models import Q
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from reports.models import Report
-from reports.serializers import ReportChatRequestSerializer
+from reports.access import accessible_reports, can_contribute_to_circle, share_report_with_circle, shared_or_owned_reports
+from reports.models import Report, ReportShare
+from reports.serializers import ReportChatRequestSerializer, ReportShareSerializer
 from reports.services import GeminiService, RateLimiter, ReportHydrator, ReportService, TrendService
 from reminders.models import Reminder
 
 
 def get_accessible_report_queryset(user, circle_id=None):
-    if not circle_id:
-        return Report.objects.filter(user=user)
-
-    try:
-        from circles.models import CircleMember
-    except Exception:
-        return Report.objects.none()
-
-    membership = CircleMember.objects.filter(circle_id=circle_id, user=user).first()
-    if not membership:
-        return Report.objects.none()
-    circle_user_ids = CircleMember.objects.filter(circle_id=circle_id).values_list("user_id", flat=True)
-    return Report.objects.filter(user_id__in=circle_user_ids)
+    return accessible_reports(user, circle_id=circle_id)
 
 
 def get_shared_report_queryset(user):
-    try:
-        from circles.models import CircleMember
-    except Exception:
-        return Report.objects.filter(user=user)
-
-    shared_user_ids = CircleMember.objects.filter(
-        circle_id__in=CircleMember.objects.filter(user=user).values("circle_id")
-    ).values_list("user_id", flat=True)
-    return Report.objects.filter(Q(user=user) | Q(user_id__in=shared_user_ids)).distinct()
+    return shared_or_owned_reports(user)
 
 
-def build_health_context(user, circle_id=None, limit=10):
+def build_health_context(user, circle_id=None, limit=5):
     hydrator = ReportHydrator()
     reports = (
         get_accessible_report_queryset(user, circle_id)
@@ -114,15 +95,8 @@ class ReportUploadView(APIView):
         family_member_id = request.data.get("familyMemberId")
         circle_id = request.data.get("circleId")
         if circle_id:
-            try:
-                from circles.models import CircleMember
-            except Exception:
-                return Response({"error": "Circle support is unavailable"}, status=status.HTTP_400_BAD_REQUEST)
-            membership = CircleMember.objects.filter(circle_id=circle_id, user=request.user).first()
-            if not membership:
-                return Response({"error": "Circle not found"}, status=status.HTTP_404_NOT_FOUND)
-            if membership.role == "viewer":
-                return Response({"error": "Viewers cannot upload reports to a circle"}, status=status.HTTP_403_FORBIDDEN)
+            if not can_contribute_to_circle(circle_id, request.user):
+                return Response({"error": "Only circle admins and caregivers can share uploads"}, status=status.HTTP_403_FORBIDDEN)
         data = ReportService().create_report(upload, family_member_id, request.user, circle_id=circle_id)
         return Response(data)
 
@@ -189,13 +163,56 @@ class ReportSummaryView(APIView):
         specialty = request.data.get("specialty", "general").strip() or "general"
         reports = [
             hydrator.hydrate(item)
-            for item in Report.objects.filter(user=request.user).order_by("-upload_date").prefetch_related("chat_messages")[:8]
+            for item in get_shared_report_queryset(request.user)
+            .filter(user=report.user)
+            .order_by("-upload_date")
+            .prefetch_related("chat_messages")[:8]
         ]
         try:
             result = ReportService().ai.generate_specialty_prebrief(reports, specialty, request.user.preferred_language)
         except Exception:
             result = ReportService().ai.fallback_specialty_prebrief(reports, specialty)
         return Response(result)
+
+
+class ReportShareView(APIView):
+    def get_report(self, request, report_id):
+        return Report.objects.filter(id=report_id, user=request.user).first()
+
+    def get(self, request, report_id):
+        report = self.get_report(request, report_id)
+        if not report:
+            return Response({"error": "Report not found"}, status=status.HTTP_404_NOT_FOUND)
+        shares = ReportShare.objects.filter(report=report).select_related("circle", "shared_by", "consent_granted_by")
+        return Response(ReportShareSerializer(shares, many=True).data)
+
+    def post(self, request, report_id):
+        report = self.get_report(request, report_id)
+        if not report:
+            return Response({"error": "Report not found"}, status=status.HTTP_404_NOT_FOUND)
+        circle_id = request.data.get("circleId")
+        if not circle_id:
+            return Response({"error": "circleId required"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            share = share_report_with_circle(report, circle_id, request.user)
+        except PermissionError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+        return Response(ReportShareSerializer(share).data, status=status.HTTP_201_CREATED)
+
+    def delete(self, request, report_id):
+        report = self.get_report(request, report_id)
+        if not report:
+            return Response({"error": "Report not found"}, status=status.HTTP_404_NOT_FOUND)
+        circle_id = request.data.get("circleId") or request.query_params.get("circleId")
+        if not circle_id:
+            return Response({"error": "circleId required"}, status=status.HTTP_400_BAD_REQUEST)
+        updated = ReportShare.objects.filter(report=report, circle_id=circle_id, status="active").update(
+            status="revoked",
+            revoked_at=timezone.now(),
+        )
+        if not updated:
+            return Response({"error": "Active share not found"}, status=status.HTTP_404_NOT_FOUND)
+        return Response({"message": "Report share revoked"})
 
 
 class ReportDietAdviceView(APIView):
@@ -218,9 +235,12 @@ class ReportDietAdviceView(APIView):
 class TreatmentEffectivenessView(APIView):
     def get(self, request):
         hydrator = ReportHydrator()
+        circle_id = request.query_params.get("circleId")
         all_reports = [
             hydrator.hydrate(report)
-            for report in Report.objects.filter(user=request.user).order_by("upload_date").prefetch_related("chat_messages")
+            for report in get_accessible_report_queryset(request.user, circle_id)
+            .order_by("upload_date")
+            .prefetch_related("chat_messages")
         ]
         prescriptions = [report for report in all_reports if report["reportType"] == "prescription"]
         blood_reports = [report for report in all_reports if report["reportType"] != "prescription"]
@@ -248,9 +268,10 @@ class TreatmentEffectivenessView(APIView):
 class MedicationConflictView(APIView):
     def get(self, request):
         hydrator = ReportHydrator()
+        circle_id = request.query_params.get("circleId")
         reports = [
             hydrator.hydrate(report)
-            for report in Report.objects.filter(user=request.user).order_by("-upload_date").prefetch_related("chat_messages")[:12]
+            for report in get_accessible_report_queryset(request.user, circle_id).order_by("-upload_date").prefetch_related("chat_messages")[:12]
         ]
         if not any(report.get("medications") for report in reports):
             return Response({
@@ -267,7 +288,7 @@ class MedicationConflictView(APIView):
 class GlobalChatView(APIView):
     def get(self, request):
         circle_id = request.query_params.get("circleId")
-        return Response({"healthContext": build_health_context(request.user, circle_id=circle_id, limit=10)})
+        return Response({"healthContext": build_health_context(request.user, circle_id=circle_id, limit=5)})
 
     def post(self, request):
         RateLimiter().enforce(request.user, "global_chat", settings.CHAT_LIMIT_PER_DAY)
@@ -276,7 +297,7 @@ class GlobalChatView(APIView):
             return Response({"error": "message required"}, status=status.HTTP_400_BAD_REQUEST)
 
         circle_id = request.data.get("circleId")
-        health_state = build_health_context(request.user, circle_id=circle_id, limit=10)
+        health_state = build_health_context(request.user, circle_id=circle_id, limit=5)
         language = request.user.preferred_language
         prompt = f"""
 You are a personal health assistant with full access to the user's medical history.

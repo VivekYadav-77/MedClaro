@@ -24,7 +24,7 @@ class Circle(models.Model):
 
 
 class CircleMember(models.Model):
-    ROLE_CHOICES = [("admin", "Admin"), ("contributor", "Contributor"), ("viewer", "Viewer")]
+    ROLE_CHOICES = [("admin", "Admin"), ("caregiver", "Caregiver"), ("viewer", "View-only")]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     circle = models.ForeignKey(Circle, related_name="members", on_delete=models.CASCADE)

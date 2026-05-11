@@ -1089,9 +1089,18 @@ class ReportService:
             .first()
         )
         previous_hydrated = self.hydrator.hydrate(previous) if previous else None
+        if circle_id:
+            self._share_report_with_circle(report, circle_id, current_user)
         self._publish_circle_upload(report, parsed, current_user, circle_id=circle_id)
         self._apply_lifestyle_correlation(report, current_user, previous_hydrated)
         self._publish_marker_milestones(report, parsed, current_user, previous_hydrated, circle_id=circle_id)
+
+    def _share_report_with_circle(self, report: Report, circle_id: str, current_user) -> None:
+        try:
+            from reports.access import share_report_with_circle
+        except Exception:
+            return
+        share_report_with_circle(report, circle_id, current_user)
 
     def _publish_circle_upload(self, report: Report, parsed: dict, current_user, circle_id: str | None = None) -> None:
         try:

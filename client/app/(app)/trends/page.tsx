@@ -2,7 +2,7 @@ import { TrendChart } from "@/components/reports/trend-chart";
 import { TrajectoryCard } from "@/components/reports/trajectory-card";
 import { Card } from "@/components/ui/card";
 import { getTrends } from "@/lib/api";
-import { TrendingUp, Calendar } from "lucide-react";
+import { AlertTriangle, Calendar, ScanSearch, Stethoscope, TrendingUp, type LucideIcon } from "lucide-react";
 import { TreatmentTab } from "@/app/(app)/trends/treatment-tab";
 
 export default async function TrendsPage() {
@@ -12,13 +12,34 @@ export default async function TrendsPage() {
     <div className="space-y-8 animate-fade-in">
       {/* Header */}
       <div>
-        <p className="text-xs font-semibold uppercase tracking-widest text-brand-600">Trend View</p>
-        <h1 className="mt-1 font-display text-3xl font-bold text-slate-900">
-          See what has moved, not just what looks off today.
+        <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Clinical Trends</p>
+        <h1 className="mt-1 font-display text-2xl font-bold text-slate-900">
+          Guideline alerts, variance checks, and treatment movement.
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
           Charts compare normalized values, show reference bands behind the lines, and look for slow patterns across reports and seasons.
         </p>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <ClinicalTrendCard
+          icon={Stethoscope}
+          title="Guideline source"
+          status="Backend pending"
+          body="ADA/AHA/nephrology thresholds are not connected yet. Current trajectory cards use trend and reference ranges."
+        />
+        <ClinicalTrendCard
+          icon={ScanSearch}
+          title="Lab variance"
+          status={trends.series?.length ? "Needs backend rules" : "No repeat data"}
+          body="Improbable jumps should be flagged by a future quality-control endpoint before warning users."
+        />
+        <ClinicalTrendCard
+          icon={AlertTriangle}
+          title="Clinical escalation"
+          status={trends.trajectories?.some((item) => item.warningLevel === "alert") ? "Review" : "Watch"}
+          body="Alerts are preparation signals only. The app must not diagnose or change medication."
+        />
       </div>
 
       {/* Stats row */}
@@ -83,5 +104,34 @@ export default async function TrendsPage() {
         <TreatmentTab />
       </section>
     </div>
+  );
+}
+
+function ClinicalTrendCard({
+  icon: Icon,
+  title,
+  status,
+  body,
+}: {
+  icon: LucideIcon;
+  title: string;
+  status: string;
+  body: string;
+}) {
+  return (
+    <Card className="p-4 shadow-none">
+      <div className="flex items-start gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-700">
+          <Icon className="h-4 w-4" />
+        </span>
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-semibold text-slate-900">{title}</p>
+            <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">{status}</span>
+          </div>
+          <p className="mt-1 text-sm leading-6 text-slate-600">{body}</p>
+        </div>
+      </div>
+    </Card>
   );
 }

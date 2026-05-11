@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
   // Base: pointer-events-auto ensures clicks always register
-  "relative inline-flex items-center justify-center gap-2 rounded-xl text-sm font-semibold " +
+  "relative inline-flex items-center justify-center gap-2 rounded-lg text-sm font-semibold " +
   "transition-all duration-150 pointer-events-auto select-none " +
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 " +
   "disabled:pointer-events-none disabled:opacity-40 " +

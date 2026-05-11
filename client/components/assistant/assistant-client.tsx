@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, BrainCircuit, Loader2, MessageSquareText, Pill, SendHorizontal, ShieldCheck, type LucideIcon } from "lucide-react";
+import { AlertTriangle, BrainCircuit, FileText, Loader2, MessageSquareText, Pill, SendHorizontal, ShieldCheck, type LucideIcon } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 import { Badge } from "@/components/ui/badge";
@@ -121,11 +121,10 @@ export function AssistantClient() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="max-w-3xl">
-          <p className="text-sm font-semibold uppercase tracking-wider text-brand-600">Omni-aware assistant</p>
-          <h1 className="mt-2 font-display text-3xl font-bold text-slate-950">Ask across reports, medicines, and family context</h1>
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Omni-aware assistant</p>
+          <h1 className="mt-2 font-display text-2xl font-bold text-slate-950">Ask across the last 5 reports, medicines, and shared-care context</h1>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            The assistant uses the selected health context and keeps answers grounded in saved reports. It is built for plain language,
-            caregiver handoffs, and safer doctor-visit preparation.
+            Answers stay grounded in the selected health context. Chronic-condition records are not connected yet, so the assistant will call out missing context.
           </p>
         </div>
         <div className="w-full max-w-sm">
@@ -216,13 +215,19 @@ export function AssistantClient() {
           <ContextStatCard icon={AlertTriangle} label="Markers to watch" value={contextLoading ? "..." : String(context?.watchMarkerCount ?? 0)} />
 
           <Card className="p-5">
-            <h2 className="font-semibold text-slate-900">Context Preview</h2>
+            <h2 className="font-semibold text-slate-900">Health Context JSON Preview</h2>
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">
+              Chronic conditions are not available in the frontend/API yet. Reports and medications below are live context inputs.
+            </div>
             <div className="mt-4 space-y-3">
               {(context?.reports ?? []).slice(0, 5).map((report) => (
-                <div key={`${report.type}-${report.date}-${report.owner}`} className="rounded-xl border border-slate-200 p-3">
+                <div key={`${report.type}-${report.date}-${report.owner}`} className="rounded-lg border border-slate-200 p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-medium text-slate-900">{report.type.replace(/_/g, " ")}</p>
+                      <p className="flex items-center gap-2 font-medium text-slate-900">
+                        <FileText className="h-3.5 w-3.5 text-slate-400" />
+                        {report.type.replace(/_/g, " ")}
+                      </p>
                       <p className="text-xs text-slate-500">{report.familyMember || report.owner || "Saved profile"} - {report.date}</p>
                     </div>
                     <Badge>{report.abnormalMarkers.length} flags</Badge>
