@@ -24,7 +24,7 @@ Before adding new features, the AI IDE must fix the following foundational gaps 
 The AI IDE must upgrade the original concepts to make them medically actionable and deeply integrated into daily life.
 
 ### 1. True Care Circles & Emergency SOS Protocol
-*   **Improvement:** Add an "Emergency SOS" trigger that instantly sends an SMS with the user's location, critical conditions, and recent severe test anomalies to all Admin members of the Care Circle.
+*   **Improvement:** Add an "Emergency SOS" trigger that creates in-app Care Circle alerts and prepares browser-native share text with the user's location, critical conditions, and recent severe test anomalies. Paid SMS can remain optional, not required.
 
 ### 2. Predictive Trajectories -> Clinical Guideline Alerts
 *   **Improvement:** Pure momentum isn't enough. The AI must cross-reference trends against standardized clinical guidelines (e.g., ADA for diabetes, AHA for cardiology). 
@@ -42,15 +42,15 @@ The AI IDE must upgrade the original concepts to make them medically actionable 
 *   **Improvement:** Grandparents often take 10+ medications prescribed by different doctors who don't talk to each other.
 *   **Actionable Output:** Calculate an "Anticholinergic Burden Score" or general "Polypharmacy Risk." Highlight deprescribing opportunities for the user to discuss with their general physician.
 
-### 6. WhatsApp Bot -> Conversational Health Logging
-*   **Improvement:** Provide a Twilio/WhatsApp webhook so elderly users can just send a voice note: *"I had a Dosa for breakfast and took my Metformin."* The backend AI parses the intent and logs the meal and medication adherence automatically.
+### 6. Free Conversational Health Logging
+*   **Improvement:** Provide in-app lifestyle and adherence logging first, with browser sharing for caregiver updates. Twilio/WhatsApp should be treated as an optional paid extension, not the default product path.
 
 ### 7. Emergency Card -> ICE Protocol & Paramedic Notification
 *   **Improvement:** When the QR code on the emergency card is scanned by a paramedic, it should not only show the data but *automatically* trigger an alert to the Care Circle that the emergency card was accessed, including the IP/Location.
 
-### 8. Lifestyle Correlation -> Wearable Sync (Apple Health/Google Fit)
+### 8. Lifestyle Correlation -> Manual Health Import
 *   **Improvement:** Manual tagging is unreliable.
-*   **Actionable Output:** Integrate OAuth for Google Fit/Apple Health. Pull step counts, sleep hours, and resting heart rate. Correlate poor sleep weeks directly with spikes in fasting glucose or cortisol reports.
+*   **Actionable Output:** Support free manual import from device exports for step counts, sleep hours, resting heart rate, blood pressure, and glucose. Correlate poor sleep weeks directly with spikes in fasting glucose or cortisol reports without requiring paid provider APIs.
 
 ### 9. Hyper-Local Diet -> Seasonal Grocery Cart Generator
 *   **Improvement:** Generic diet advice fails.
@@ -91,5 +91,5 @@ To make this a world-class application, the AI IDE should implement these 5 new 
 ## 🚀 Execution Instructions for AI IDE
 
 1.  **Architecture First:** Do not build UI until the backend database schema is updated to support true multi-tenant Care Circles and the Global Context Aggregator for the Chatbot.
-2.  **API Integration:** Set up webhooks for Twilio (WhatsApp) and begin integrating a standard medical terminology API (like RxNorm or a generic equivalent) for the Medication Conflict and Generic Finder features.
+2.  **Free Integration Path:** Use in-app notifications, browser-native sharing, manual health imports, and free/open medical terminology sources. Paid messaging providers should stay optional and disabled by default.
 3.  **Prompt Engineering:** Update all Gemini prompts to enforce structured JSON outputs that map strictly to clinical guidelines (ADA, AHA) rather than generating generalized advice.

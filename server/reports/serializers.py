@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from reports.models import ReportShare
+from reports.models import ReportShare, WearableMetric
 
 
 class ReportChatRequestSerializer(serializers.Serializer):
@@ -34,3 +34,11 @@ class ReportShareSerializer(serializers.ModelSerializer):
             "createdAt",
             "revokedAt",
         ]
+
+
+class WearableMetricImportSerializer(serializers.Serializer):
+    metricType = serializers.ChoiceField(choices=[choice[0] for choice in WearableMetric.METRIC_CHOICES])
+    value = serializers.FloatField()
+    unit = serializers.CharField(required=False, allow_blank=True, max_length=40)
+    recordedAt = serializers.DateTimeField()
+    source = serializers.CharField(required=False, allow_blank=True, max_length=80)

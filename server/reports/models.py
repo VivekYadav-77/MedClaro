@@ -92,3 +92,56 @@ class AnalysisQueueEntry(models.Model):
     reason = models.CharField(max_length=80)
     status = models.CharField(max_length=30, default="pending")
     created_at = models.DateTimeField(default=timezone.now)
+
+
+class EmergencyEvent(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    requester = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="emergency_events", on_delete=models.CASCADE)
+    circle = models.ForeignKey("circles.Circle", related_name="emergency_events", on_delete=models.SET_NULL, blank=True, null=True)
+    latest_report = models.ForeignKey(Report, related_name="emergency_events", on_delete=models.SET_NULL, blank=True, null=True)
+    report_context = models.JSONField(default=dict)
+    location_payload = models.JSONField(default=dict)
+    summary_text = models.TextField()
+    recipient_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
+class EmergencyCardAccess(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    event = models.ForeignKey(EmergencyEvent, related_name="access_logs", on_delete=models.CASCADE)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="emergency_card_accesses", on_delete=models.CASCADE)
+    report = models.ForeignKey(Report, related_name="emergency_card_accesses", on_delete=models.SET_NULL, blank=True, null=True)
+    family_member = models.ForeignKey("users.FamilyMember", related_name="emergency_card_accesses", on_delete=models.SET_NULL, blank=True, null=True)
+    ip_address = models.GenericIPAddressField(blank=True, null=True)
+    user_agent = models.CharField(max_length=512, blank=True, default="")
+    metadata = models.JSONField(default=dict)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
+class WearableMetric(models.Model):
+    METRIC_CHOICES = [
+        ("steps", "Steps"),
+        ("sleep_minutes", "Sleep minutes"),
+        ("resting_heart_rate", "Resting heart rate"),
+        ("blood_pressure_systolic", "Blood pressure systolic"),
+        ("blood_pressure_diastolic", "Blood pressure diastolic"),
+        ("glucose", "Glucose"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="wearable_metrics", on_delete=models.CASCADE)
+    metric_type = models.CharField(max_length=40, choices=METRIC_CHOICES)
+    value = models.FloatField()
+    unit = models.CharField(max_length=40, blank=True, default="")
+    recorded_at = models.DateTimeField()
+    source = models.CharField(max_length=80, blank=True, default="manual_import")
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-recorded_at", "-created_at"]

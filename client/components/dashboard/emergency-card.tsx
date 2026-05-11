@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
 import { LocateFixed, MessageSquareWarning, QrCode, Radio, ShieldAlert, Square, Volume2 } from "lucide-react";
 import QRCode from "qrcode";
 
@@ -10,15 +11,23 @@ import { Report, UserProfile } from "@/lib/types";
 
 export function EmergencyCard({
   user,
-  latestReport
+  latestReport,
+  circleId
 }: {
   user: UserProfile;
   latestReport: Report | null;
+  circleId?: string;
 }) {
+  const { data: session } = useSession();
   const [broadcasting, setBroadcasting] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [locationPermission, setLocationPermission] = useState<"unknown" | "granted" | "denied" | "unsupported">("unknown");
   const [sosMessage, setSosMessage] = useState<string | null>(null);
+  const [shareText, setShareText] = useState<string | null>(null);
+  const [accessUrl, setAccessUrl] = useState<string | null>(null);
+  const [recipientCount, setRecipientCount] = useState<number | null>(null);
+  const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [sendingSos, setSendingSos] = useState(false);
   const broadcastingRef = useRef(false);
 
   const medications = useMemo(() => latestReport?.medications?.map((medication) => medication.name) ?? [], [latestReport]);
@@ -38,8 +47,9 @@ export function EmergencyCard({
   );
 
   useEffect(() => {
-    QRCode.toDataURL(emergencyText, { margin: 1, width: 180 }).then(setQrDataUrl).catch(() => setQrDataUrl(null));
-  }, [emergencyText]);
+    const qrPayload = accessUrl ?? emergencyText;
+    QRCode.toDataURL(qrPayload, { margin: 1, width: 180 }).then(setQrDataUrl).catch(() => setQrDataUrl(null));
+  }, [accessUrl, emergencyText]);
 
   useEffect(() => {
     if (!("permissions" in navigator)) return;
@@ -82,14 +92,49 @@ export function EmergencyCard({
       return;
     }
     navigator.geolocation.getCurrentPosition(
-      () => setLocationPermission("granted"),
+      (position) => {
+        setLocationPermission("granted");
+        setLocation({ latitude: position.coords.latitude, longitude: position.coords.longitude });
+      },
       () => setLocationPermission("denied"),
       { enableHighAccuracy: true, timeout: 8000 }
     );
   }
 
-  function triggerSos() {
-    setSosMessage("SOS SMS endpoint `/emergency/sos` is not connected yet. Location, severe markers, and circle admins are ready to send once backend support exists.");
+  async function triggerSos() {
+    if (!process.env.NEXT_PUBLIC_API_URL || !(session as any)?.accessToken || sendingSos) return;
+    setSendingSos(true);
+    setSosMessage(null);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/emergency/sos`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${(session as any).accessToken}`,
+        },
+        body: JSON.stringify({ circleId: circleId || undefined, location: location ?? undefined }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error ?? "Could not send emergency alert.");
+      setShareText(data.shareText ?? emergencyText);
+      setAccessUrl(data.accessUrl ?? null);
+      setRecipientCount(typeof data.recipientCount === "number" ? data.recipientCount : 0);
+      setSosMessage(data.message ?? "Emergency alert prepared.");
+    } catch (error) {
+      setSosMessage(error instanceof Error ? error.message : "Could not send emergency alert.");
+    } finally {
+      setSendingSos(false);
+    }
+  }
+
+  async function shareEmergencyText() {
+    const text = shareText ?? emergencyText;
+    if (navigator.share) {
+      await navigator.share({ title: "MedClaro emergency info", text, url: accessUrl ?? undefined }).catch(() => undefined);
+      return;
+    }
+    await navigator.clipboard?.writeText(accessUrl ? `${text}\n${accessUrl}` : text).catch(() => undefined);
+    setSosMessage("Emergency text copied. Share it with your phone apps manually.");
   }
 
   return (
@@ -102,18 +147,19 @@ export function EmergencyCard({
       <div className="space-y-4 p-4">
         <button
           type="button"
-          onClick={triggerSos}
+          onClick={() => void triggerSos()}
+          disabled={sendingSos}
           className="flex w-full items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-red-700"
         >
           <ShieldAlert className="h-5 w-5" />
-          Emergency SOS
+          {sendingSos ? "Sending in-app alert..." : "Emergency SOS"}
         </button>
         {sosMessage ? <p className="rounded-lg border border-red-200 bg-white px-3 py-2 text-xs leading-5 text-red-700">{sosMessage}</p> : null}
         <div className="grid gap-2 text-xs sm:grid-cols-2">
           <StatusBlock icon={LocateFixed} label="Location" value={locationPermission} action={locationPermission !== "granted" ? "Enable" : undefined} onAction={requestLocation} />
-          <StatusBlock icon={MessageSquareWarning} label="SMS provider" value="Backend pending" />
-          <StatusBlock icon={UsersIcon} label="Admin recipients" value="Care Circle admins" />
-          <StatusBlock icon={QrCode} label="QR scan alert" value="Endpoint pending" />
+          <StatusBlock icon={MessageSquareWarning} label="Alert channel" value="In-app + manual share" />
+          <StatusBlock icon={UsersIcon} label="Care recipients" value={recipientCount === null ? "Admins/caregivers" : `${recipientCount} notified`} />
+          <StatusBlock icon={QrCode} label="QR scan alert" value={accessUrl ? "Logging enabled" : "Ready after SOS"} />
         </div>
         <div className="space-y-3 text-sm">
           <InfoBlock label="Blood type" value="Unknown" />
@@ -123,9 +169,13 @@ export function EmergencyCard({
         {qrDataUrl ? (
           <div className="rounded-lg border border-red-100 bg-white p-3 text-center shadow-sm">
             <img src={qrDataUrl} alt="Emergency medical QR code" className="mx-auto h-36 w-36 rounded-lg bg-white" />
-            <p className="mt-2 text-xs font-medium text-slate-500">Scan for emergency summary</p>
+            <p className="mt-2 text-xs font-medium text-slate-500">{accessUrl ? "Scan logs access and shows emergency summary" : "Scan for emergency summary"}</p>
           </div>
         ) : null}
+        <Button variant="outline" className="w-full gap-2 border-red-200 bg-white hover:bg-red-50" onClick={() => void shareEmergencyText()}>
+          <MessageSquareWarning className="h-4 w-4" />
+          Share via phone apps
+        </Button>
         <Button variant={broadcasting ? "danger" : "outline"} className="w-full gap-2 border-red-200 bg-white hover:bg-red-50" onClick={broadcast}>
           {broadcasting ? <Square className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
           {broadcasting ? "Stop broadcasting" : "Broadcast aloud"}
@@ -136,7 +186,7 @@ export function EmergencyCard({
             Broadcasting
           </p>
         ) : null}
-        <p className="text-xs leading-5 text-slate-500">Offline QR and audio work now. Paramedic scan notification needs `/emergency-card/:id/access`.</p>
+        <p className="text-xs leading-5 text-slate-500">Free mode uses in-app Care Circle alerts, browser sharing, QR access logging, and offline audio.</p>
       </div>
     </Card>
   );

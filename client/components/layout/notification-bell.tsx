@@ -121,5 +121,11 @@ function notificationText(notification: AppNotification) {
   if (entry.eventType === "member_joined") {
     return `${String(entry.payload.name ?? entry.actorName)} joined the circle.`;
   }
+  if (entry.eventType === "emergency_sos") {
+    return `${entry.actorName} triggered an emergency alert.`;
+  }
+  if (entry.eventType === "emergency_card_accessed") {
+    return `${entry.actorName}'s emergency card was accessed.`;
+  }
   return `${entry.actorName} shared an update.`;
 }

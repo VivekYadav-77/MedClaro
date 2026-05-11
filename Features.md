@@ -14,7 +14,7 @@ Currently, the app relies on a single user uploading reports for dummy family pr
 *   **Activity Feed & Notifications:** A shared feed for the family. 
     *   *"Rahul uploaded a new Lipid Profile for Grandpa."*
     *   *"Grandpa's HbA1c has entered the normal range! 🎉"*
-    *   Push/Email/WhatsApp notifications ensure everyone stays in the loop without having to actively check the app.
+    *   Free in-app notifications and browser-native sharing help everyone stay in the loop without requiring paid messaging providers.
 
 ## 2. Predictive AI Health Trajectories
 
@@ -52,9 +52,9 @@ Grandparents often see multiple specialists (Cardiologist, Endocrinologist) who 
 *   **Feature:** As new prescriptions are uploaded, the AI cross-references them against *existing* active medications and recent blood test results. 
 *   *Example:* "Warning: The new painkiller prescribed might reduce the effectiveness of the blood pressure medication Dad has been taking since Jan."
 
-### C. WhatsApp / Voice Integration for the Elderly
+### C. Free Phone Sharing / Conversational Logging for the Elderly
 Elderly users might struggle with a web UI.
-*   **Feature:** Connect a WhatsApp bot. Grandpa can send a voice note: *"Beta, I'm feeling dizzy, what was my sugar level yesterday?"* The backend transcribes it, runs it through the Omni-Chatbot, and replies in WhatsApp.
+*   **Feature:** Use browser-native sharing and simple in-app lifestyle logs first. Paid messaging bots can remain an optional future add-on, but the core product must work without WhatsApp Business or SMS fees.
 
 ### D. Emergency "Lock-Screen" Medical Card
 *   **Feature:** The app generates an Apple Wallet / Google Wallet pass (or a simple QR code). If a family member is in an emergency, scanning it shows a summarized, AI-generated view of their blood type, critical conditions, and active medications.

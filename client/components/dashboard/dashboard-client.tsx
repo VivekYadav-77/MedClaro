@@ -283,7 +283,7 @@ export function DashboardClient({
         </section>
 
         <aside className="space-y-4">
-          <EmergencyCard user={user} latestReport={reports[0] ?? null} />
+          <EmergencyCard user={user} latestReport={reports[0] ?? null} circleId={selectedCircleId} />
           <RemindersPanel reports={reports} />
 
           <Card className="space-y-3 p-4">

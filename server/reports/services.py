@@ -84,6 +84,12 @@ def parse_lab_number(value) -> float | None:
         return None
 
 
+def normalize_text_field(value, default: str = "") -> str:
+    if value is None:
+        return default
+    return str(value).strip()
+
+
 def marker_key(name: str | None) -> str:
     return re.sub(r"[^a-z0-9]+", " ", (name or "").lower()).strip()
 
@@ -728,15 +734,17 @@ class ParserService:
         structured = []
         for item in items:
             value = item.get("value")
+            test_name = normalize_text_field(item.get("testName"), "Unknown") or "Unknown"
+            unit = normalize_text_field(item.get("unit"))
             normalized_value = None
             normalized_unit = None
             if isinstance(value, (int, float)):
-                normalized_value, normalized_unit = normalize_value(item.get("testName", ""), float(value), item.get("unit", ""))
+                normalized_value, normalized_unit = normalize_value(test_name, float(value), unit)
             structured.append(
                 {
-                    "testName": item.get("testName", "Unknown"),
+                    "testName": test_name,
                     "value": value if value is not None else "",
-                    "unit": item.get("unit", ""),
+                    "unit": unit,
                     "normalizedValue": normalized_value,
                     "normalizedUnit": normalized_unit,
                     "referenceRangeLow": item.get("referenceRangeLow"),
@@ -1063,16 +1071,17 @@ class ReportService:
         for index, item in enumerate(structured_data):
             value = item.get("value")
             numeric_value = parse_lab_number(value)
+            test_name = normalize_text_field(item.get("testName"), "Unknown") or "Unknown"
             parameters.append(
                 StructuredParameter(
                     report=report,
                     position=index,
-                    test_name=item.get("testName", "Unknown"),
+                    test_name=test_name,
                     numeric_value=numeric_value,
-                    raw_value_text="" if isinstance(value, (int, float)) else str(value),
-                    unit=item.get("unit", ""),
+                    raw_value_text="" if isinstance(value, (int, float)) else normalize_text_field(value),
+                    unit=normalize_text_field(item.get("unit")),
                     normalized_value=parse_lab_number(item.get("normalizedValue")),
-                    normalized_unit=item.get("normalizedUnit"),
+                    normalized_unit=normalize_text_field(item.get("normalizedUnit")) or None,
                     reference_range_low=parse_lab_number(item.get("referenceRangeLow")),
                     reference_range_high=parse_lab_number(item.get("referenceRangeHigh")),
                     flag=normalize_flag(item.get("flag")),

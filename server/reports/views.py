@@ -2,13 +2,14 @@ import json
 
 from django.conf import settings
 from django.utils import timezone
+from rest_framework import permissions
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from reports.access import accessible_reports, can_contribute_to_circle, share_report_with_circle, shared_or_owned_reports
-from reports.models import Report, ReportShare
-from reports.serializers import ReportChatRequestSerializer, ReportShareSerializer
+from reports.models import EmergencyCardAccess, EmergencyEvent, Report, ReportShare, WearableMetric
+from reports.serializers import ReportChatRequestSerializer, ReportShareSerializer, WearableMetricImportSerializer
 from reports.services import GeminiService, RateLimiter, ReportHydrator, ReportService, TrendService
 from reminders.models import Reminder
 
@@ -85,6 +86,227 @@ class ReportListCreateView(APIView):
 
     def post(self, request):
         return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+
+def _latest_report_for_emergency(user, circle_id=None):
+    queryset = accessible_reports(user, circle_id=circle_id).prefetch_related("chat_messages")
+    return queryset.order_by("-upload_date").first()
+
+
+def _emergency_report_context(report):
+    if not report:
+        return {
+            "medications": [],
+            "abnormalMarkers": [],
+            "reportDate": None,
+            "reportType": None,
+        }
+    hydrated = ReportHydrator().hydrate(report)
+    return {
+        "reportId": str(report.id),
+        "reportType": hydrated.get("reportType"),
+        "reportDate": hydrated.get("reportDate"),
+        "medications": [item.get("name") for item in hydrated.get("medications", []) if item.get("name")][:12],
+        "abnormalMarkers": [
+            {
+                "name": item.get("testName"),
+                "value": item.get("value"),
+                "unit": item.get("unit", ""),
+                "flag": item.get("flag"),
+            }
+            for item in hydrated.get("structuredData", [])
+            if item.get("flag") != "normal"
+        ][:12],
+        "familyMemberId": hydrated.get("familyMemberId"),
+        "familyMemberName": hydrated.get("familyMemberName"),
+    }
+
+
+def _build_emergency_summary(user, context, location_payload=None):
+    medications = ", ".join(context.get("medications") or []) or "none listed"
+    markers = context.get("abnormalMarkers") or []
+    marker_text = ", ".join(
+        f"{marker.get('name')} {marker.get('value')} {marker.get('unit', '')} ({marker.get('flag')})".strip()
+        for marker in markers[:6]
+    ) or "none listed"
+    location = location_payload or {}
+    location_text = ""
+    if location.get("latitude") is not None and location.get("longitude") is not None:
+        location_text = f" Location: {location.get('latitude')}, {location.get('longitude')}."
+    subject_name = context.get("familyMemberName") or user.name
+    return (
+        f"MEDCLARO EMERGENCY INFO: {subject_name}. "
+        f"Recent active medications: {medications}. "
+        f"Recent abnormal markers: {marker_text}."
+        f"{location_text} This is shared from saved health records and should be verified clinically."
+    )
+
+
+def _circle_recipients(circle_id, requester):
+    if not circle_id:
+        return []
+    try:
+        from circles.models import CircleMember
+    except Exception:
+        return []
+    requester_membership = CircleMember.objects.filter(circle_id=circle_id, user=requester).first()
+    if not requester_membership:
+        return []
+    return [
+        member.user
+        for member in CircleMember.objects.filter(circle_id=circle_id, role__in=["admin", "caregiver"]).select_related("user")
+        if member.user_id != requester.id
+    ]
+
+
+def _user_belongs_to_circle(circle_id, user):
+    if not circle_id:
+        return True
+    try:
+        from circles.models import CircleMember
+    except Exception:
+        return False
+    return CircleMember.objects.filter(circle_id=circle_id, user=user).exists()
+
+
+def _publish_emergency_feed(event, event_type, payload, recipients):
+    if not event.circle_id:
+        return None
+    from circles.models import ActivityFeedEntry, Notification
+
+    entry = ActivityFeedEntry.objects.create(
+        circle=event.circle,
+        actor=event.requester,
+        event_type=event_type,
+        payload=payload,
+    )
+    Notification.objects.bulk_create([Notification(user=user, feed_entry=entry) for user in recipients])
+    return entry
+
+
+class EmergencySosView(APIView):
+    def post(self, request):
+        circle_id = request.data.get("circleId") or None
+        if circle_id and not _user_belongs_to_circle(circle_id, request.user):
+            return Response({"error": "Circle not found"}, status=status.HTTP_404_NOT_FOUND)
+        location_payload = request.data.get("location") if isinstance(request.data.get("location"), dict) else {}
+        latest_report = _latest_report_for_emergency(request.user, circle_id=circle_id)
+        context = _emergency_report_context(latest_report)
+        summary_text = _build_emergency_summary(request.user, context, location_payload)
+        recipients = _circle_recipients(circle_id, request.user)
+        event = EmergencyEvent.objects.create(
+            requester=request.user,
+            circle_id=circle_id,
+            latest_report=latest_report,
+            report_context=context,
+            location_payload=location_payload,
+            summary_text=summary_text,
+            recipient_count=len(recipients),
+        )
+        _publish_emergency_feed(
+            event,
+            "emergency_sos",
+            {
+                "eventId": str(event.id),
+                "summaryText": summary_text,
+                "recipientCount": len(recipients),
+                "familyMemberName": context.get("familyMemberName"),
+            },
+            recipients,
+        )
+        api_prefix = settings.API_V1_PREFIX.rstrip("/")
+        access_url = request.build_absolute_uri(f"{api_prefix}/emergency-card/{event.id}/access")
+        return Response(
+            {
+                "eventId": str(event.id),
+                "shareText": summary_text,
+                "recipientCount": len(recipients),
+                "accessUrl": access_url,
+                "message": (
+                    f"In-app emergency alert sent to {len(recipients)} Care Circle recipient(s)."
+                    if recipients
+                    else "No Care Circle admins or caregivers were available; use the share button to send this manually."
+                ),
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class EmergencyCardAccessView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, event_id):
+        event = EmergencyEvent.objects.filter(id=event_id).select_related("requester", "circle", "latest_report").first()
+        if not event:
+            return Response({"error": "Emergency event not found"}, status=status.HTTP_404_NOT_FOUND)
+        access = EmergencyCardAccess.objects.create(
+            event=event,
+            owner=event.requester,
+            report=event.latest_report,
+            family_member_id=event.report_context.get("familyMemberId"),
+            ip_address=self._client_ip(request),
+            user_agent=request.META.get("HTTP_USER_AGENT", "")[:512],
+            metadata={"method": request.method},
+        )
+        recipients = _circle_recipients(str(event.circle_id), event.requester) if event.circle_id else []
+        _publish_emergency_feed(
+            event,
+            "emergency_card_accessed",
+            {"eventId": str(event.id), "accessId": str(access.id), "familyMemberName": event.report_context.get("familyMemberName")},
+            recipients,
+        )
+        return Response({"message": "Emergency card access logged", "summaryText": event.summary_text})
+
+    def get(self, request, event_id):
+        return self.post(request, event_id)
+
+    def _client_ip(self, request):
+        forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+        return request.META.get("REMOTE_ADDR")
+
+
+class IntegrationStatusView(APIView):
+    def get(self, request):
+        return Response(
+            {
+                "mode": "free",
+                "emergencyAlerts": "in_app_care_circle",
+                "nativeShare": "browser_supported",
+                "manualHealthImport": "enabled",
+                "paidProviders": {
+                    "sms": "disabled",
+                    "whatsappBusiness": "disabled",
+                    "googleFitOAuth": "disabled",
+                },
+            }
+        )
+
+
+class WearableMetricImportView(APIView):
+    def post(self, request):
+        rows = request.data.get("rows", request.data)
+        if not isinstance(rows, list):
+            return Response({"error": "Expected an array or {rows: [...]}"}, status=status.HTTP_400_BAD_REQUEST)
+        imported = []
+        errors = []
+        for index, row in enumerate(rows):
+            serializer = WearableMetricImportSerializer(data=row)
+            if not serializer.is_valid():
+                errors.append({"index": index, "errors": serializer.errors})
+                continue
+            data = serializer.validated_data
+            metric = WearableMetric.objects.create(
+                user=request.user,
+                metric_type=data["metricType"],
+                value=data["value"],
+                unit=data.get("unit", ""),
+                recorded_at=data["recordedAt"],
+                source=data.get("source", "manual_import") or "manual_import",
+            )
+            imported.append({"id": str(metric.id), "metricType": metric.metric_type})
+        return Response({"importedCount": len(imported), "errorCount": len(errors), "imported": imported, "errors": errors})
 
 
 class ReportUploadView(APIView):

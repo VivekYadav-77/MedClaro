@@ -30,6 +30,12 @@ REPORT_KEYWORDS = {
 }
 
 
+def normalize_text_field(value, default: str = "") -> str:
+    if value is None:
+        return default
+    return str(value).strip()
+
+
 class ParserService:
     def __init__(self) -> None:
         self.settings = get_settings()
@@ -69,15 +75,17 @@ class ParserService:
         structured: list[StructuredParameter] = []
         for item in items:
             value = item.get("value")
+            test_name = normalize_text_field(item.get("testName"), "Unknown") or "Unknown"
+            unit = normalize_text_field(item.get("unit"))
             normalized_value = None
             normalized_unit = None
             if isinstance(value, (int, float)):
-                normalized_value, normalized_unit = normalize_value(item.get("testName", ""), float(value), item.get("unit", ""))
+                normalized_value, normalized_unit = normalize_value(test_name, float(value), unit)
             structured.append(
                 StructuredParameter(
-                    testName=item.get("testName", "Unknown"),
+                    testName=test_name,
                     value=value if value is not None else "",
-                    unit=item.get("unit", ""),
+                    unit=unit,
                     normalizedValue=normalized_value,
                     normalizedUnit=normalized_unit,
                     referenceRangeLow=item.get("referenceRangeLow"),

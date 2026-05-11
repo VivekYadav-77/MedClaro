@@ -136,15 +136,17 @@ export function SettingsClient({ user }: { user: UserProfile }) {
           </div>
           <div>
             <h2 className="font-semibold text-slate-900">Integrations</h2>
-            <p className="text-xs text-slate-500">Honest setup states for Featurefix integrations.</p>
+            <p className="text-xs text-slate-500">Free-mode setup with no paid messaging or wearable providers required.</p>
           </div>
         </div>
         <div className="grid gap-3 md:grid-cols-3">
-          <IntegrationCard icon={MessageCircle} title="WhatsApp / Twilio" status="Backend pending" body="Voice-note conversational logging needs `/logs/conversational` and Twilio webhook support." />
-          <IntegrationCard icon={Activity} title="Google Fit" status="Needs setup" body="OAuth and wearable sync need `/integrations/wearables` before step, sleep, and heart-rate data can flow." />
-          <IntegrationCard icon={Smartphone} title="Apple Health" status="Needs setup" body="Apple Health export/import requires a provider bridge or manual upload workflow." />
+          <IntegrationCard icon={MessageCircle} title="Care Circle alerts" status="Free mode" body="Emergency alerts use in-app notifications for admins and caregivers, plus browser sharing for phone apps." />
+          <IntegrationCard icon={Activity} title="Manual health import" status="Enabled" body="Import steps, sleep, heart rate, BP, and glucose from CSV or JSON without paid wearable APIs." />
+          <IntegrationCard icon={Smartphone} title="Phone sharing" status="Browser native" body="Use your device share sheet to send emergency text through installed apps when supported." />
         </div>
       </Card>
+
+      <HealthImportPanel token={(session as any)?.accessToken} />
 
       <Card className="space-y-4 p-4">
         <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
@@ -232,10 +234,89 @@ function IntegrationCard({
       </div>
       <p className="mt-2 text-sm leading-6 text-slate-600">{body}</p>
       <Button variant="outline" size="sm" className="mt-3" disabled>
-        Connect
+        Free mode
       </Button>
     </div>
   );
+}
+
+function HealthImportPanel({ token }: { token?: string }) {
+  const [rawRows, setRawRows] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function importRows() {
+    if (!process.env.NEXT_PUBLIC_API_URL || !token || importing) return;
+    setImporting(true);
+    setResult(null);
+    setError(null);
+    try {
+      const rows = parseHealthRows(rawRows);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/wearables/import`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ rows }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(payload?.error ?? "Could not import health metrics.");
+      setResult(`Imported ${payload.importedCount ?? 0} row(s). ${payload.errorCount ?? 0} row(s) need correction.`);
+    } catch (importError) {
+      setError(importError instanceof Error ? importError.message : "Could not import health metrics.");
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  return (
+    <Card className="space-y-4 p-4">
+      <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-100">
+          <Activity className="h-5 w-5 text-sky-700" />
+        </div>
+        <div>
+          <h2 className="font-semibold text-slate-900">Manual health data import</h2>
+          <p className="text-xs text-slate-500">Paste JSON or CSV rows from free device exports.</p>
+        </div>
+      </div>
+      <textarea
+        className="min-h-[150px] w-full rounded-lg border border-slate-200 bg-white p-3 text-sm outline-none focus:border-brand-400"
+        value={rawRows}
+        onChange={(event) => setRawRows(event.target.value)}
+        placeholder={'metricType,value,unit,recordedAt,source\nsteps,8400,count,2026-05-11T08:00:00Z,manual\nsleep_minutes,420,min,2026-05-11T06:30:00Z,manual'}
+      />
+      {result ? <p className="rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{result}</p> : null}
+      {error ? <p className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
+      <div className="flex flex-wrap items-center gap-3">
+        <Button className="gap-2" onClick={() => void importRows()} disabled={importing || !rawRows.trim()}>
+          <Activity className="h-4 w-4" />
+          {importing ? "Importing..." : "Import metrics"}
+        </Button>
+        <p className="text-xs text-slate-500">Allowed: steps, sleep_minutes, resting_heart_rate, blood_pressure_systolic, blood_pressure_diastolic, glucose.</p>
+      </div>
+    </Card>
+  );
+}
+
+function parseHealthRows(rawRows: string) {
+  const trimmed = rawRows.trim();
+  if (!trimmed) throw new Error("Paste JSON or CSV rows first.");
+  if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+    const parsed = JSON.parse(trimmed);
+    return Array.isArray(parsed) ? parsed : parsed.rows;
+  }
+  const [headerLine, ...lines] = trimmed.split(/\r?\n/).filter(Boolean);
+  const headers = headerLine.split(",").map((item) => item.trim());
+  return lines.map((line) => {
+    const values = line.split(",").map((item) => item.trim());
+    return headers.reduce<Record<string, string>>((row, header, index) => {
+      row[header] = values[index] ?? "";
+      return row;
+    }, {});
+  });
 }
 
 function PendingModule({ title, body }: { title: string; body: string }) {
