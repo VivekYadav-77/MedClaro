@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from reports.access import accessible_reports, can_contribute_to_circle, share_report_with_circle, shared_or_owned_reports
-from reports.models import EmergencyCardAccess, EmergencyEvent, Report, ReportShare, WearableMetric
+from reports.models import EmergencyCardAccess, EmergencyEvent, PrescriptionAnalysis, PrescriptionRecord, PrescriptionReportLink, Report, ReportShare, WearableMetric
 from reports.serializers import ReportChatRequestSerializer, ReportShareSerializer, WearableMetricImportSerializer
 from reports.services import GeminiService, RateLimiter, ReportHydrator, ReportService, TrendService
 from reminders.models import Reminder
@@ -148,6 +148,106 @@ def _build_refill_summary(reports):
             }
         )
     return prompts[:10]
+
+
+def _ensure_prescription_record(report, user):
+    if report.report_type != "prescription" and not report.medications:
+        return None
+    record, created = PrescriptionRecord.objects.get_or_create(
+        report=report,
+        defaults={
+            "user": user,
+            "status": "unknown",
+            "start_date": report.report_date,
+            "medications_snapshot": report.medications or [],
+        },
+    )
+    if not created and not record.medications_snapshot and report.medications:
+        record.medications_snapshot = report.medications
+        record.save(update_fields=["medications_snapshot", "updated_at"])
+    return record
+
+
+def _serialize_prescription_record(record, request=None):
+    hydrator = ReportHydrator()
+    linked_reports = [
+        hydrator.hydrate(link.report)
+        for link in record.report_links.select_related("report", "report__user", "report__family_member").prefetch_related("report__chat_messages")
+    ]
+    latest_analysis = record.analyses.first()
+    return {
+        "id": str(record.id),
+        "reportId": str(record.report_id),
+        "status": record.status,
+        "startDate": record.start_date,
+        "endDate": record.end_date,
+        "doctorName": record.doctor_name,
+        "specialty": record.specialty,
+        "notes": record.notes,
+        "medications": record.medications_snapshot or record.report.medications or [],
+        "report": hydrator.hydrate(record.report),
+        "linkedReports": linked_reports,
+        "latestAnalysis": _serialize_prescription_analysis(latest_analysis) if latest_analysis else None,
+        "createdAt": record.created_at,
+        "updatedAt": record.updated_at,
+    }
+
+
+def _serialize_prescription_analysis(analysis):
+    if not analysis:
+        return None
+    result = analysis.result or {}
+    return {
+        "id": str(analysis.id),
+        "prescriptionId": str(analysis.prescription_id),
+        "relatedReportIds": analysis.related_report_ids or [],
+        "comparisonPrescriptionIds": analysis.comparison_prescription_ids or [],
+        "result": result,
+        "summary": result.get("summary") or result.get("message") or "",
+        "riskLevel": result.get("riskLevel") or result.get("risk_level"),
+        "createdAt": analysis.created_at,
+    }
+
+
+def _serialize_prescription_analysis_history_item(analysis):
+    serialized = _serialize_prescription_analysis(analysis)
+    record = analysis.prescription
+    linked_reports = list(record.report_links.select_related("report")[:8])
+    return {
+        **serialized,
+        "prescription": {
+            "id": str(record.id),
+            "reportId": str(record.report_id),
+            "name": record.report.lab_name or "Prescription",
+            "date": record.report.report_date or record.report.upload_date,
+            "status": record.status,
+            "medications": record.medications_snapshot or record.report.medications or [],
+        },
+        "linkedReports": [
+            {
+                "id": str(link.report_id),
+                "name": link.report.lab_name or link.report.report_type,
+                "reportType": link.report.report_type,
+                "date": link.report.report_date or link.report.upload_date,
+            }
+            for link in linked_reports
+        ],
+    }
+
+
+def _user_prescription_queryset(user):
+    return (
+        PrescriptionRecord.objects.filter(user=user)
+        .select_related("report", "report__user", "report__family_member")
+        .prefetch_related(
+            "report__chat_messages",
+            "report_links__report",
+            "report_links__report__user",
+            "report_links__report__family_member",
+            "report_links__report__chat_messages",
+            "analyses",
+        )
+    )
 
 
 def _build_screening_tasks(user):
@@ -485,6 +585,12 @@ class ReportUploadView(APIView):
             if not can_contribute_to_circle(circle_id, request.user):
                 return Response({"error": "Only circle admins and caregivers can share uploads"}, status=status.HTTP_403_FORBIDDEN)
         data = ReportService().create_report(upload, family_member_id, request.user, circle_id=circle_id)
+        if data.get("reportType") == "prescription" or data.get("medications"):
+            report = Report.objects.filter(id=data.get("_id"), user=request.user).first()
+            if report:
+                record = _ensure_prescription_record(report, request.user)
+                if record:
+                    data["prescriptionRecordId"] = str(record.id)
         return Response(data)
 
 
@@ -561,38 +667,171 @@ class ReportAdherenceView(APIView):
 
 class MedicationContextView(APIView):
     def get(self, request):
-        circle_id = request.query_params.get("circleId")
-        hydrator = ReportHydrator()
-        reports = [
-            hydrator.hydrate(report)
-            for report in get_accessible_report_queryset(request.user, circle_id)
-            .order_by("-upload_date")
-            .prefetch_related("chat_messages")[:30]
-        ]
-        prescriptions = [
-            report for report in reports
-            if report.get("reportType") == "prescription" or report.get("medications")
-        ]
-        blood_reports = [
-            report for report in reports
-            if report.get("reportType") != "prescription" and report.get("structuredData")
-        ]
+        records = list(_user_prescription_queryset(request.user)[:30])
         contexts = []
-        for prescription in prescriptions[:10]:
-            prescription_date = prescription.get("reportDate") or prescription.get("uploadDate")
-            related = blood_reports[:3]
+        for record in records[:10]:
+            serialized = _serialize_prescription_record(record, request)
             contexts.append(
                 {
-                    "prescription": prescription,
-                    "relatedReports": related,
+                    "prescription": serialized["report"],
+                    "prescriptionRecord": serialized,
+                    "relatedReports": serialized["linkedReports"],
                     "message": (
-                        "Related reports are selected from recent visible blood reports. "
+                        "Related reports are selected by the user for this prescription. "
                         "Use this as context for clinician medication review."
                     ),
-                    "prescriptionDate": prescription_date,
+                    "prescriptionDate": serialized["report"].get("reportDate") or serialized["report"].get("uploadDate"),
                 }
             )
-        return Response({"contexts": contexts, "prescriptionCount": len(prescriptions), "bloodReportCount": len(blood_reports)})
+        return Response({"contexts": contexts, "prescriptionCount": len(records)})
+
+
+class PrescriptionListView(APIView):
+    def get(self, request):
+        records = _user_prescription_queryset(request.user)
+        return Response({"prescriptions": [_serialize_prescription_record(record, request) for record in records]})
+
+
+class PrescriptionFromReportView(APIView):
+    def post(self, request):
+        report_id = request.data.get("reportId")
+        report = Report.objects.filter(id=report_id, user=request.user).prefetch_related("chat_messages").first()
+        if not report:
+            return Response({"error": "Prescription report not found"}, status=status.HTTP_404_NOT_FOUND)
+        record = _ensure_prescription_record(report, request.user)
+        if not record:
+            return Response({"error": "Report does not contain prescription medicines"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(_serialize_prescription_record(record, request), status=status.HTTP_201_CREATED)
+
+
+class PrescriptionDetailView(APIView):
+    def patch(self, request, prescription_id):
+        record = _user_prescription_queryset(request.user).filter(id=prescription_id).first()
+        if not record:
+            return Response({"error": "Prescription not found"}, status=status.HTTP_404_NOT_FOUND)
+        status_value = request.data.get("status")
+        if status_value in {choice[0] for choice in PrescriptionRecord.STATUS_CHOICES}:
+            record.status = status_value
+        for payload_key, field_name in (
+            ("doctorName", "doctor_name"),
+            ("specialty", "specialty"),
+            ("notes", "notes"),
+        ):
+            if payload_key in request.data:
+                setattr(record, field_name, str(request.data.get(payload_key) or "").strip())
+        record.save()
+        return Response(_serialize_prescription_record(record, request))
+
+
+class PrescriptionLinkView(APIView):
+    def post(self, request, prescription_id):
+        record = _user_prescription_queryset(request.user).filter(id=prescription_id).first()
+        if not record:
+            return Response({"error": "Prescription not found"}, status=status.HTTP_404_NOT_FOUND)
+        report_ids = request.data.get("reportIds") or []
+        if not isinstance(report_ids, list):
+            return Response({"error": "reportIds must be an array"}, status=status.HTTP_400_BAD_REQUEST)
+        reports = Report.objects.filter(id__in=report_ids, user=request.user).exclude(id=record.report_id)
+        PrescriptionReportLink.objects.filter(prescription=record).exclude(report_id__in=[report.id for report in reports]).delete()
+        for report in reports:
+            PrescriptionReportLink.objects.get_or_create(prescription=record, report=report)
+        record.refresh_from_db()
+        return Response(_serialize_prescription_record(record, request))
+
+
+class PrescriptionRiskView(APIView):
+    def get(self, request, prescription_id):
+        record = _user_prescription_queryset(request.user).filter(id=prescription_id).first()
+        if not record:
+            return Response({"error": "Prescription not found"}, status=status.HTTP_404_NOT_FOUND)
+        related_report_ids = [str(link.report_id) for link in record.report_links.all()]
+        comparison_prescription_ids = [
+            str(item.id)
+            for item in PrescriptionRecord.objects.filter(user=request.user, status="ongoing")
+            .exclude(id=record.id)
+            .select_related("report")[:8]
+        ]
+        result, analysis = _run_prescription_analysis(
+            request.user,
+            record,
+            related_report_ids=related_report_ids,
+            comparison_prescription_ids=comparison_prescription_ids,
+        )
+        result["analysis"] = _serialize_prescription_analysis(analysis)
+        return Response(result)
+
+    def post(self, request, prescription_id):
+        record = _user_prescription_queryset(request.user).filter(id=prescription_id).first()
+        if not record:
+            return Response({"error": "Prescription not found"}, status=status.HTTP_404_NOT_FOUND)
+        related_report_ids = request.data.get("relatedReportIds") or []
+        comparison_prescription_ids = request.data.get("comparisonPrescriptionIds") or []
+        if not isinstance(related_report_ids, list) or not isinstance(comparison_prescription_ids, list):
+            return Response({"error": "relatedReportIds and comparisonPrescriptionIds must be arrays"}, status=status.HTTP_400_BAD_REQUEST)
+        result, analysis = _run_prescription_analysis(
+            request.user,
+            record,
+            related_report_ids=related_report_ids,
+            comparison_prescription_ids=comparison_prescription_ids,
+        )
+        result["analysis"] = _serialize_prescription_analysis(analysis)
+        return Response(result, status=status.HTTP_201_CREATED)
+
+
+def _run_prescription_analysis(user, record, related_report_ids, comparison_prescription_ids):
+    related_reports = list(Report.objects.filter(id__in=related_report_ids, user=user).exclude(id=record.report_id))
+    comparison_records = list(
+        PrescriptionRecord.objects.filter(id__in=comparison_prescription_ids, user=user)
+        .exclude(id=record.id)
+        .select_related("report")
+    )
+    comparison_reports = [item.report for item in comparison_records]
+    reports = [record.report, *related_reports, *comparison_reports]
+    hydrated = [ReportHydrator().hydrate(report) for report in reports]
+    try:
+        result = GeminiService().analyze_medication_conflicts(hydrated, user.preferred_language)
+    except Exception:
+        result = GeminiService().fallback_medication_conflicts(hydrated)
+    result["dataUsed"] = {
+        "prescriptionId": str(record.id),
+        "prescriptionReportId": str(record.report_id),
+        "linkedReportIds": [str(report.id) for report in related_reports],
+        "comparisonPrescriptionIds": [str(item.id) for item in comparison_records],
+        "comparisonPrescriptionReportIds": [str(report.id) for report in comparison_reports],
+        "prescriptionOnly": not related_reports,
+    }
+    if not related_reports:
+        result["contextCaution"] = "This analysis uses prescription data only; lab/report context was not included."
+    analysis = PrescriptionAnalysis.objects.create(
+        prescription=record,
+        user=user,
+        related_report_ids=[str(report.id) for report in related_reports],
+        comparison_prescription_ids=[str(item.id) for item in comparison_records],
+        result=result,
+    )
+    PrescriptionReportLink.objects.filter(prescription=record).exclude(report_id__in=[report.id for report in related_reports]).delete()
+    for report in related_reports:
+        PrescriptionReportLink.objects.get_or_create(prescription=record, report=report)
+    return result, analysis
+
+
+class PrescriptionAnalysisListView(APIView):
+    def get(self, request, prescription_id):
+        record = _user_prescription_queryset(request.user).filter(id=prescription_id).first()
+        if not record:
+            return Response({"error": "Prescription not found"}, status=status.HTTP_404_NOT_FOUND)
+        analyses = PrescriptionAnalysis.objects.filter(prescription=record, user=request.user)
+        return Response({"analyses": [_serialize_prescription_analysis(analysis) for analysis in analyses]})
+
+
+class PrescriptionAnalysisHistoryView(APIView):
+    def get(self, request):
+        analyses = (
+            PrescriptionAnalysis.objects.filter(user=request.user)
+            .select_related("prescription", "prescription__report")
+            .prefetch_related("prescription__report_links", "prescription__report_links__report")
+        )
+        return Response({"analyses": [_serialize_prescription_analysis_history_item(analysis) for analysis in analyses]})
 
 
 class ScreeningPreviewView(APIView):

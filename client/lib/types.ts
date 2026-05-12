@@ -77,7 +77,69 @@ export type Report = {
   structuredData: Parameter[];
   aiExplanation: ReportExplanation;
   medications?: MedicationCard[];
+  prescriptionRecordId?: string;
   chatHistory: ChatMessage[];
+};
+
+export type PrescriptionStatus = "ongoing" | "completed" | "stopped" | "short_course" | "unknown";
+
+export type PrescriptionAnalysis = {
+  id: string;
+  prescriptionId: string;
+  relatedReportIds: string[];
+  comparisonPrescriptionIds: string[];
+  result: {
+    summary?: string;
+    riskLevel?: "low" | "moderate" | "high";
+    conflicts?: { title?: string; severity?: string; explanation?: string; recommendation?: string }[];
+    cautions?: string[];
+    contextCaution?: string;
+    dataUsed?: {
+      prescriptionId?: string;
+      prescriptionReportId?: string;
+      linkedReportIds?: string[];
+      comparisonPrescriptionIds?: string[];
+      comparisonPrescriptionReportIds?: string[];
+      prescriptionOnly?: boolean;
+    };
+  };
+  summary?: string;
+  riskLevel?: "low" | "moderate" | "high";
+  createdAt: string;
+};
+
+export type PrescriptionAnalysisHistoryItem = PrescriptionAnalysis & {
+  prescription: {
+    id: string;
+    reportId: string;
+    name: string;
+    date: string;
+    status: PrescriptionStatus;
+    medications: MedicationCard[];
+  };
+  linkedReports: {
+    id: string;
+    name: string;
+    reportType: string;
+    date: string;
+  }[];
+};
+
+export type PrescriptionRecord = {
+  id: string;
+  reportId: string;
+  status: PrescriptionStatus;
+  startDate?: string | null;
+  endDate?: string | null;
+  doctorName: string;
+  specialty: string;
+  notes: string;
+  medications: MedicationCard[];
+  report: Report;
+  linkedReports: Report[];
+  latestAnalysis?: PrescriptionAnalysis | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type ReportShare = {

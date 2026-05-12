@@ -16,6 +16,20 @@ export function UploadPageClient() {
   const isPrescription = type === "prescription";
 
   function handleUploaded(report: Report) {
+    if (next === "medication-intake-report") {
+      const params = new URLSearchParams();
+      const prescriptionId = searchParams.get("prescriptionId");
+      if (prescriptionId) params.set("prescriptionId", prescriptionId);
+      params.set("selectedReportId", report._id);
+      router.push(`/reports/medications/intake?${params.toString()}`);
+      return;
+    }
+    if (isPrescription) {
+      const params = new URLSearchParams({ prescriptionReportId: report._id });
+      if (report.prescriptionRecordId) params.set("prescriptionId", report.prescriptionRecordId);
+      router.push(next === "medication-intake" ? `/reports/medications/intake?${params.toString()}` : `/reports/medications/setup?${params.toString()}`);
+      return;
+    }
     if (next === "medication-risk" || next === "refills" || next === "generics") {
       router.push(`/reports/medications${next === "refills" ? "?tab=refills" : next === "generics" ? "?tab=generics" : ""}`);
       return;
@@ -52,12 +66,21 @@ export function UploadPageClient() {
             <p className="font-semibold text-amber-950">Prescription context</p>
             <p className="mt-1 text-sm leading-6 text-amber-900">
               After upload, the medication center will connect extracted medicines with nearby analyzed reports for safer review.
+              You will choose which current reports belong with this prescription before risk analysis runs.
             </p>
           </div>
         </Card>
       ) : null}
 
-      <InlineUploader onUploaded={handleUploaded} onViewReport={(report) => router.push(`/reports/${report._id}`)} />
+      <InlineUploader
+        onUploaded={handleUploaded}
+        onViewReport={(report) => router.push(`/reports/${report._id}`)}
+        eyebrow={isPrescription ? "Prescription upload" : "Inline Upload"}
+        title={isPrescription ? "Upload and save a prescription" : "Analyze a report from the dashboard"}
+        dropTitle={isPrescription ? "Drop your prescription here" : "Drop your report here"}
+        actionLabel={isPrescription ? "Save prescription" : "Analyze report"}
+        doneLabel={isPrescription ? "Continue medication review" : "View Current Analysis"}
+      />
     </div>
   );
 }

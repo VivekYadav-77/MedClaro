@@ -15,11 +15,23 @@ const ACCEPTED_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
 export function InlineUploader({
   onUploaded,
   onViewReport,
-  onProcessingChange
+  onProcessingChange,
+  eyebrow = "Inline Upload",
+  title = "Analyze a report from the dashboard",
+  dropTitle = "Drop your report here",
+  emptyHint = "PDF, JPG, or PNG up to 10 MB",
+  actionLabel = "Analyze report",
+  doneLabel = "View Current Analysis",
 }: {
   onUploaded: (report: Report) => void;
   onViewReport: (report: Report) => void;
   onProcessingChange?: (isProcessing: boolean) => void;
+  eyebrow?: string;
+  title?: string;
+  dropTitle?: string;
+  emptyHint?: string;
+  actionLabel?: string;
+  doneLabel?: string;
 }) {
   const { data: session } = useSession();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -114,8 +126,8 @@ export function InlineUploader({
     <Card className="overflow-hidden border-brand-100 bg-white p-5 shadow-card">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-brand-600">Inline Upload</p>
-          <h2 className="mt-1 font-display text-xl font-semibold text-slate-900">Analyze a report from the dashboard</h2>
+          <p className="text-xs font-semibold uppercase tracking-wider text-brand-600">{eyebrow}</p>
+          <h2 className="mt-1 font-display text-xl font-semibold text-slate-900">{title}</h2>
         </div>
         <div className="inline-flex w-fit items-center gap-2 rounded-full bg-teal-50 px-3 py-1.5 text-xs font-medium text-teal-700">
           <ShieldCheck className="h-3.5 w-3.5" />
@@ -156,8 +168,8 @@ export function InlineUploader({
         ) : (
           <>
             <CloudUpload className="mb-4 h-12 w-12 text-slate-400" />
-            <p className="font-display text-lg font-semibold text-slate-900">Drop your report here</p>
-            <p className="mt-1 text-sm text-slate-500">PDF, JPG, or PNG up to 10 MB</p>
+            <p className="font-display text-lg font-semibold text-slate-900">{dropTitle}</p>
+            <p className="mt-1 text-sm text-slate-500">{emptyHint}</p>
             <Button variant="outline" className="mt-5" onClick={() => inputRef.current?.click()}>
               Browse files
             </Button>
@@ -192,7 +204,7 @@ export function InlineUploader({
           <>
             <Button className="flex-1 gap-2" onClick={() => onViewReport(uploadedReport)}>
               <CheckCircle2 className="h-4 w-4" />
-              View Current Analysis
+              {doneLabel}
             </Button>
             <Button variant="outline" onClick={reset}>
               Upload another
@@ -201,7 +213,7 @@ export function InlineUploader({
         ) : (
           <Button className="flex-1 gap-2" onClick={upload} disabled={!file || busy}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CloudUpload className="h-4 w-4" />}
-            {busy ? "Processing..." : "Analyze report"}
+            {busy ? "Processing..." : actionLabel}
           </Button>
         )}
       </div>

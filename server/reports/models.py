@@ -48,6 +48,56 @@ class ReportShare(models.Model):
         ordering = ["-created_at"]
 
 
+class PrescriptionRecord(models.Model):
+    STATUS_CHOICES = [
+        ("ongoing", "Ongoing"),
+        ("completed", "Completed"),
+        ("stopped", "Stopped"),
+        ("short_course", "Short course"),
+        ("unknown", "Unknown"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="prescription_records", on_delete=models.CASCADE)
+    report = models.OneToOneField(Report, related_name="prescription_record", on_delete=models.CASCADE)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="unknown")
+    start_date = models.DateTimeField(blank=True, null=True)
+    end_date = models.DateTimeField(blank=True, null=True)
+    doctor_name = models.CharField(max_length=120, blank=True, default="")
+    specialty = models.CharField(max_length=80, blank=True, default="")
+    notes = models.TextField(blank=True, default="")
+    medications_snapshot = models.JSONField(default=list)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at", "-created_at"]
+
+
+class PrescriptionReportLink(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    prescription = models.ForeignKey(PrescriptionRecord, related_name="report_links", on_delete=models.CASCADE)
+    report = models.ForeignKey(Report, related_name="prescription_links", on_delete=models.CASCADE)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        unique_together = ("prescription", "report")
+        ordering = ["-created_at"]
+
+
+class PrescriptionAnalysis(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    prescription = models.ForeignKey(PrescriptionRecord, related_name="analyses", on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="prescription_analyses", on_delete=models.CASCADE)
+    related_report_ids = models.JSONField(default=list)
+    comparison_prescription_ids = models.JSONField(default=list)
+    result = models.JSONField(default=dict)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
 class StructuredParameter(models.Model):
     report = models.ForeignKey(Report, related_name="structured_parameters", on_delete=models.CASCADE)
     position = models.PositiveIntegerField(default=0)

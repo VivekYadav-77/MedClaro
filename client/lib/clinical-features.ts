@@ -109,7 +109,7 @@ export function buildClinicalFeatureCards(reports: Report[], circleCount: number
       shortTitle: "Medication Risk",
       description: hasPrescription ? "Medication conflict API is live; anticholinergic burden scoring still needs terminology support." : "Upload prescriptions to calculate medication risk.",
       status: hasPrescription ? "live" : "no_data",
-      route: hasPrescription ? "/reports/medications" : "/reports/upload?type=prescription&next=medication-risk",
+      route: "/reports/medications/intake",
       actionLabel: "Screen meds",
       category: "clinical",
     },
