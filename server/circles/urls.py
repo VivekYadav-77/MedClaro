@@ -3,6 +3,7 @@ from django.urls import path
 from circles.views import (
     CircleDetailView,
     CircleFeedView,
+    CircleHealthDashboardView,
     CircleInviteAcceptView,
     CircleInviteView,
     CircleJoinByCodeView,
@@ -20,6 +21,7 @@ urlpatterns = [
     path("circles", CircleListCreateView.as_view()),
     path("circles/join", CircleJoinByCodeView.as_view()),
     path("circles/<uuid:circle_id>", CircleDetailView.as_view()),
+    path("circles/<uuid:circle_id>/health-dashboard", CircleHealthDashboardView.as_view()),
     path("circles/<uuid:circle_id>/join-code/rotate", CircleJoinCodeRotateView.as_view()),
     path("circles/<uuid:circle_id>/members", CircleMemberView.as_view()),
     path("circles/<uuid:circle_id>/members/<uuid:member_id>", CircleMemberDetailView.as_view()),

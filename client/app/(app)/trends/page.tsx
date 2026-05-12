@@ -25,14 +25,14 @@ export default async function TrendsPage() {
         <ClinicalTrendCard
           icon={Stethoscope}
           title="Guideline source"
-          status="Backend pending"
-          body="ADA/AHA/nephrology thresholds are not connected yet. Current trajectory cards use trend and reference ranges."
+          status={trends.series?.length ? "Live preview" : "Needs repeat data"}
+          body="Current trajectory cards use trend direction and reference ranges. Formal ADA/AHA/nephrology source packs can be layered in later."
         />
         <ClinicalTrendCard
           icon={ScanSearch}
           title="Lab variance"
-          status={trends.series?.length ? "Needs backend rules" : "No repeat data"}
-          body="Improbable jumps should be flagged by a future quality-control endpoint before warning users."
+          status={trends.labVariance?.length ? "Review" : trends.series?.length ? "Watching" : "No repeat data"}
+          body="Repeat-marker delta rules flag improbable jumps as repeat-test discussion points before users panic."
         />
         <ClinicalTrendCard
           icon={AlertTriangle}
@@ -41,6 +41,23 @@ export default async function TrendsPage() {
           body="Alerts are preparation signals only. The app must not diagnose or change medication."
         />
       </div>
+
+      {trends.labVariance?.length ? (
+        <section className="space-y-3">
+          <div>
+            <h2 className="font-display text-xl font-bold text-slate-900">Lab Variance Checks</h2>
+            <p className="mt-1 text-sm text-slate-500">Large jumps are framed as repeat-test discussion points, not diagnoses.</p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {trends.labVariance.map((item) => (
+              <Card key={`${item.parameter}-${item.deltaPercent}`} className="border-amber-200 bg-amber-50 p-4 shadow-none">
+                <p className="font-semibold text-amber-950">{item.parameter}</p>
+                <p className="mt-2 text-sm leading-6 text-amber-900">{item.message}</p>
+              </Card>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {/* Stats row */}
       <div className="grid gap-4 sm:grid-cols-2">

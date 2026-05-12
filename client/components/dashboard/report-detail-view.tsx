@@ -236,7 +236,7 @@ function EhrExportPanel({ report }: { report: Report }) {
             <Stethoscope className="h-4 w-4 text-brand-600" />
             Doctor Export
           </h3>
-          <p className="mt-1 text-sm text-slate-500">Tabular handoff with local LOINC hints. Backend `/reports/:id/ehr-export` is pending.</p>
+          <p className="mt-1 text-sm text-slate-500">Tabular handoff with backend-compatible rows and local LOINC hints.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(exportText)}>
@@ -256,7 +256,7 @@ function EhrExportPanel({ report }: { report: Report }) {
               <th className="px-3 py-2 text-left">Marker</th>
               <th className="px-3 py-2 text-left">Value</th>
               <th className="px-3 py-2 text-left">LOINC</th>
-              <th className="px-3 py-2 text-left">Delta</th>
+              <th className="px-3 py-2 text-left">Export</th>
               <th className="px-3 py-2 text-left">Risk</th>
             </tr>
           </thead>
@@ -266,7 +266,7 @@ function EhrExportPanel({ report }: { report: Report }) {
                 <td className="px-3 py-3 font-medium text-slate-900">{item.testName}</td>
                 <td className="px-3 py-3">{item.value} {item.unit}</td>
                 <td className="px-3 py-3 text-slate-600">{loinc}</td>
-                <td className="px-3 py-3 text-slate-500">Backend pending</td>
+                <td className="px-3 py-3 text-slate-500">Ready</td>
                 <td className="px-3 py-3">
                   <Badge variant={risk === "high" ? "danger" : risk === "watch" ? "warning" : "success"}>{risk}</Badge>
                 </td>

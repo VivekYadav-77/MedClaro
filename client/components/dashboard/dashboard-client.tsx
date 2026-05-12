@@ -16,11 +16,11 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { InlineUploader } from "@/components/dashboard/inline-uploader";
 import { EmergencyCard } from "@/components/dashboard/emergency-card";
 import { RemindersPanel } from "@/components/dashboard/reminders-panel";
-import { ReportDetailView } from "@/components/dashboard/report-detail-view";
 import { Timeline } from "@/components/dashboard/timeline";
 import { MilestoneToast } from "@/components/circles/milestone-toast";
 import { FeatureStatusGrid } from "@/components/clinical/feature-status-grid";
@@ -38,8 +38,9 @@ export function DashboardClient({
   reports: Report[];
 }) {
   const { data: session } = useSession();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [reports, setReports] = useState(initialReports);
-  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [timelineUpdating, setTimelineUpdating] = useState(false);
   const [selectedFamilyMemberId, setSelectedFamilyMemberId] = useState<string | null>(null);
@@ -110,6 +111,13 @@ export function DashboardClient({
     return () => window.removeEventListener("family-profile-change", onFamilyProfileChange);
   }, [initialReports, selectedCircleId, session?.accessToken]);
 
+  useEffect(() => {
+    if (searchParams.get("panel") !== "ice-card") return;
+    window.setTimeout(() => {
+      document.getElementById("ice-card-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+  }, [searchParams]);
+
   const clearFamilyFilter = () => {
     window.localStorage.removeItem("selectedFamilyMemberId");
     setSelectedFamilyMemberId(null);
@@ -131,13 +139,17 @@ export function DashboardClient({
 
   const handleUploaded = (report: Report) => {
     setReports((current) => [report, ...current.filter((item) => item._id !== report._id)]);
-    setSelectedReport(report);
     setUploadOpen(false);
     const correlation = report.aiExplanation?.lifestyleCorrelation;
     const hasPositive = correlation?.correlations?.some((item) => item.impact === "positive");
     if (hasPositive && correlation?.overallMessage) {
       setToastMessage(`${correlation.overallMessage} Check your Circles feed.`);
     }
+    router.push(`/reports/${report._id}`);
+  };
+
+  const openReport = (report: Report, tab?: string) => {
+    router.push(`/reports/${report._id}${tab ? `?tab=${tab}` : ""}`);
   };
 
   return (
@@ -205,7 +217,7 @@ export function DashboardClient({
               </div>
             </div>
             <div className="flex flex-wrap gap-2 sm:justify-end">
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => primaryAlert && setSelectedReport(primaryAlert.report)} disabled={!primaryAlert}>
+              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => primaryAlert && openReport(primaryAlert.report)} disabled={!primaryAlert}>
                 <AlertTriangle className="h-4 w-4" />
                 Review
               </Button>
@@ -258,7 +270,7 @@ export function DashboardClient({
             {reports.length ? (
               <div className="relative">
                 <div className={timelineUpdating ? "sr-only" : ""}>
-                  <Timeline reports={reports} onSelectReport={setSelectedReport} />
+                  <Timeline reports={reports} onSelectReport={(report) => openReport(report)} />
                 </div>
                 {timelineUpdating ? <TimelineSkeleton /> : null}
               </div>
@@ -283,7 +295,9 @@ export function DashboardClient({
         </section>
 
         <aside className="space-y-4">
-          <EmergencyCard user={user} latestReport={reports[0] ?? null} circleId={selectedCircleId} />
+          <div id="ice-card-panel" className="scroll-mt-24">
+            <EmergencyCard user={user} latestReport={reports[0] ?? null} circleId={selectedCircleId} />
+          </div>
           <RemindersPanel reports={reports} />
 
           <Card className="space-y-3 p-4">
@@ -331,14 +345,13 @@ export function DashboardClient({
             <div className="p-5">
               <InlineUploader
                 onUploaded={handleUploaded}
-                onViewReport={setSelectedReport}
+                onViewReport={(report) => openReport(report)}
                 onProcessingChange={setTimelineUpdating}
               />
             </div>
           </div>
         </div>
       ) : null}
-      <ReportDetailView report={selectedReport} onClose={() => setSelectedReport(null)} />
       <MilestoneToast message={toastMessage} onClose={() => setToastMessage(null)} />
     </div>
   );

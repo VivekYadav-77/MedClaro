@@ -1,4 +1,5 @@
 import json
+import re
 
 from django.conf import settings
 from django.utils import timezone
@@ -12,6 +13,154 @@ from reports.models import EmergencyCardAccess, EmergencyEvent, Report, ReportSh
 from reports.serializers import ReportChatRequestSerializer, ReportShareSerializer, WearableMetricImportSerializer
 from reports.services import GeminiService, RateLimiter, ReportHydrator, ReportService, TrendService
 from reminders.models import Reminder
+
+
+def _marker_key(name):
+    return re.sub(r"[^a-z0-9]+", " ", (name or "").lower()).strip()
+
+
+def _loinc_hint(marker):
+    key = _marker_key(marker)
+    if "hemoglobin" in key and "a1c" not in key:
+        return "718-7"
+    if "hba1c" in key or "a1c" in key:
+        return "4548-4"
+    if "glucose" in key:
+        return "2345-7"
+    if "ldl" in key:
+        return "13457-7"
+    if "hdl" in key:
+        return "2085-9"
+    if "triglyceride" in key:
+        return "2571-8"
+    if "tsh" in key:
+        return "3016-3"
+    if "creatinine" in key:
+        return "2160-0"
+    return "mapping_pending"
+
+
+def _marker_risk(marker):
+    if marker.get("flag") == "normal":
+        return "normal"
+    try:
+        value = float(marker.get("normalizedValue") or marker.get("value"))
+    except (TypeError, ValueError):
+        return "watch"
+    high = marker.get("referenceRangeHigh")
+    low = marker.get("referenceRangeLow")
+    if isinstance(high, (int, float)) and value > high * 1.25:
+        return "high"
+    if isinstance(low, (int, float)) and value < low * 0.75:
+        return "high"
+    return "watch"
+
+
+def _build_ehr_export_rows(report):
+    rows = []
+    for marker in report.get("structuredData", []):
+        rows.append(
+            {
+                "marker": marker.get("testName", "Marker"),
+                "value": marker.get("value"),
+                "unit": marker.get("unit", ""),
+                "referenceRangeLow": marker.get("referenceRangeLow"),
+                "referenceRangeHigh": marker.get("referenceRangeHigh"),
+                "flag": marker.get("flag", "normal"),
+                "loincCode": _loinc_hint(marker.get("testName")),
+                "risk": _marker_risk(marker),
+            }
+        )
+    return rows
+
+
+def _build_lab_variance(trends):
+    findings = []
+    for series in trends.get("series", []):
+        points = series.get("points", [])
+        if len(points) < 2:
+            continue
+        previous = points[-2]
+        current = points[-1]
+        try:
+            previous_value = float(previous.get("value"))
+            current_value = float(current.get("value"))
+        except (TypeError, ValueError):
+            continue
+        if previous_value == 0:
+            continue
+        delta_percent = ((current_value - previous_value) / previous_value) * 100
+        crosses_far_outside = (
+            (isinstance(current.get("high"), (int, float)) and current_value > current["high"] * 1.5)
+            or (isinstance(current.get("low"), (int, float)) and current_value < current["low"] * 0.5)
+        )
+        if abs(delta_percent) >= 100 or crosses_far_outside:
+            findings.append(
+                {
+                    "parameter": series.get("parameter"),
+                    "deltaPercent": round(delta_percent, 1),
+                    "severity": "repeat_test" if abs(delta_percent) >= 200 else "review",
+                    "message": (
+                        f"{series.get('parameter')} changed by {abs(delta_percent):.1f}% between the last two results. "
+                        "Treat this as a repeat-test discussion point before making clinical changes."
+                    ),
+                }
+            )
+    return findings[:8]
+
+
+def _build_refill_summary(reports):
+    prompts = []
+    for report in reports:
+        medications = report.get("medications") or []
+        if not medications and report.get("reportType") != "prescription":
+            continue
+        uploaded = report.get("reportDate") or report.get("uploadDate")
+        try:
+            uploaded_date = uploaded.date() if hasattr(uploaded, "date") else timezone.datetime.fromisoformat(str(uploaded)).date()
+            days = (timezone.now().date() - uploaded_date).days
+        except Exception:
+            days = 0
+        names = ", ".join([item.get("name", "") for item in medications if item.get("name")][:2]) or "this prescription"
+        prompts.append(
+            {
+                "reportId": report.get("_id"),
+                "medications": [item.get("name") for item in medications if item.get("name")],
+                "daysSinceUpload": max(days, 0),
+                "risk": "high" if days >= 35 else "watch" if days >= 28 else "normal",
+                "message": f"{names}: uploaded {max(days, 0)} day(s) ago. Confirm refill if this was a 30-day course.",
+            }
+        )
+    return prompts[:10]
+
+
+def _build_screening_tasks(user):
+    age = None
+    if user.dob:
+        today = timezone.now().date()
+        birth = user.dob.date()
+        age = today.year - birth.year - ((today.month, today.day) < (birth.month, birth.day))
+    sex = (user.biological_sex or "").lower()
+    return [
+        {
+            "title": "Colonoscopy",
+            "dueStatus": "needs_profile" if age is None else "due" if age >= 45 else "upcoming",
+            "reason": "Common preventive screening starts around age 45 for many adults.",
+            "actionLabel": "Add reminder",
+        },
+        {
+            "title": "Mammogram",
+            "dueStatus": "due" if sex == "female" and age is not None and age >= 40 else "upcoming" if sex == "female" else "not_applicable",
+            "reason": "Based on profile age and biological sex. Family-history rules can be added in the next phase.",
+            "actionLabel": "Review",
+        },
+        {
+            "title": "DEXA bone density",
+            "dueStatus": "due" if age is not None and age >= 65 else "upcoming",
+            "reason": "Age-based bone health screening preview.",
+            "actionLabel": "Plan",
+        },
+    ]
 
 
 def get_accessible_report_queryset(user, circle_id=None):
@@ -353,7 +502,165 @@ class ReportTrendsView(APIView):
             hydrator.hydrate(report)
             for report in get_accessible_report_queryset(request.user, circle_id).prefetch_related("chat_messages")
         ]
-        return Response(TrendService().build(reports, request.user.preferred_language))
+        trends = TrendService().build(reports, request.user.preferred_language)
+        trends["labVariance"] = _build_lab_variance(trends)
+        return Response(trends)
+
+
+class ReportEhrExportView(APIView):
+    def get(self, request, report_id):
+        report = get_shared_report_queryset(request.user).filter(id=report_id).prefetch_related("chat_messages").first()
+        if not report:
+            return Response({"error": "Report not found"}, status=status.HTTP_404_NOT_FOUND)
+        hydrated = ReportHydrator().hydrate(report)
+        rows = _build_ehr_export_rows(hydrated)
+        table_text = "\n".join(
+            [
+                "Marker\tValue\tRange\tFlag\tRisk\tLOINC",
+                *[
+                    (
+                        f"{row['marker']}\t{row['value']} {row['unit']}\t"
+                        f"{row.get('referenceRangeLow') or '--'}-{row.get('referenceRangeHigh') or '--'}\t"
+                        f"{row['flag']}\t{row['risk']}\t{row['loincCode']}"
+                    )
+                    for row in rows
+                ],
+            ]
+        )
+        return Response({"reportId": str(report.id), "rows": rows, "tableText": table_text})
+
+
+class ReportAdherenceView(APIView):
+    def get(self, request):
+        circle_id = request.query_params.get("circleId")
+        hydrator = ReportHydrator()
+        reports = [
+            hydrator.hydrate(report)
+            for report in get_accessible_report_queryset(request.user, circle_id)
+            .order_by("-upload_date")
+            .prefetch_related("chat_messages")[:20]
+        ]
+        return Response({"prompts": _build_refill_summary(reports)})
+
+
+class MedicationContextView(APIView):
+    def get(self, request):
+        circle_id = request.query_params.get("circleId")
+        hydrator = ReportHydrator()
+        reports = [
+            hydrator.hydrate(report)
+            for report in get_accessible_report_queryset(request.user, circle_id)
+            .order_by("-upload_date")
+            .prefetch_related("chat_messages")[:30]
+        ]
+        prescriptions = [
+            report for report in reports
+            if report.get("reportType") == "prescription" or report.get("medications")
+        ]
+        blood_reports = [
+            report for report in reports
+            if report.get("reportType") != "prescription" and report.get("structuredData")
+        ]
+        contexts = []
+        for prescription in prescriptions[:10]:
+            prescription_date = prescription.get("reportDate") or prescription.get("uploadDate")
+            related = blood_reports[:3]
+            contexts.append(
+                {
+                    "prescription": prescription,
+                    "relatedReports": related,
+                    "message": (
+                        "Related reports are selected from recent visible blood reports. "
+                        "Use this as context for clinician medication review."
+                    ),
+                    "prescriptionDate": prescription_date,
+                }
+            )
+        return Response({"contexts": contexts, "prescriptionCount": len(prescriptions), "bloodReportCount": len(blood_reports)})
+
+
+class ScreeningPreviewView(APIView):
+    def get(self, request):
+        return Response({"tasks": _build_screening_tasks(request.user)})
+
+
+class DischargeUploadView(APIView):
+    def post(self, request):
+        upload = request.FILES.get("file")
+        notes = request.data.get("notes", "")
+        source_name = upload.name if upload else "manual discharge notes"
+        text = notes or source_name
+        task_templates = [
+            ("Medication review", "Confirm discharge medicines, dosage changes, and warning side effects with the treating doctor."),
+            ("Follow-up appointment", "Schedule the recommended follow-up visit and keep discharge papers ready."),
+            ("Wound or symptom watch", "Track fever, pain, swelling, bleeding, breathlessness, or any symptom listed in the discharge advice."),
+            ("Caregiver handoff", "Share the checklist with a Care Circle caregiver and assign who will check each item."),
+        ]
+        lowered = text.lower()
+        if "dressing" in lowered or "wound" in lowered:
+            task_templates.insert(0, ("Dressing care", "Keep the wound clean and follow the dressing-change interval from the discharge summary."))
+        if "physio" in lowered or "exercise" in lowered:
+            task_templates.append(("Rehab exercises", "Track prescribed physiotherapy or mobility exercises each day."))
+        tasks = [
+            {"title": title, "detail": detail, "status": "open", "source": source_name}
+            for title, detail in task_templates[:6]
+        ]
+        return Response(
+            {
+                "sourceName": source_name,
+                "tasks": tasks,
+                "message": "Checklist prepared with local fallback extraction. Review against the original discharge summary before acting.",
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class PathwayRecommendationView(APIView):
+    def get(self, request):
+        hydrator = ReportHydrator()
+        reports = [
+            hydrator.hydrate(report)
+            for report in get_accessible_report_queryset(request.user)
+            .order_by("-upload_date")
+            .prefetch_related("chat_messages")[:20]
+        ]
+        markers = [
+            item
+            for report in reports
+            for item in report.get("structuredData", [])
+            if item.get("flag") != "normal"
+        ]
+        marker_names = " ".join(_marker_key(item.get("testName")) for item in markers)
+        pathways = []
+        if any(term in marker_names for term in ("hba1c", "a1c", "glucose", "sugar")):
+            pathways.append(_pathway_payload("prediabetes", "Glucose stability", "Walk 20 minutes after one meal today."))
+        if any(term in marker_names for term in ("sgpt", "sgot", "alt", "ast", "fatty liver", "bilirubin")):
+            pathways.append(_pathway_payload("fatty_liver", "Liver marker support", "Avoid alcohol and fried snacks today; add one protein-rich meal."))
+        if any(term in marker_names for term in ("blood pressure", "systolic", "diastolic", "bp")):
+            pathways.append(_pathway_payload("hypertension", "Blood pressure routine", "Measure BP at the same time today and log sleep/stress context."))
+        if not pathways:
+            pathways.append(_pathway_payload("general", "90-day health foundation", "Upload qualifying markers or start with sleep, walking, and medication adherence basics."))
+        return Response({"pathways": pathways, "markerCount": len(markers)})
+
+
+def _pathway_payload(condition, title, next_habit):
+    return {
+        "condition": condition,
+        "title": title,
+        "progressPercent": 8,
+        "currentWeek": 1,
+        "nextHabit": next_habit,
+        "weeklyHabits": [
+            "Set a consistent wake and sleep window.",
+            "Walk or move after meals at least 4 days this week.",
+            "Log medicines, symptoms, and one food pattern daily.",
+        ],
+        "markerGoals": [
+            "Repeat the relevant marker on the schedule your clinician recommends.",
+            "Watch direction over time instead of reacting to one isolated value.",
+        ],
+        "disclaimer": "This pathway is coaching support from saved records, not a diagnosis or medication plan.",
+    }
 
 
 class ReportChatView(APIView):

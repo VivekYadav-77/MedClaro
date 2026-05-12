@@ -88,6 +88,83 @@ class CircleDetailView(APIView):
         return Response({"message": "Circle deleted"})
 
 
+class CircleHealthDashboardView(APIView):
+    def get(self, request, circle_id):
+        membership = get_membership(circle_id, request.user)
+        if not membership:
+            return Response({"error": "Circle not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        from reports.access import accessible_reports
+        from reports.views import build_health_context
+        from reports.services import ReportHydrator, TrendService
+
+        hydrator = ReportHydrator()
+        report_queryset = (
+            accessible_reports(request.user, circle_id=circle_id)
+            .select_related("user", "family_member")
+            .prefetch_related("chat_messages")
+            .order_by("-upload_date")
+        )
+        reports = [hydrator.hydrate(report) for report in report_queryset]
+        trends = TrendService().build(reports, request.user.preferred_language)
+        feed_entries = (
+            ActivityFeedEntry.objects.filter(circle_id=circle_id)
+            .select_related("actor")
+            .prefetch_related("reactions")[:25]
+        )
+        members = CircleMember.objects.filter(circle_id=circle_id).select_related("user")
+        watch_markers = [
+            {
+                "testName": marker.get("testName"),
+                "value": marker.get("value"),
+                "unit": marker.get("unit", ""),
+                "flag": marker.get("flag"),
+                "reportId": report.get("_id"),
+                "reportDate": report.get("reportDate") or report.get("uploadDate"),
+                "ownerName": report.get("familyMemberName") or report.get("ownerName"),
+                "labName": report.get("labName"),
+            }
+            for report in reports
+            for marker in report.get("structuredData", [])
+            if marker.get("flag") != "normal"
+        ][:12]
+        medication_names = {
+            medication.get("name", "").strip().lower()
+            for report in reports
+            for medication in (report.get("medications") or [])
+            if medication.get("name")
+        }
+        emergency_events = [
+            {
+                "id": str(entry.id),
+                "eventType": entry.event_type,
+                "actorName": entry.actor.name if entry.actor else "MedClaro",
+                "payload": entry.payload,
+                "createdAt": entry.created_at,
+            }
+            for entry in feed_entries
+            if entry.event_type in {"emergency_sos", "emergency_card_accessed"}
+        ][:8]
+
+        return Response(
+            {
+                "circle": CircleSerializer(membership.circle, context={"request": request}).data,
+                "members": CircleMemberSerializer(members, many=True).data,
+                "reports": reports,
+                "trends": trends,
+                "healthContext": build_health_context(request.user, circle_id=circle_id, limit=5),
+                "feed": ActivityFeedSerializer(feed_entries, many=True, context={"request": request}).data,
+                "watchMarkers": watch_markers,
+                "medicationSummary": {
+                    "medicationCount": len(medication_names),
+                    "polypharmacyRisk": "high" if len(medication_names) >= 8 else "moderate" if len(medication_names) >= 5 else "low",
+                    "hasPrescription": any(report.get("medications") for report in reports),
+                },
+                "emergencyEvents": emergency_events,
+            }
+        )
+
+
 class CircleJoinCodeRotateView(APIView):
     @transaction.atomic
     def post(self, request, circle_id):

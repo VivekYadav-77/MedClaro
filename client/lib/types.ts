@@ -119,6 +119,12 @@ export type TrendResponse = {
   compositeScore: { date: string; score: number }[];
   seasonalInsights: string[];
   series: TrendSeries[];
+  labVariance?: {
+    parameter: string;
+    deltaPercent: number;
+    severity: "review" | "repeat_test";
+    message: string;
+  }[];
   trajectories: {
     parameter: string;
     direction: "improving" | "declining" | "stable";
@@ -160,6 +166,37 @@ export type AppNotification = {
   read: boolean;
   feedEntry: FeedEntry;
   createdAt: string;
+};
+
+export type CircleHealthDashboard = {
+  circle: Circle;
+  members: CircleMember[];
+  reports: Report[];
+  trends: TrendResponse;
+  healthContext: HealthContext;
+  feed: FeedEntry[];
+  watchMarkers: {
+    testName: string;
+    value: number | string;
+    unit: string;
+    flag: "high" | "low" | "normal";
+    reportId: string;
+    reportDate: string;
+    ownerName?: string;
+    labName?: string;
+  }[];
+  medicationSummary: {
+    medicationCount: number;
+    polypharmacyRisk: "low" | "moderate" | "high";
+    hasPrescription: boolean;
+  };
+  emergencyEvents: {
+    id: string;
+    eventType: string;
+    actorName: string;
+    payload: Record<string, unknown>;
+    createdAt: string;
+  }[];
 };
 
 export type HealthContext = {
