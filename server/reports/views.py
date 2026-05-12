@@ -67,11 +67,27 @@ def _build_ehr_export_rows(report):
                 "referenceRangeLow": marker.get("referenceRangeLow"),
                 "referenceRangeHigh": marker.get("referenceRangeHigh"),
                 "flag": marker.get("flag", "normal"),
+                "referenceRangeText": _format_reference_range(
+                    marker.get("referenceRangeLow"),
+                    marker.get("referenceRangeHigh"),
+                    marker.get("unit", ""),
+                ),
                 "loincCode": _loinc_hint(marker.get("testName")),
                 "risk": _marker_risk(marker),
             }
         )
     return rows
+
+
+def _format_reference_range(low, high, unit=""):
+    unit_text = f" {unit}".rstrip() if unit else ""
+    if low is not None and high is not None:
+        return f"{low}-{high}{unit_text}"
+    if low is not None:
+        return f">= {low}{unit_text}"
+    if high is not None:
+        return f"<= {high}{unit_text}"
+    return "Reference range not provided"
 
 
 def _build_lab_variance(trends):
@@ -520,7 +536,7 @@ class ReportEhrExportView(APIView):
                 *[
                     (
                         f"{row['marker']}\t{row['value']} {row['unit']}\t"
-                        f"{row.get('referenceRangeLow') or '--'}-{row.get('referenceRangeHigh') or '--'}\t"
+                        f"{row['referenceRangeText']}\t"
                         f"{row['flag']}\t{row['risk']}\t{row['loincCode']}"
                     )
                     for row in rows

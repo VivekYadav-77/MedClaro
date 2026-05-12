@@ -478,7 +478,7 @@ function attentionVariant(score: number): "success" | "warning" | "danger" | "de
 
 function formatRange(low?: number | null, high?: number | null, unit?: string) {
   if (typeof low === "number" && typeof high === "number") return `${low}-${high} ${unit ?? ""}`.trim();
-  if (typeof low === "number") return `>${low} ${unit ?? ""}`.trim();
-  if (typeof high === "number") return `<${high} ${unit ?? ""}`.trim();
-  return "--";
+  if (typeof low === "number") return `>= ${low} ${unit ?? ""}`.trim();
+  if (typeof high === "number") return `<= ${high} ${unit ?? ""}`.trim();
+  return "Reference range not provided";
 }

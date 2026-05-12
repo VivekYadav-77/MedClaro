@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FileText, Pill, Search, Stethoscope, Upload } from "lucide-react";
+import { FileText, Pill, Search, Stethoscope, Upload, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -19,6 +19,7 @@ export function ReportHistoryClient({ reports }: { reports: Report[] }) {
   const initialFilter: Filter = focus === "grocery" ? "abnormal" : "all";
   const [filter, setFilter] = useState<Filter>(initialFilter);
   const [query, setQuery] = useState("");
+  const [chooserOpen, setChooserOpen] = useState(focus === "ehr-export");
 
   const visibleReports = useMemo(() => {
     const lowered = query.trim().toLowerCase();
@@ -69,6 +70,55 @@ export function ReportHistoryClient({ reports }: { reports: Report[] }) {
           <p className="mt-1 text-sm text-slate-500">Try another filter or upload a new report.</p>
         </div>
       )}
+
+      {chooserOpen ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 px-4 py-6 backdrop-blur-sm sm:items-center">
+          <Card className="max-h-[86vh] w-full max-w-3xl overflow-hidden p-0 shadow-dialog">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-brand-600">EHR Export</p>
+                <h2 className="mt-1 font-display text-xl font-bold text-slate-900">Choose a report for doctor export</h2>
+                <p className="mt-1 text-sm text-slate-500">Select the analyzed report you want to turn into a clinical handoff table.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setChooserOpen(false)}
+                className="rounded-md p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                aria-label="Close EHR export chooser"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="max-h-[62vh] space-y-2 overflow-y-auto p-4">
+              {reports.length ? (
+                reports.map((report) => (
+                  <button
+                    key={report._id}
+                    type="button"
+                    onClick={() => router.push(`/reports/${report._id}?tab=doctor-export`)}
+                    className="flex w-full items-start justify-between gap-4 rounded-lg border border-slate-200 bg-white p-4 text-left hover:border-brand-200 hover:bg-brand-50"
+                  >
+                    <span>
+                      <span className="block font-semibold text-slate-900">{report.labName || "Health Report"}</span>
+                      <span className="mt-1 block text-sm text-slate-500">
+                        {report.reportType.replace(/_/g, " ")} - {new Date(report.reportDate).toLocaleDateString("en-IN")}
+                        {report.familyMemberName || report.ownerName ? ` - ${report.familyMemberName ?? report.ownerName}` : ""}
+                      </span>
+                    </span>
+                    <span className="rounded-md bg-brand-50 px-2 py-1 text-xs font-semibold text-brand-700">Export</span>
+                  </button>
+                ))
+              ) : (
+                <div className="rounded-lg border-2 border-dashed border-slate-200 p-8 text-center">
+                  <FileText className="mx-auto h-8 w-8 text-slate-300" />
+                  <p className="mt-3 font-semibold text-slate-900">No reports available</p>
+                  <p className="mt-1 text-sm text-slate-500">Upload an analyzed report before creating an EHR export.</p>
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+      ) : null}
     </div>
   );
 }

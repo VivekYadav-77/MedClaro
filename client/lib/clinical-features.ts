@@ -57,7 +57,6 @@ export function buildClinicalFeatureCards(reports: Report[], circleCount: number
   const hasPrescription = reports.some((report) => report.reportType === "prescription" || (report.medications?.length ?? 0) > 0);
   const hasAbnormal = reports.some((report) => report.structuredData.some((item) => item.flag !== "normal"));
   const hasTrendData = collectTrackedMarkers(reports).length > 0;
-  const latestReport = reports[0];
   const prescriptionReport = reports.find((report) => report.reportType === "prescription" || (report.medications?.length ?? 0) > 0);
   const abnormalReport = reports.find((report) => report.structuredData.some((item) => item.flag !== "normal"));
   const reportTabRoute = (report: Report | undefined, tab: string, fallback: string) =>
@@ -100,7 +99,7 @@ export function buildClinicalFeatureCards(reports: Report[], circleCount: number
       shortTitle: "EHR Export",
       description: hasReports ? "Doctor export UI and backend rows are available with local LOINC hints." : "Upload a report to prepare doctor export rows.",
       status: hasReports ? "live" : "no_data",
-      route: reportTabRoute(latestReport, "doctor-export", "/reports/history?focus=ehr-export"),
+      route: "/reports/history?focus=ehr-export",
       actionLabel: "Open report",
       category: "clinical",
     },
