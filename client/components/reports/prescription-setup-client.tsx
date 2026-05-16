@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, FileText, Loader2, Pill, Save } from "lucide-react";
+import { ArrowLeft, FileText, Loader2, Pill, Save, ShieldAlert } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +29,9 @@ export function PrescriptionSetupClient() {
   const prescriptionReportId = searchParams.get("prescriptionReportId");
   const [record, setRecord] = useState<PrescriptionRecord | null>(null);
   const [reports, setReports] = useState<Report[]>([]);
+  const [ongoingPrescriptions, setOngoingPrescriptions] = useState<PrescriptionRecord[]>([]);
   const [selectedReportIds, setSelectedReportIds] = useState<string[]>([]);
+  const [selectedActiveMedIds, setSelectedActiveMedIds] = useState<string[]>([]);
   const [status, setStatus] = useState<PrescriptionStatus>("ongoing");
   const [doctorName, setDoctorName] = useState("");
   const [specialty, setSpecialty] = useState("");
@@ -56,7 +58,7 @@ export function PrescriptionSetupClient() {
           Authorization: `Bearer ${session.accessToken}`,
           "Content-Type": "application/json",
         };
-        const [recordResponse, reportsResponse] = await Promise.all([
+        const [recordResponse, reportsResponse, prescriptionsResponse] = await Promise.all([
           fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports/prescriptions/from-report`, {
             method: "POST",
             headers,
@@ -66,16 +68,27 @@ export function PrescriptionSetupClient() {
             headers: { Authorization: `Bearer ${session.accessToken}` },
             cache: "no-store",
           }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports/prescriptions`, {
+            headers: { Authorization: `Bearer ${session.accessToken}` },
+            cache: "no-store",
+          }),
         ]);
         const recordPayload = await recordResponse.json().catch(() => null);
         const reportsPayload = await reportsResponse.json().catch(() => []);
+        const prescriptionsPayload = await prescriptionsResponse.json().catch(() => null);
         if (!recordResponse.ok) {
           throw new Error(recordPayload?.error || "Could not prepare this prescription.");
         }
         const loadedRecord = recordPayload as PrescriptionRecord;
+        const allPrescriptions: PrescriptionRecord[] = prescriptionsPayload?.prescriptions ?? [];
+        const ongoing = allPrescriptions.filter(
+          (p) => p.status === "ongoing" && p.id !== loadedRecord.id,
+        );
         setRecord(loadedRecord);
         setReports(Array.isArray(reportsPayload) ? reportsPayload : []);
+        setOngoingPrescriptions(ongoing);
         setSelectedReportIds(loadedRecord.linkedReports.map((report) => report._id));
+        setSelectedActiveMedIds(ongoing.map((p) => p.id)); // pre-select all ongoing by default
         setStatus(loadedRecord.status === "unknown" ? "ongoing" : loadedRecord.status);
         setDoctorName(loadedRecord.doctorName || "");
         setSpecialty(loadedRecord.specialty || "");
@@ -92,6 +105,14 @@ export function PrescriptionSetupClient() {
 
   function toggleReport(reportId: string) {
     setSelectedReportIds((current) => (current.includes(reportId) ? current.filter((id) => id !== reportId) : [...current, reportId]));
+  }
+
+  function toggleActiveMed(prescriptionId: string) {
+    setSelectedActiveMedIds((current) =>
+      current.includes(prescriptionId)
+        ? current.filter((id) => id !== prescriptionId)
+        : [...current, prescriptionId],
+    );
   }
 
   async function save() {
@@ -198,10 +219,67 @@ export function PrescriptionSetupClient() {
           </Card>
 
           <section className="space-y-4">
+            {/* Active ongoing medications panel */}
+            <Card className="p-4">
+              <div className="flex items-start gap-3">
+                <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-brand-600" />
+                <div>
+                  <h2 className="font-semibold text-slate-950">Confirm active ongoing medications</h2>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    These saved prescriptions are marked as ongoing. Uncheck any that you are no longer taking — they
+                    will be used in the medication risk comparison.
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            {ongoingPrescriptions.length ? (
+              <div className="grid gap-3 md:grid-cols-2">
+                {ongoingPrescriptions.map((prescription) => {
+                  const selected = selectedActiveMedIds.includes(prescription.id);
+                  const medNames = prescription.medications
+                    .map((m) => m.name)
+                    .filter(Boolean)
+                    .slice(0, 3)
+                    .join(", ");
+                  return (
+                    <button
+                      key={prescription.id}
+                      type="button"
+                      onClick={() => toggleActiveMed(prescription.id)}
+                      className={`rounded-lg border bg-white p-4 text-left transition ${
+                        selected ? "border-brand-400 ring-2 ring-brand-100" : "border-slate-200 hover:border-slate-300"
+                      }`}
+                      id={`active-med-${prescription.id}`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-slate-950">
+                            {prescription.report.labName || "Ongoing prescription"}
+                          </p>
+                          <p className="mt-1 text-sm text-slate-500">{medNames || "Medicines not extracted"}</p>
+                        </div>
+                        <Badge variant={selected ? "success" : "default"}>
+                          {selected ? "Still taking" : "Stopped"}
+                        </Badge>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <Card className="border-dashed p-6 text-center">
+                <Pill className="mx-auto h-7 w-7 text-slate-300" />
+                <p className="mt-2 text-sm text-slate-500">No other ongoing prescriptions found.</p>
+              </Card>
+            )}
+
+            {/* Analyzed reports section */}
             <Card className="p-4">
               <h2 className="font-semibold text-slate-950">Select related analyzed reports</h2>
               <p className="mt-1 text-sm leading-6 text-slate-600">
-                Choose the latest or most relevant reports for this prescription. These selected reports become the risk-analysis context.
+                Choose the latest or most relevant reports for this prescription. These selected reports become the
+                risk-analysis context.
               </p>
             </Card>
 

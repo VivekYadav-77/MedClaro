@@ -12,6 +12,8 @@ from reports.access import accessible_reports, can_contribute_to_circle, share_r
 from reports.models import EmergencyCardAccess, EmergencyEvent, PrescriptionAnalysis, PrescriptionRecord, PrescriptionReportLink, Report, ReportShare, WearableMetric
 from reports.serializers import ReportChatRequestSerializer, ReportShareSerializer, WearableMetricImportSerializer
 from reports.services import GeminiService, RateLimiter, ReportHydrator, ReportService, TrendService
+from reports.services.prescription_extraction import extract_medicines_from_text, extract_text_from_file
+from reports.services.prescription_analysis import run_prescription_analysis
 from reminders.models import Reminder
 
 
@@ -813,6 +815,80 @@ def _run_prescription_analysis(user, record, related_report_ids, comparison_pres
     for report in related_reports:
         PrescriptionReportLink.objects.get_or_create(prescription=record, report=report)
     return result, analysis
+
+
+class PrescriptionExtractView(APIView):
+    """POST /api/reports/prescriptions/extract
+
+    Accepts a prescription file (image or PDF), extracts raw text via pdfplumber
+    or Gemini Vision, then uses Gemini to parse it into a structured list of
+    medicines.  The result is returned to the frontend for user confirmation —
+    nothing is saved to the database at this stage.
+    """
+
+    def post(self, request):
+        upload = request.FILES.get("file")
+        if not upload:
+            return Response(
+                {"error": "A prescription file is required.", "code": "FILE_REQUIRED"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        from reports.services.prescription_extraction import extract_medicines_from_text, extract_text_from_file
+        try:
+            from reports.services import ParserService
+            content, mime_type = ParserService().validate_upload(upload)
+        except Exception as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        gemini = GeminiService()
+        raw_text = extract_text_from_file(content, mime_type, gemini)
+        result = extract_medicines_from_text(raw_text, gemini)
+        return Response(result)
+
+
+class PrescriptionStructuredRiskView(APIView):
+    """POST /api/reports/prescriptions/<id>/structured-risk
+
+    Accepts:
+      - confirmedMedications: list of user-confirmed medicine dicts
+      - comparisonPrescriptionIds: list of ongoing prescription IDs
+      - selectedReportIds: list of analyzed report IDs
+
+    Pipeline:
+      1. Fetch active prescriptions and selected reports.
+      2. Build patient health context.
+      3. Run deterministic rule-based risk engine.
+      4. Ask Gemini to explain the detected risks in plain language.
+      5. Persist as PrescriptionAnalysis and return result.
+    """
+
+    def post(self, request, prescription_id):
+        record = _user_prescription_queryset(request.user).filter(id=prescription_id).first()
+        if not record:
+            return Response({"error": "Prescription not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        confirmed_medications = request.data.get("confirmedMedications") or []
+        comparison_ids = request.data.get("comparisonPrescriptionIds") or []
+        selected_report_ids = request.data.get("selectedReportIds") or []
+
+        if not isinstance(confirmed_medications, list):
+            return Response(
+                {"error": "confirmedMedications must be an array."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        from reports.services.prescription_analysis import run_prescription_analysis
+        result, analysis = run_prescription_analysis(
+            prescription_record=record,
+            confirmed_medications=confirmed_medications,
+            comparison_prescription_ids=comparison_ids,
+            selected_report_ids=selected_report_ids,
+            user=request.user,
+            gemini_service=GeminiService(),
+            language=request.user.preferred_language,
+        )
+        result["analysis"] = _serialize_prescription_analysis(analysis)
+        return Response(result, status=status.HTTP_201_CREATED)
 
 
 class PrescriptionAnalysisListView(APIView):
