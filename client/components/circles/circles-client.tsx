@@ -507,7 +507,11 @@ export function CirclesClient() {
               </Button>
             </div>
             <div className="p-5">
-              <InlineUploader onUploaded={handleUploaded} onViewReport={(report) => router.push(`/reports/${report._id}`)} />
+              <InlineUploader
+                onUploaded={handleUploaded}
+                onViewReport={(report) => router.push(`/reports/${report._id}`)}
+                circleId={selectedId}
+              />
             </div>
           </div>
         </div>
@@ -541,7 +545,7 @@ function CircleOverview({
         <CircleMetric icon={FileText} label="Shared reports" value={String(dashboard.reports.length)} />
         <CircleMetric icon={UsersRound} label="Profiles visible" value={String(reportOwners)} />
         <CircleMetric icon={TrendingUp} label="Trend charts" value={String(trendCount)} />
-        <CircleMetric icon={Pill} label="Medication risk" value={dashboard.medicationSummary.polypharmacyRisk} />
+        <CircleMetric icon={Pill} label="Medicines" value={String(dashboard.medicationSummary.medicationCount)} />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">

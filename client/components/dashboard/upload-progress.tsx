@@ -2,29 +2,33 @@
 
 import { CheckCircle2, Loader2 } from "lucide-react";
 
-const STEPS = [
+const DEFAULT_STEPS = [
   "Uploading",
   "Extracting PDF Data",
   "AI Analysis in Progress",
   "Ready"
 ] as const;
 
-export type UploadStep = (typeof STEPS)[number];
+export type UploadStep = string;
 
 export function UploadProgress({
   currentStep,
-  done
+  done,
+  steps = DEFAULT_STEPS,
+  doneText = "Analysis complete",
 }: {
   currentStep: number;
   done: boolean;
+  steps?: readonly string[];
+  doneText?: string;
 }) {
-  const progress = done ? 100 : Math.round(((currentStep + 1) / STEPS.length) * 100);
+  const progress = done ? 100 : Math.round(((currentStep + 1) / steps.length) * 100);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between text-sm">
         <span className="font-medium text-slate-700">
-          {done ? "Analysis complete" : STEPS[Math.max(currentStep, 0)]}
+          {done ? doneText : steps[Math.max(currentStep, 0)]}
         </span>
         <span className="text-slate-500">{progress}%</span>
       </div>
@@ -35,7 +39,7 @@ export function UploadProgress({
         />
       </div>
       <div className="grid gap-2 sm:grid-cols-4">
-        {STEPS.map((step, index) => {
+        {steps.map((step, index) => {
           const stepDone = done || index < currentStep;
           const active = index === currentStep && !done;
 

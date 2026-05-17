@@ -25,6 +25,12 @@ Do NOT include any explanation, markdown, or extra text outside the JSON object.
 
 Required JSON structure:
 {
+  "doctor_name": "<doctor name if visible, else null>",
+  "specialty": "<doctor specialty if visible, else null>",
+  "diagnosis": "<diagnosis or condition written on the prescription, else null>",
+  "doctor_notes": "<instructions or notes not belonging to a single medicine, else null>",
+  "prescription_date": "<date if visible, else null>",
+  "extraction_confidence": "high|medium|low",
   "medications": [
     {
       "medicine_name": "<brand or generic name as written>",
@@ -37,7 +43,7 @@ Required JSON structure:
 }
 
 Rules:
-- Only extract medicines. Do NOT add medical advice.
+- Extract only visible prescription facts. Do NOT add medical advice.
 - If a field is not mentioned in the prescription, set it to null.
 - Normalise the medicine name to its most common spelling.
 - Do NOT invent medicines that are not present in the text.
@@ -70,6 +76,12 @@ def extract_medicines_from_text(raw_text: str, gemini_service) -> dict:
         medications = data.get("medications") or []
         return {
             "medications": medications,
+            "doctorName": data.get("doctor_name"),
+            "specialty": data.get("specialty"),
+            "diagnosis": data.get("diagnosis"),
+            "doctorNotes": data.get("doctor_notes"),
+            "prescriptionDate": data.get("prescription_date"),
+            "extractionConfidence": data.get("extraction_confidence") or "medium",
             "rawTextLength": len(raw_text),
             "extractedCount": len(medications),
         }
@@ -152,6 +164,12 @@ def _fallback_extraction(raw_text: str) -> dict:
         })
     return {
         "medications": medications[:20],
+        "doctorName": None,
+        "specialty": None,
+        "diagnosis": None,
+        "doctorNotes": None,
+        "prescriptionDate": None,
+        "extractionConfidence": "low",
         "extractionNote": (
             "Gemini was unavailable. This is a basic local extraction; "
             "please review and correct the medicine list carefully."

@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, FileText, Loader2, Pill, Save, ShieldAlert } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { ArrowLeft, Brain, FileText, Loader2, Pill, Save } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,12 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { PrescriptionRecord, PrescriptionStatus, Report } from "@/lib/types";
+import {
+  PrescriptionCandidateReport,
+  PrescriptionContextualAnalysis,
+  PrescriptionRecord,
+  PrescriptionStatus,
+} from "@/lib/types";
 
 const statusOptions: { value: PrescriptionStatus; label: string; help: string }[] = [
   { value: "ongoing", label: "Ongoing now", help: "Use for current daily or active medicines." },
@@ -23,15 +28,13 @@ const statusOptions: { value: PrescriptionStatus; label: string; help: string }[
 ];
 
 export function PrescriptionSetupClient() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
   const prescriptionReportId = searchParams.get("prescriptionReportId");
   const [record, setRecord] = useState<PrescriptionRecord | null>(null);
-  const [reports, setReports] = useState<Report[]>([]);
-  const [ongoingPrescriptions, setOngoingPrescriptions] = useState<PrescriptionRecord[]>([]);
+  const [candidateReports, setCandidateReports] = useState<PrescriptionCandidateReport[]>([]);
   const [selectedReportIds, setSelectedReportIds] = useState<string[]>([]);
-  const [selectedActiveMedIds, setSelectedActiveMedIds] = useState<string[]>([]);
+  const [analysis, setAnalysis] = useState<PrescriptionContextualAnalysis | null>(null);
   const [status, setStatus] = useState<PrescriptionStatus>("ongoing");
   const [doctorName, setDoctorName] = useState("");
   const [specialty, setSpecialty] = useState("");
@@ -39,11 +42,6 @@ export function PrescriptionSetupClient() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-
-  const candidateReports = useMemo(
-    () => reports.filter((report) => report._id !== record?.reportId && report.reportType !== "prescription"),
-    [reports, record?.reportId],
-  );
 
   useEffect(() => {
     async function load() {
@@ -58,37 +56,34 @@ export function PrescriptionSetupClient() {
           Authorization: `Bearer ${session.accessToken}`,
           "Content-Type": "application/json",
         };
-        const [recordResponse, reportsResponse, prescriptionsResponse] = await Promise.all([
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports/prescriptions/from-report`, {
-            method: "POST",
-            headers,
-            body: JSON.stringify({ reportId: prescriptionReportId }),
-          }),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports`, {
-            headers: { Authorization: `Bearer ${session.accessToken}` },
-            cache: "no-store",
-          }),
-          fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports/prescriptions`, {
-            headers: { Authorization: `Bearer ${session.accessToken}` },
-            cache: "no-store",
-          }),
-        ]);
+        const recordResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports/prescriptions/from-report`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ reportId: prescriptionReportId }),
+        });
         const recordPayload = await recordResponse.json().catch(() => null);
-        const reportsPayload = await reportsResponse.json().catch(() => []);
-        const prescriptionsPayload = await prescriptionsResponse.json().catch(() => null);
         if (!recordResponse.ok) {
           throw new Error(recordPayload?.error || "Could not prepare this prescription.");
         }
         const loadedRecord = recordPayload as PrescriptionRecord;
-        const allPrescriptions: PrescriptionRecord[] = prescriptionsPayload?.prescriptions ?? [];
-        const ongoing = allPrescriptions.filter(
-          (p) => p.status === "ongoing" && p.id !== loadedRecord.id,
+        const candidatesResponse = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/reports/prescriptions/${loadedRecord.id}/candidate-reports`,
+          {
+            headers: { Authorization: `Bearer ${session.accessToken}` },
+            cache: "no-store",
+          },
         );
+        const candidatesPayload = await candidatesResponse.json().catch(() => null);
         setRecord(loadedRecord);
-        setReports(Array.isArray(reportsPayload) ? reportsPayload : []);
-        setOngoingPrescriptions(ongoing);
-        setSelectedReportIds(loadedRecord.linkedReports.map((report) => report._id));
-        setSelectedActiveMedIds(ongoing.map((p) => p.id)); // pre-select all ongoing by default
+        const loadedCandidates: PrescriptionCandidateReport[] = candidatesResponse.ok
+          ? candidatesPayload?.candidateReports ?? []
+          : [];
+        setCandidateReports(loadedCandidates);
+        setSelectedReportIds(
+          loadedRecord.linkedReports.length
+            ? loadedRecord.linkedReports.map((report) => report._id)
+            : loadedCandidates.filter((candidate) => candidate.relevanceScore >= 60).map((candidate) => candidate.reportId),
+        );
         setStatus(loadedRecord.status === "unknown" ? "ongoing" : loadedRecord.status);
         setDoctorName(loadedRecord.doctorName || "");
         setSpecialty(loadedRecord.specialty || "");
@@ -107,39 +102,41 @@ export function PrescriptionSetupClient() {
     setSelectedReportIds((current) => (current.includes(reportId) ? current.filter((id) => id !== reportId) : [...current, reportId]));
   }
 
-  function toggleActiveMed(prescriptionId: string) {
-    setSelectedActiveMedIds((current) =>
-      current.includes(prescriptionId)
-        ? current.filter((id) => id !== prescriptionId)
-        : [...current, prescriptionId],
-    );
-  }
-
-  async function save() {
+  async function save(mode: "with_reports" | "prescription_only" = "with_reports") {
     if (!record || !process.env.NEXT_PUBLIC_API_URL || !session?.accessToken) return;
     setSaving(true);
     setError("");
+    setAnalysis(null);
     try {
       const headers = {
         Authorization: `Bearer ${session.accessToken}`,
         "Content-Type": "application/json",
       };
-      const [detailResponse, linksResponse] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports/prescriptions/${record.id}`, {
-          method: "PATCH",
-          headers,
-          body: JSON.stringify({ status, doctorName, specialty, notes }),
-        }),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports/prescriptions/${record.id}/links`, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ reportIds: selectedReportIds }),
-        }),
-      ]);
-      if (!detailResponse.ok || !linksResponse.ok) {
+      const detailResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports/prescriptions/${record.id}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ status, doctorName, specialty, notes }),
+      });
+      if (!detailResponse.ok) {
         throw new Error("Could not save prescription context.");
       }
-      router.push("/reports/medications");
+      const analysisResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/reports/prescriptions/${record.id}/contextual-analysis`,
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            mode,
+            reportIds: mode === "prescription_only" ? [] : selectedReportIds,
+          }),
+        },
+      );
+      const analysisPayload = await analysisResponse.json().catch(() => null);
+      if (!analysisResponse.ok) {
+        throw new Error(analysisPayload?.error || "Could not run contextual analysis.");
+      }
+      setRecord(analysisPayload.prescription ?? record);
+      setAnalysis(analysisPayload.analysis ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save prescription context.");
     } finally {
@@ -159,12 +156,12 @@ export function PrescriptionSetupClient() {
           <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Prescription setup</p>
           <h1 className="mt-1 font-display text-2xl font-bold text-slate-950">Connect this prescription to the right reports</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-            Medication risk works best when each prescription has its own status and selected blood reports instead of scanning every old report.
+            Review the extracted prescription, select any related analyzed reports, then run the analysis. If no report is available, use prescription-only analysis with lower confidence.
           </p>
         </div>
-        <Button onClick={save} disabled={!record || saving} className="gap-2">
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Save context
+        <Button onClick={() => save("with_reports")} disabled={!record || saving || selectedReportIds.length === 0} className="gap-2">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
+          Analyze with reports
         </Button>
       </div>
 
@@ -187,6 +184,9 @@ export function PrescriptionSetupClient() {
               <div>
                 <h2 className="font-semibold text-slate-950">{record.report.labName || "Prescription"}</h2>
                 <p className="mt-1 text-sm text-slate-500">{record.medications.length} extracted medicine(s)</p>
+                {record.prescriptionContext?.diagnosis ? (
+                  <p className="mt-1 text-xs text-slate-500">Diagnosis noted: {record.prescriptionContext.diagnosis}</p>
+                ) : null}
               </div>
             </div>
 
@@ -216,83 +216,35 @@ export function PrescriptionSetupClient() {
               <span className="text-sm font-semibold text-slate-800">Notes</span>
               <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Why it was prescribed, warnings, or follow-up advice." />
             </label>
+
+            <Button onClick={() => save("prescription_only")} disabled={!record || saving} variant="outline" className="w-full gap-2">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Continue prescription-only
+            </Button>
           </Card>
 
           <section className="space-y-4">
-            {/* Active ongoing medications panel */}
             <Card className="p-4">
               <div className="flex items-start gap-3">
-                <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-brand-600" />
+                <FileText className="mt-0.5 h-5 w-5 shrink-0 text-brand-600" />
                 <div>
-                  <h2 className="font-semibold text-slate-950">Confirm active ongoing medications</h2>
+                  <h2 className="font-semibold text-slate-950">Select related analyzed reports</h2>
                   <p className="mt-1 text-sm leading-6 text-slate-600">
-                    These saved prescriptions are marked as ongoing. Uncheck any that you are no longer taking — they
-                    will be used in the medication risk comparison.
+                    These saved reports are already analyzed and ranked by likely relevance to the prescription. Selected reports become the context for the prescription explanation.
                   </p>
                 </div>
               </div>
             </Card>
 
-            {ongoingPrescriptions.length ? (
-              <div className="grid gap-3 md:grid-cols-2">
-                {ongoingPrescriptions.map((prescription) => {
-                  const selected = selectedActiveMedIds.includes(prescription.id);
-                  const medNames = prescription.medications
-                    .map((m) => m.name)
-                    .filter(Boolean)
-                    .slice(0, 3)
-                    .join(", ");
-                  return (
-                    <button
-                      key={prescription.id}
-                      type="button"
-                      onClick={() => toggleActiveMed(prescription.id)}
-                      className={`rounded-lg border bg-white p-4 text-left transition ${
-                        selected ? "border-brand-400 ring-2 ring-brand-100" : "border-slate-200 hover:border-slate-300"
-                      }`}
-                      id={`active-med-${prescription.id}`}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-semibold text-slate-950">
-                            {prescription.report.labName || "Ongoing prescription"}
-                          </p>
-                          <p className="mt-1 text-sm text-slate-500">{medNames || "Medicines not extracted"}</p>
-                        </div>
-                        <Badge variant={selected ? "success" : "default"}>
-                          {selected ? "Still taking" : "Stopped"}
-                        </Badge>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <Card className="border-dashed p-6 text-center">
-                <Pill className="mx-auto h-7 w-7 text-slate-300" />
-                <p className="mt-2 text-sm text-slate-500">No other ongoing prescriptions found.</p>
-              </Card>
-            )}
-
-            {/* Analyzed reports section */}
-            <Card className="p-4">
-              <h2 className="font-semibold text-slate-950">Select related analyzed reports</h2>
-              <p className="mt-1 text-sm leading-6 text-slate-600">
-                Choose the latest or most relevant reports for this prescription. These selected reports become the
-                risk-analysis context.
-              </p>
-            </Card>
-
             {candidateReports.length ? (
               <div className="grid gap-3 md:grid-cols-2">
                 {candidateReports.map((report) => {
-                  const selected = selectedReportIds.includes(report._id);
-                  const abnormalCount = report.structuredData.filter((item) => item.flag !== "normal").length;
+                  const selected = selectedReportIds.includes(report.reportId);
                   return (
                     <button
-                      key={report._id}
+                      key={report.reportId}
                       type="button"
-                      onClick={() => toggleReport(report._id)}
+                      onClick={() => toggleReport(report.reportId)}
                       className={`rounded-lg border bg-white p-4 text-left transition ${
                         selected ? "border-brand-400 ring-2 ring-brand-100" : "border-slate-200 hover:border-slate-300"
                       }`}
@@ -302,13 +254,18 @@ export function PrescriptionSetupClient() {
                           <p className="font-semibold text-slate-950">{report.labName || report.reportType}</p>
                           <p className="mt-1 text-sm text-slate-500">{String(report.reportDate || report.uploadDate).slice(0, 10)}</p>
                         </div>
-                        <Badge variant={selected ? "success" : abnormalCount ? "warning" : "default"}>
-                          {selected ? "Selected" : abnormalCount ? `${abnormalCount} flags` : "Normal"}
+                        <Badge variant={selected ? "success" : report.relevanceScore >= 60 ? "warning" : "default"}>
+                          {selected ? "Selected" : `${report.relevanceScore}% match`}
                         </Badge>
                       </div>
-                      <div className="mt-3 flex items-center gap-2 text-sm text-brand-700">
-                        <FileText className="h-4 w-4" />
-                        Open later from report history
+                      <p className="mt-3 line-clamp-2 text-sm text-slate-600">{report.analysisSummary}</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Badge variant={report.abnormalCount ? "warning" : "default"}>
+                          {report.abnormalCount ? `${report.abnormalCount} flags` : "No flags"}
+                        </Badge>
+                        {report.relevanceReasons.slice(0, 2).map((reason) => (
+                          <Badge key={reason} variant="default">{reason}</Badge>
+                        ))}
                       </div>
                     </button>
                   );
@@ -318,12 +275,83 @@ export function PrescriptionSetupClient() {
               <Card className="border-dashed p-8 text-center">
                 <FileText className="mx-auto h-8 w-8 text-slate-300" />
                 <p className="mt-3 font-semibold text-slate-900">No analyzed blood reports yet</p>
-                <p className="mt-1 text-sm text-slate-500">Save this prescription now, then attach reports after uploading them.</p>
+                <p className="mt-1 text-sm text-slate-500">Upload and analyze reports first for stronger context, or continue with lower-confidence prescription-only analysis.</p>
+                <div className="mt-4 flex flex-wrap justify-center gap-2">
+                  <Link href="/reports/upload">
+                    <Button variant="outline">Upload reports first</Button>
+                  </Link>
+                  <Button onClick={() => save("prescription_only")} disabled={saving}>
+                    Continue prescription-only
+                  </Button>
+                </div>
               </Card>
             )}
+
+            {analysis ? <ContextualAnalysisResult analysis={analysis} /> : null}
           </section>
         </div>
       ) : null}
     </div>
+  );
+}
+
+function ContextualAnalysisResult({ analysis }: { analysis: PrescriptionContextualAnalysis }) {
+  const result = analysis.result;
+  return (
+    <Card className="space-y-4 border-brand-200 p-5">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Contextual analysis</p>
+          <h2 className="mt-1 font-semibold text-slate-950">Prescription explanation with report context</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            {analysis.selectedReportIds.length ? "Report-enhanced analysis" : "Prescription-only analysis"}
+          </p>
+        </div>
+        <Badge variant={analysis.confidence === "high" ? "success" : analysis.confidence === "medium" ? "warning" : "default"}>
+          {analysis.confidence} confidence
+        </Badge>
+      </div>
+
+      {result.likelyTreating ? <p className="text-sm leading-6 text-slate-700">{result.likelyTreating}</p> : null}
+      {result.confidenceReason ? <p className="text-sm font-medium text-slate-600">{result.confidenceReason}</p> : null}
+
+      {result.medicineExplanations?.length ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          {result.medicineExplanations.map((item) => (
+            <div key={item.medicineName} className="rounded-lg border border-slate-200 p-3">
+              <p className="font-semibold text-slate-950">{item.medicineName}</p>
+              <p className="mt-1 text-sm text-slate-600">{item.patientExplanation || item.purpose || "Purpose not confirmed."}</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {result.reportConnections?.length ? (
+        <div>
+          <p className="text-sm font-semibold text-slate-900">Report connections</p>
+          <div className="mt-2 space-y-2">
+            {result.reportConnections.map((connection) => (
+              <p key={connection} className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">{connection}</p>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {result.abnormalIndicatorsConnectedToMedicines?.length ? (
+        <div>
+          <p className="text-sm font-semibold text-slate-900">Connected indicators</p>
+          <div className="mt-2 grid gap-2 md:grid-cols-2">
+            {result.abnormalIndicatorsConnectedToMedicines.map((item) => (
+              <div key={`${item.marker}-${item.value}`} className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
+                <p className="font-semibold">{item.marker}: {item.value}</p>
+                <p className="mt-1">{item.medicineConnection}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {result.disclaimer ? <p className="text-xs leading-5 text-slate-500">{result.disclaimer}</p> : null}
+    </Card>
   );
 }

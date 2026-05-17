@@ -12,7 +12,17 @@ import { Report } from "@/lib/types";
 
 type Filter = "all" | "prescriptions" | "abnormal";
 
-export function ReportHistoryClient({ reports }: { reports: Report[] }) {
+export function ReportHistoryClient({
+  reports,
+  eyebrow = "Report History",
+  title = "All analyzed reports",
+  description = "Open any report as a full page with values, doctor export, diet, medication, chat, and sharing context.",
+}: {
+  reports: Report[];
+  eyebrow?: string;
+  title?: string;
+  description?: string;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const focus = searchParams.get("focus");
@@ -37,11 +47,9 @@ export function ReportHistoryClient({ reports }: { reports: Report[] }) {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Report History</p>
-          <h1 className="mt-1 font-display text-2xl font-bold text-slate-950">All analyzed reports</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-            Open any report as a full page with values, doctor export, diet, medication, chat, and sharing context.
-          </p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">{eyebrow}</p>
+          <h1 className="mt-1 font-display text-2xl font-bold text-slate-950">{title}</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{description}</p>
         </div>
         <Button className="gap-2" onClick={() => router.push("/reports/upload")}>
           <Upload className="h-4 w-4" />

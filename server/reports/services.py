@@ -493,86 +493,6 @@ Blood report history: {json.dumps([{"date": r.get("reportDate"), "markers": r["s
         raw = self.generate_json(prompt=prompt, report_text="treatment", report_type="treatment_analysis", workload="feature")
         return json.loads(raw)
 
-    def analyze_medication_conflicts(self, reports: list[dict], language: str) -> dict:
-        medications = [
-            medication
-            for report in reports
-            for medication in (report.get("medications") or [])
-        ]
-        recent_markers = [
-            item
-            for report in reports[:5]
-            for item in report.get("structuredData", [])
-            if item.get("flag") != "normal"
-        ]
-        prompt = f"""
-Screen these active/recent medications against each other and against recent abnormal blood markers.
-Return JSON with key conflicts: array of objects containing severity (low/medium/high), title, medications, reason, action.
-Also return overallMessage. Never tell the user to stop medication; recommend doctor/pharmacist review.
-Respond in language code {language}.
-Medications: {json.dumps(medications, default=str)}
-Recent abnormal markers: {json.dumps(recent_markers, default=str)}
-"""
-        raw = self.generate_json(prompt=prompt, report_text="medication_conflicts", report_type="medication_conflicts", workload="feature")
-        return json.loads(raw)
-
-    def fallback_medication_conflicts(self, reports: list[dict]) -> dict:
-        medications = [
-            medication
-            for report in reports
-            for medication in (report.get("medications") or [])
-        ]
-        marker_keys = {
-            marker_key(item.get("testName")): item
-            for report in reports[:5]
-            for item in report.get("structuredData", [])
-            if item.get("flag") != "normal"
-        }
-        conflicts = []
-        seen = set()
-        med_names = [med.get("name", "") for med in medications if med.get("name")]
-        for name in med_names:
-            key = marker_key(name)
-            if "metformin" in key and any("creatinine" in marker or "egfr" in marker for marker in marker_keys):
-                seen.add("metformin-kidney")
-                conflicts.append({
-                    "severity": "medium",
-                    "title": "Diabetes medicine and kidney markers need review",
-                    "medications": [name],
-                    "reason": "Metformin commonly requires kidney-function awareness, and a kidney-related marker is abnormal in recent reports.",
-                    "action": "Ask your doctor whether kidney monitoring or dose review is needed.",
-                })
-            if any(term in key for term in ("atorvastatin", "rosuvastatin", "statin")) and any("liver" in marker or "alt" in marker or "ast" in marker for marker in marker_keys):
-                seen.add("statin-liver")
-                conflicts.append({
-                    "severity": "medium",
-                    "title": "Cholesterol medicine and liver markers need review",
-                    "medications": [name],
-                    "reason": "Statins are often monitored with liver enzymes, and a liver-related marker is abnormal.",
-                    "action": "Bring this up during your next medication review.",
-                })
-            if any(term in key for term in ("ibuprofen", "diclofenac", "naproxen")) and any("creatinine" in marker or "egfr" in marker for marker in marker_keys):
-                seen.add("nsaid-kidney")
-                conflicts.append({
-                    "severity": "high",
-                    "title": "Painkiller and kidney marker caution",
-                    "medications": [name],
-                    "reason": "NSAID painkillers can be risky for some people with kidney-function concerns.",
-                    "action": "Ask a doctor or pharmacist before repeated use.",
-                })
-        if len(med_names) >= 5 and "polypharmacy" not in seen:
-            conflicts.append({
-                "severity": "low",
-                "title": "Multiple active medications",
-                "medications": med_names[:8],
-                "reason": "Several medications were found across prescriptions, which increases review complexity.",
-                "action": "Carry this list to each specialist and ask whether anything overlaps.",
-            })
-        return {
-            "conflicts": conflicts,
-            "overallMessage": "Gemini is unavailable, so this is a conservative rules-based medication safety screen.",
-        }
-
     def fallback_diet_advice(self, abnormal_markers: list[dict], language: str) -> dict:
         region = self.LANGUAGE_REGION_MAP.get(language, "general Indian")
         advice = []
@@ -1005,7 +925,6 @@ class ReportService:
 
     @transaction.atomic
     def create_report(self, upload, family_member_id: str | None, current_user, circle_id: str | None = None) -> dict:
-        self.rate_limiter.enforce(current_user, "report_upload", settings.UPLOAD_LIMIT_PER_DAY)
         if family_member_id and not current_user.family_members.filter(id=family_member_id).exists():
             raise exceptions.PermissionDenied({"error": "Family member not found", "code": "FAMILY_MEMBER_NOT_FOUND"})
         parsed = self.parser.parse_upload(upload)

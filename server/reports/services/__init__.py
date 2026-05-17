@@ -493,86 +493,6 @@ Blood report history: {json.dumps([{"date": r.get("reportDate"), "markers": r["s
         raw = self.generate_json(prompt=prompt, report_text="treatment", report_type="treatment_analysis", workload="feature")
         return json.loads(raw)
 
-    def analyze_medication_conflicts(self, reports: list[dict], language: str) -> dict:
-        medications = [
-            medication
-            for report in reports
-            for medication in (report.get("medications") or [])
-        ]
-        recent_markers = [
-            item
-            for report in reports[:5]
-            for item in report.get("structuredData", [])
-            if item.get("flag") != "normal"
-        ]
-        prompt = f"""
-Screen these active/recent medications against each other and against recent abnormal blood markers.
-Return JSON with key conflicts: array of objects containing severity (low/medium/high), title, medications, reason, action.
-Also return overallMessage. Never tell the user to stop medication; recommend doctor/pharmacist review.
-Respond in language code {language}.
-Medications: {json.dumps(medications, default=str)}
-Recent abnormal markers: {json.dumps(recent_markers, default=str)}
-"""
-        raw = self.generate_json(prompt=prompt, report_text="medication_conflicts", report_type="medication_conflicts", workload="feature")
-        return json.loads(raw)
-
-    def fallback_medication_conflicts(self, reports: list[dict]) -> dict:
-        medications = [
-            medication
-            for report in reports
-            for medication in (report.get("medications") or [])
-        ]
-        marker_keys = {
-            marker_key(item.get("testName")): item
-            for report in reports[:5]
-            for item in report.get("structuredData", [])
-            if item.get("flag") != "normal"
-        }
-        conflicts = []
-        seen = set()
-        med_names = [med.get("name", "") for med in medications if med.get("name")]
-        for name in med_names:
-            key = marker_key(name)
-            if "metformin" in key and any("creatinine" in marker or "egfr" in marker for marker in marker_keys):
-                seen.add("metformin-kidney")
-                conflicts.append({
-                    "severity": "medium",
-                    "title": "Diabetes medicine and kidney markers need review",
-                    "medications": [name],
-                    "reason": "Metformin commonly requires kidney-function awareness, and a kidney-related marker is abnormal in recent reports.",
-                    "action": "Ask your doctor whether kidney monitoring or dose review is needed.",
-                })
-            if any(term in key for term in ("atorvastatin", "rosuvastatin", "statin")) and any("liver" in marker or "alt" in marker or "ast" in marker for marker in marker_keys):
-                seen.add("statin-liver")
-                conflicts.append({
-                    "severity": "medium",
-                    "title": "Cholesterol medicine and liver markers need review",
-                    "medications": [name],
-                    "reason": "Statins are often monitored with liver enzymes, and a liver-related marker is abnormal.",
-                    "action": "Bring this up during your next medication review.",
-                })
-            if any(term in key for term in ("ibuprofen", "diclofenac", "naproxen")) and any("creatinine" in marker or "egfr" in marker for marker in marker_keys):
-                seen.add("nsaid-kidney")
-                conflicts.append({
-                    "severity": "high",
-                    "title": "Painkiller and kidney marker caution",
-                    "medications": [name],
-                    "reason": "NSAID painkillers can be risky for some people with kidney-function concerns.",
-                    "action": "Ask a doctor or pharmacist before repeated use.",
-                })
-        if len(med_names) >= 5 and "polypharmacy" not in seen:
-            conflicts.append({
-                "severity": "low",
-                "title": "Multiple active medications",
-                "medications": med_names[:8],
-                "reason": "Several medications were found across prescriptions, which increases review complexity.",
-                "action": "Carry this list to each specialist and ask whether anything overlaps.",
-            })
-        return {
-            "conflicts": conflicts,
-            "overallMessage": "Gemini is unavailable, so this is a conservative rules-based medication safety screen.",
-        }
-
     def fallback_diet_advice(self, abnormal_markers: list[dict], language: str) -> dict:
         region = self.LANGUAGE_REGION_MAP.get(language, "general Indian")
         advice = []
@@ -803,7 +723,7 @@ class ParserService:
         extracted_text = self.extract_text(content, mime_type)
         sanitized_text = sanitize_report_text(strip_pii(extracted_text))
         report_type = self.detect_report_type(sanitized_text)
-        structured_data = self.build_structured_data(sanitized_text, report_type)
+        structured_data = [] if report_type == "prescription" else self.build_structured_data(sanitized_text, report_type)
         return {
             "file_bytes": content,
             "mime_type": mime_type,
@@ -1004,20 +924,45 @@ class ReportService:
         self.hydrator = ReportHydrator()
 
     @transaction.atomic
-    def create_report(self, upload, family_member_id: str | None, current_user, circle_id: str | None = None) -> dict:
-        self.rate_limiter.enforce(current_user, "report_upload", settings.UPLOAD_LIMIT_PER_DAY)
+    def create_report(self, upload, family_member_id: str | None, current_user, circle_id: str | None = None, upload_kind: str | None = None) -> dict:
         if family_member_id and not current_user.family_members.filter(id=family_member_id).exists():
             raise exceptions.PermissionDenied({"error": "Family member not found", "code": "FAMILY_MEMBER_NOT_FOUND"})
         parsed = self.parser.parse_upload(upload)
+        if upload_kind == "prescription":
+            parsed["report_type"] = "prescription"
+            parsed["structured_data"] = []
         file_ref = self.storage.upload_bytes(parsed["file_key"], parsed["file_bytes"], parsed["mime_type"])
         user_age = None
         if current_user.dob:
             user_age = timezone.now().year - current_user.dob.year
         encrypted_payload = self.encryptor.encrypt_json({"structuredData": parsed["structured_data"]})
         medications = []
+        prescription_context = {}
+        if parsed["report_type"] == "prescription":
+            from reports.services.prescription_extraction import extract_medicines_from_text
+
+            prescription_context = extract_medicines_from_text(parsed["sanitized_text"], self.ai)
+            medications = self._medication_cards_from_prescription_context(prescription_context)
+        if parsed["report_type"] == "prescription":
+            explanation_payload = self._prescription_upload_placeholder(prescription_context, medications)
+            report = Report.objects.create(
+                user=current_user,
+                family_member_id=family_member_id,
+                report_type=parsed["report_type"],
+                report_date=parsed["report_date"],
+                lab_name=parsed["lab_name"],
+                file_ref=file_ref,
+                structured_data_encrypted=encrypted_payload,
+                ai_explanation=explanation_payload,
+                language=current_user.preferred_language,
+                medications=medications,
+            )
+            self._persist_structured_parameters(report, parsed["structured_data"])
+            self._after_report_saved(report, parsed, current_user, circle_id=circle_id)
+            hydrated = self.hydrator.hydrate(report)
+            hydrated["prescriptionContext"] = prescription_context
+            return hydrated
         try:
-            if parsed["report_type"] == "prescription":
-                medications = self.ai.explain_prescription(current_user.preferred_language, parsed["sanitized_text"], []).get("medications", [])
             explanation_payload = self.ai.explain_report(
                 report_type=parsed["report_type"],
                 language=current_user.preferred_language,
@@ -1048,7 +993,10 @@ class ReportService:
             )
             self._persist_structured_parameters(report, parsed["structured_data"])
             self._after_report_saved(report, parsed, current_user, circle_id=circle_id)
-            return self.hydrator.hydrate(report)
+            hydrated = self.hydrator.hydrate(report)
+            if prescription_context:
+                hydrated["prescriptionContext"] = prescription_context
+            return hydrated
 
         report = Report.objects.create(
             user=current_user,
@@ -1064,7 +1012,43 @@ class ReportService:
         )
         self._persist_structured_parameters(report, parsed["structured_data"])
         self._after_report_saved(report, parsed, current_user, circle_id=circle_id)
-        return self.hydrator.hydrate(report)
+        hydrated = self.hydrator.hydrate(report)
+        if prescription_context:
+            hydrated["prescriptionContext"] = prescription_context
+        return hydrated
+
+    def _prescription_upload_placeholder(self, prescription_context: dict, medications: list[dict]) -> dict:
+        medication_count = len(medications or prescription_context.get("medications", []))
+        return {
+            "parameterLevel": [],
+            "holisticSummary": (
+                f"Prescription uploaded and {medication_count} medicine(s) extracted. "
+                "Select related analyzed reports before generating contextual analysis."
+            ),
+            "attentionScore": 1,
+            "confidenceNote": "This is extraction-only. Contextual analysis runs after report selection or prescription-only confirmation.",
+            "disclaimer": "This saved prescription context is educational support and not a diagnosis.",
+        }
+
+    def _medication_cards_from_prescription_context(self, prescription_context: dict) -> list[dict]:
+        medications = []
+        for item in prescription_context.get("medications", [])[:20]:
+            name = normalize_text_field(item.get("medicine_name") or item.get("name"))
+            if not name:
+                continue
+            medications.append(
+                {
+                    "name": name,
+                    "dosage": normalize_text_field(item.get("dosage")),
+                    "frequency": normalize_text_field(item.get("frequency")),
+                    "duration": normalize_text_field(item.get("duration")),
+                    "purpose": "",
+                    "sideEffects": [],
+                    "avoid": [],
+                    "interactionNotes": "",
+                }
+            )
+        return medications
 
     def _persist_structured_parameters(self, report: Report, structured_data: list[dict]) -> None:
         parameters = []

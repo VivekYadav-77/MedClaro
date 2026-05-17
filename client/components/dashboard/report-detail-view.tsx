@@ -23,12 +23,11 @@ import { ChatPanel } from "@/components/reports/chat-panel";
 import { DietAdvicePanel } from "@/components/reports/diet-advice-panel";
 import { LifestyleCorrelationCard } from "@/components/reports/lifestyle-correlation-card";
 import { MedicationCard } from "@/components/reports/medication-card";
-import { MedicationConflictPanel } from "@/components/reports/medication-conflict-panel";
 import { SummaryGenerator } from "@/components/reports/summary-generator";
 import { VoiceReadout } from "@/components/reports/voice-readout";
 import { Select } from "@/components/ui/select";
 import { Circle, Report, ReportShare } from "@/lib/types";
-import { buildMedicationRiskSummary, loincHint, markerRisk } from "@/lib/clinical-features";
+import { loincHint, markerRisk } from "@/lib/clinical-features";
 import { cn } from "@/lib/utils";
 
 const tabs = ["Summary", "Values", "Doctor Export", "Meds", "Diet", "Chat", "Sharing"] as const;
@@ -280,13 +279,12 @@ function EhrExportPanel({ report }: { report: Report }) {
 }
 
 function MedicationSafetyTab({ report }: { report: Report }) {
-  const risk = buildMedicationRiskSummary([report]);
+  const medicationCount = report.medications?.filter((medication) => medication.name).length ?? 0;
   return (
     <section className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <ClinicalMiniStat label="Medicines" value={String(risk.medicationCount)} />
-        <ClinicalMiniStat label="Polypharmacy" value={risk.polypharmacyRisk} />
-        <ClinicalMiniStat label="Anticholinergic" value={risk.anticholinergicBurdenStatus === "backend_pending" ? "Needs API" : "No data"} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <ClinicalMiniStat label="Medicines" value={String(medicationCount)} />
+        <ClinicalMiniStat label="Report type" value={report.reportType || "unknown"} />
       </div>
       {report.medications?.length ? (
         <div className="space-y-3">
@@ -297,18 +295,9 @@ function MedicationSafetyTab({ report }: { report: Report }) {
           {report.medications.map((medication) => (
             <MedicationCard key={medication.name} medication={medication} />
           ))}
-          {risk.refillPrompts.length ? (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-              <p className="text-sm font-semibold text-amber-900">Refill adherence prompts</p>
-              <ul className="mt-2 space-y-1 text-sm leading-6 text-amber-900">
-                {risk.refillPrompts.map((prompt) => <li key={prompt}>{prompt}</li>)}
-              </ul>
-            </div>
-          ) : null}
-          <MedicationConflictPanel />
         </div>
       ) : (
-        <EmptyClinicalPanel icon={Pill} title="No medicines extracted" body="Upload or open a prescription report to screen conflicts, refill timing, and generic alternatives." />
+        <EmptyClinicalPanel icon={Pill} title="No medicines extracted" body="Upload or open a prescription report to review extracted medicine details." />
       )}
       <GenericMedicinePanel hasMedication={Boolean(report.medications?.length)} />
     </section>

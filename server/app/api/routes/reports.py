@@ -34,20 +34,6 @@ async def upload_report(
     current_user: dict = CurrentUser,
 ) -> ReportRecord:
     try:
-        await rate_limiter.enforce(current_user["_id"], "report_upload", settings.upload_limit_per_day)
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.exception("Report upload rate limiter failed")
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "error": "Upload checks are temporarily unavailable. Please try again shortly.",
-                "code": "RATE_LIMIT_UNAVAILABLE",
-            },
-        ) from exc
-
-    try:
         parsed = await parser.parse_upload(file)
     except HTTPException:
         raise

@@ -67,6 +67,7 @@ class PrescriptionRecord(models.Model):
     specialty = models.CharField(max_length=80, blank=True, default="")
     notes = models.TextField(blank=True, default="")
     medications_snapshot = models.JSONField(default=list)
+    prescription_context = models.JSONField(default=dict)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -85,17 +86,25 @@ class PrescriptionReportLink(models.Model):
         ordering = ["-created_at"]
 
 
-class PrescriptionAnalysis(models.Model):
+class PrescriptionContextualAnalysis(models.Model):
+    CONFIDENCE_CHOICES = [
+        ("high", "High"),
+        ("medium", "Medium"),
+        ("low", "Low"),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    prescription = models.ForeignKey(PrescriptionRecord, related_name="analyses", on_delete=models.CASCADE)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="prescription_analyses", on_delete=models.CASCADE)
-    related_report_ids = models.JSONField(default=list)
-    comparison_prescription_ids = models.JSONField(default=list)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="prescription_contextual_analyses", on_delete=models.CASCADE)
+    prescription = models.ForeignKey(PrescriptionRecord, related_name="contextual_analyses", on_delete=models.CASCADE)
+    selected_report_ids = models.JSONField(default=list)
+    context_snapshot = models.JSONField(default=dict)
     result = models.JSONField(default=dict)
+    confidence = models.CharField(max_length=20, choices=CONFIDENCE_CHOICES, default="low")
     created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ["-created_at"]
+        ordering = ["-updated_at", "-created_at"]
 
 
 class StructuredParameter(models.Model):

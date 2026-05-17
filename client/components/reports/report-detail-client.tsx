@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Activity,
@@ -20,11 +20,10 @@ import { ChatPanel } from "@/components/reports/chat-panel";
 import { DietAdvicePanel } from "@/components/reports/diet-advice-panel";
 import { LifestyleCorrelationCard } from "@/components/reports/lifestyle-correlation-card";
 import { MedicationCard } from "@/components/reports/medication-card";
-import { MedicationConflictPanel } from "@/components/reports/medication-conflict-panel";
 import { SummaryGenerator } from "@/components/reports/summary-generator";
 import { VoiceReadout } from "@/components/reports/voice-readout";
 import { Report } from "@/lib/types";
-import { buildMedicationRiskSummary, loincHint, markerRisk } from "@/lib/clinical-features";
+import { loincHint, markerRisk } from "@/lib/clinical-features";
 import { cn } from "@/lib/utils";
 
 const tabs = ["summary", "values", "doctor-export", "meds", "diet", "chat", "sharing"] as const;
@@ -199,23 +198,21 @@ function DoctorExportTab({ report }: { report: Report }) {
 }
 
 function MedsTab({ report }: { report: Report }) {
-  const risk = useMemo(() => buildMedicationRiskSummary([report]), [report]);
+  const medicationCount = report.medications?.filter((medication) => medication.name).length ?? 0;
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <MiniStat label="Medicines" value={String(risk.medicationCount)} />
-        <MiniStat label="Polypharmacy" value={risk.polypharmacyRisk} />
-        <MiniStat label="Refill prompts" value={String(risk.refillPrompts.length)} />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <MiniStat label="Medicines" value={String(medicationCount)} />
+        <MiniStat label="Report type" value={report.reportType || "unknown"} />
       </div>
       {report.medications?.length ? (
         <div className="grid gap-3">
           {report.medications.map((medication) => (
             <MedicationCard key={medication.name} medication={medication} />
           ))}
-          <MedicationConflictPanel />
         </div>
       ) : (
-        <EmptyPanel icon={Pill} title="No medicines extracted" body="Upload or open a prescription report to screen conflicts, refill timing, and generic alternatives." />
+        <EmptyPanel icon={Pill} title="No medicines extracted" body="Upload or open a prescription report to review extracted medicine details." />
       )}
     </div>
   );

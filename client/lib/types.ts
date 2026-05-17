@@ -83,48 +83,6 @@ export type Report = {
 
 export type PrescriptionStatus = "ongoing" | "completed" | "stopped" | "short_course" | "unknown";
 
-export type PrescriptionAnalysis = {
-  id: string;
-  prescriptionId: string;
-  relatedReportIds: string[];
-  comparisonPrescriptionIds: string[];
-  result: {
-    summary?: string;
-    riskLevel?: "low" | "moderate" | "high";
-    conflicts?: { title?: string; severity?: string; explanation?: string; recommendation?: string }[];
-    cautions?: string[];
-    contextCaution?: string;
-    dataUsed?: {
-      prescriptionId?: string;
-      prescriptionReportId?: string;
-      linkedReportIds?: string[];
-      comparisonPrescriptionIds?: string[];
-      comparisonPrescriptionReportIds?: string[];
-      prescriptionOnly?: boolean;
-    };
-  };
-  summary?: string;
-  riskLevel?: "low" | "moderate" | "high";
-  createdAt: string;
-};
-
-export type PrescriptionAnalysisHistoryItem = PrescriptionAnalysis & {
-  prescription: {
-    id: string;
-    reportId: string;
-    name: string;
-    date: string;
-    status: PrescriptionStatus;
-    medications: MedicationCard[];
-  };
-  linkedReports: {
-    id: string;
-    name: string;
-    reportType: string;
-    date: string;
-  }[];
-};
-
 export type PrescriptionRecord = {
   id: string;
   reportId: string;
@@ -135,9 +93,56 @@ export type PrescriptionRecord = {
   specialty: string;
   notes: string;
   medications: MedicationCard[];
+  prescriptionContext?: {
+    doctorName?: string | null;
+    specialty?: string | null;
+    diagnosis?: string | null;
+    doctorNotes?: string | null;
+    prescriptionDate?: string | null;
+    extractionConfidence?: "high" | "medium" | "low" | string | null;
+  };
   report: Report;
   linkedReports: Report[];
-  latestAnalysis?: PrescriptionAnalysis | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PrescriptionCandidateReport = {
+  reportId: string;
+  reportType: string;
+  reportDate?: string | null;
+  uploadDate: string;
+  labName: string;
+  analysisSummary: string;
+  analysisStatus: "analyzed" | string;
+  abnormalCount: number;
+  relevanceScore: number;
+  relevanceReasons: string[];
+};
+
+export type PrescriptionContextualAnalysis = {
+  id: string;
+  prescriptionId: string;
+  selectedReportIds: string[];
+  confidence: "high" | "medium" | "low";
+  contextSnapshot: Record<string, unknown>;
+  result: {
+    likelyTreating?: string;
+    reportConnections?: string[];
+    medicineExplanations?: {
+      medicineName: string;
+      purpose?: string;
+      patientExplanation?: string;
+    }[];
+    abnormalIndicatorsConnectedToMedicines?: {
+      marker?: string;
+      value?: string;
+      medicineConnection?: string;
+    }[];
+    confidence?: "high" | "medium" | "low";
+    confidenceReason?: string;
+    disclaimer?: string;
+  };
   createdAt: string;
   updatedAt: string;
 };
@@ -249,7 +254,6 @@ export type CircleHealthDashboard = {
   }[];
   medicationSummary: {
     medicationCount: number;
-    polypharmacyRisk: "low" | "moderate" | "high";
     hasPrescription: boolean;
   };
   emergencyEvents: {
@@ -311,13 +315,6 @@ export type EhrExportRow = {
   loincCode?: string;
   delta?: string;
   risk: "normal" | "watch" | "high";
-};
-
-export type MedicationRiskSummary = {
-  medicationCount: number;
-  polypharmacyRisk: "low" | "moderate" | "high";
-  anticholinergicBurdenStatus: FeatureStatus;
-  refillPrompts: string[];
 };
 
 export type ScreeningTask = {

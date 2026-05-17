@@ -157,7 +157,6 @@ class CircleHealthDashboardView(APIView):
                 "watchMarkers": watch_markers,
                 "medicationSummary": {
                     "medicationCount": len(medication_names),
-                    "polypharmacyRisk": "high" if len(medication_names) >= 8 else "moderate" if len(medication_names) >= 5 else "low",
                     "hasPrescription": any(report.get("medications") for report in reports),
                 },
                 "emergencyEvents": emergency_events,

@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { CheckCircle2, CloudUpload, FileText, Loader2, ShieldCheck, X } from "lucide-react";
-import { useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 
 import { UploadProgress } from "@/components/dashboard/upload-progress";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,13 @@ import { Report } from "@/lib/types";
 
 const MAX_SIZE = 10 * 1024 * 1024;
 const ACCEPTED_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]);
+
+class ExpiredSessionError extends Error {
+  constructor() {
+    super("Your session expired. Please sign in again before uploading.");
+    this.name = "ExpiredSessionError";
+  }
+}
 
 export function InlineUploader({
   onUploaded,
@@ -22,6 +29,12 @@ export function InlineUploader({
   emptyHint = "PDF, JPG, or PNG up to 10 MB",
   actionLabel = "Analyze report",
   doneLabel = "View Current Analysis",
+  processingLabel = "Processing...",
+  progressSteps,
+  progressDoneText,
+  autoAdvance = true,
+  uploadKind,
+  circleId,
 }: {
   onUploaded: (report: Report) => void;
   onViewReport: (report: Report) => void;
@@ -32,6 +45,12 @@ export function InlineUploader({
   emptyHint?: string;
   actionLabel?: string;
   doneLabel?: string;
+  processingLabel?: string;
+  progressSteps?: readonly string[];
+  progressDoneText?: string;
+  autoAdvance?: boolean;
+  uploadKind?: "prescription" | "report";
+  circleId?: string | null;
 }) {
   const { data: session } = useSession();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -96,18 +115,23 @@ export function InlineUploader({
       );
 
       const report = process.env.NEXT_PUBLIC_API_URL
-        ? await uploadToApi(file, session?.accessToken)
+        ? await uploadToApi(file, session?.accessToken, uploadKind, circleId)
         : await completeMockUpload(file);
 
       progressTimers.forEach((timer) => window.clearTimeout(timer));
       setCurrentStep(3);
       setDone(true);
       setUploadedReport(report);
-      onUploaded(report);
+      if (autoAdvance) {
+        onUploaded(report);
+      }
     } catch (uploadError) {
       progressTimers.forEach((timer) => window.clearTimeout(timer));
       setCurrentStep(-1);
       setError(uploadError instanceof Error ? uploadError.message : "Upload failed. Please try again.");
+      if (uploadError instanceof ExpiredSessionError) {
+        await signOut({ callbackUrl: "/login" });
+      }
     } finally {
       onProcessingChange?.(false);
     }
@@ -195,7 +219,7 @@ export function InlineUploader({
 
       {currentStep >= 0 ? (
         <div className="mt-5">
-          <UploadProgress currentStep={currentStep} done={done} />
+          <UploadProgress currentStep={currentStep} done={done} steps={progressSteps} doneText={progressDoneText} />
         </div>
       ) : null}
 
@@ -213,7 +237,7 @@ export function InlineUploader({
         ) : (
           <Button className="flex-1 gap-2" onClick={upload} disabled={!file || busy}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CloudUpload className="h-4 w-4" />}
-            {busy ? "Processing..." : actionLabel}
+            {busy ? processingLabel : actionLabel}
           </Button>
         )}
       </div>
@@ -221,7 +245,12 @@ export function InlineUploader({
   );
 }
 
-async function uploadToApi(file: File, accessToken?: string): Promise<Report> {
+async function uploadToApi(
+  file: File,
+  accessToken?: string,
+  uploadKind?: "prescription" | "report",
+  circleId?: string | null,
+): Promise<Report> {
   if (!process.env.NEXT_PUBLIC_API_URL) {
     throw new Error("Missing API URL.");
   }
@@ -232,9 +261,11 @@ async function uploadToApi(file: File, accessToken?: string): Promise<Report> {
   if (familyMemberId) {
     formData.append("familyMemberId", familyMemberId);
   }
-  const circleId = window.localStorage.getItem("selectedCircleId");
   if (circleId) {
     formData.append("circleId", circleId);
+  }
+  if (uploadKind) {
+    formData.append("uploadKind", uploadKind);
   }
 
   const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports/upload`, {
@@ -245,7 +276,12 @@ async function uploadToApi(file: File, accessToken?: string): Promise<Report> {
 
   if (!response.ok) {
     const payload = await response.json().catch(() => null);
-    throw new Error(payload?.error ?? payload?.detail?.error ?? "Upload failed.");
+    const code = payload?.code ?? payload?.detail?.code;
+    const message = payload?.error ?? payload?.detail?.error ?? payload?.detail ?? "Upload failed.";
+    if (code === "INVALID_TOKEN" || String(message).toLowerCase().includes("invalid token")) {
+      throw new ExpiredSessionError();
+    }
+    throw new Error(message);
   }
 
   return response.json() as Promise<Report>;

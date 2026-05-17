@@ -7,6 +7,7 @@ import {
   CalendarClock,
   ClipboardCheck,
   FileText,
+  Pill,
   Plus,
   ShieldAlert,
   TrendingUp,
@@ -27,7 +28,7 @@ import { FeatureStatusGrid } from "@/components/clinical/feature-status-grid";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
-import { buildClinicalFeatureCards, buildMedicationRiskSummary, collectAbnormalMarkers } from "@/lib/clinical-features";
+import { buildClinicalFeatureCards, collectAbnormalMarkers } from "@/lib/clinical-features";
 import { Circle, Report, UserProfile } from "@/lib/types";
 
 export function DashboardClient({
@@ -59,9 +60,9 @@ export function DashboardClient({
   const contextLabel = selectedCircleId ? activeCircleName ?? "selected Care Circle" : selectedFamilyMemberId ? "selected family profile" : "my private reports";
   const primaryAlert = abnormalMarkers[0];
   const features = useMemo(() => buildClinicalFeatureCards(reports, circles.length), [reports, circles.length]);
-  const medicationRisk = useMemo(() => buildMedicationRiskSummary(reports), [reports]);
   const liveCount = features.filter((feature) => feature.status === "live").length;
   const pendingCount = features.filter((feature) => feature.status === "backend_pending").length;
+  const dashboardPreviewReports = useMemo(() => reports.slice(0, 3), [reports]);
 
   useEffect(() => {
     if (!process.env.NEXT_PUBLIC_API_URL || !session?.accessToken) return;
@@ -231,9 +232,8 @@ export function DashboardClient({
           </div>
         </Card>
         <Card className="grid grid-cols-2 gap-3 p-4 shadow-none sm:grid-cols-4 lg:grid-cols-2">
-          <CommandMetric label="Live modules" value={`${liveCount}/15`} icon={ClipboardCheck} />
+          <CommandMetric label="Live modules" value={`${liveCount}/${features.length}`} icon={ClipboardCheck} />
           <CommandMetric label="Backend pending" value={String(pendingCount)} icon={FileText} />
-          <CommandMetric label="Medication risk" value={medicationRisk.polypharmacyRisk} icon={ShieldAlert} />
           <CommandMetric label="Follow-ups" value={String(nextReminderCount)} icon={CalendarClock} />
         </Card>
       </div>
@@ -255,24 +255,43 @@ export function DashboardClient({
       <div className="grid gap-5 xl:grid-cols-[1fr_340px]">
         <section className="space-y-6">
           <div>
-            <div className="mb-4 flex items-center justify-between">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="font-display text-lg font-semibold text-slate-900">Report History</h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="gap-1.5 text-brand-600 hover:bg-brand-50 hover:text-brand-700"
-                onClick={() => setUploadOpen(true)}
-              >
-                <Upload className="h-3.5 w-3.5" />
-                Add report
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Link href="/reports/analysis">
+                  <Button variant="outline" size="sm" className="gap-1.5">
+                    <FileText className="h-3.5 w-3.5" />
+                    See all reports
+                  </Button>
+                </Link>
+                <Link href="/prescriptions/analysis">
+                  <Button variant="outline" size="sm" className="gap-1.5">
+                    <Pill className="h-3.5 w-3.5" />
+                    See all prescriptions
+                  </Button>
+                </Link>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5 text-brand-600 hover:bg-brand-50 hover:text-brand-700"
+                  onClick={() => setUploadOpen(true)}
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  Add report
+                </Button>
+              </div>
             </div>
             {reports.length ? (
-              <div className="relative">
+              <div className="relative space-y-3">
                 <div className={timelineUpdating ? "sr-only" : ""}>
-                  <Timeline reports={reports} onSelectReport={(report) => openReport(report)} />
+                  <Timeline reports={dashboardPreviewReports} onSelectReport={(report) => openReport(report)} />
                 </div>
                 {timelineUpdating ? <TimelineSkeleton /> : null}
+                {reports.length > dashboardPreviewReports.length ? (
+                  <p className="text-right text-xs font-medium text-slate-500">
+                    Showing latest {dashboardPreviewReports.length} of {reports.length}. Use the buttons above to see everything.
+                  </p>
+                ) : null}
               </div>
             ) : (
               timelineUpdating ? (

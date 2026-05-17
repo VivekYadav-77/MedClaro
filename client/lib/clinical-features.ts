@@ -18,7 +18,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { ClinicalFeatureCard, FeatureStatus, MedicationRiskSummary, Parameter, Report, ScreeningTask } from "@/lib/types";
+import { ClinicalFeatureCard, FeatureStatus, Parameter, Report, ScreeningTask } from "@/lib/types";
 
 export const statusLabels: Record<FeatureStatus, string> = {
   live: "Live",
@@ -39,12 +39,12 @@ export const featureIcons: Record<string, LucideIcon> = {
   guideline_alerts: TrendingUp,
   proactive_agent: Bot,
   ehr_export: FileText,
-  medication_risk: Pill,
   conversational_logging: MessageCircle,
   emergency_ice: QrCode,
   wearable_sync: Activity,
   seasonal_grocery: ShoppingBasket,
   adherence_tracker: ClipboardCheck,
+  prescription_context_analysis: Pill,
   lab_variance: ScanSearch,
   preventive_screening: CalendarCheck,
   generic_finder: Stethoscope,
@@ -57,7 +57,6 @@ export function buildClinicalFeatureCards(reports: Report[], circleCount: number
   const hasPrescription = reports.some((report) => report.reportType === "prescription" || (report.medications?.length ?? 0) > 0);
   const hasAbnormal = reports.some((report) => report.structuredData.some((item) => item.flag !== "normal"));
   const hasTrendData = collectTrackedMarkers(reports).length > 0;
-  const prescriptionReport = reports.find((report) => report.reportType === "prescription" || (report.medications?.length ?? 0) > 0);
   const abnormalReport = reports.find((report) => report.structuredData.some((item) => item.flag !== "normal"));
   const reportTabRoute = (report: Report | undefined, tab: string, fallback: string) =>
     report ? `/reports/${report._id}?tab=${tab}` : fallback;
@@ -101,16 +100,6 @@ export function buildClinicalFeatureCards(reports: Report[], circleCount: number
       status: hasReports ? "live" : "no_data",
       route: "/reports/history?focus=ehr-export",
       actionLabel: "Open report",
-      category: "clinical",
-    },
-    {
-      id: "medication_risk",
-      title: "Medication Conflict -> Polypharmacy Risk Score",
-      shortTitle: "Medication Risk",
-      description: hasPrescription ? "Medication conflict API is live; anticholinergic burden scoring still needs terminology support." : "Upload prescriptions to calculate medication risk.",
-      status: hasPrescription ? "live" : "no_data",
-      route: "/reports/medications/intake",
-      actionLabel: "Screen meds",
       category: "clinical",
     },
     {
@@ -162,6 +151,18 @@ export function buildClinicalFeatureCards(reports: Report[], circleCount: number
       route: hasPrescription ? "/reports/medications?tab=refills" : "/reports/upload?type=prescription&next=refills",
       actionLabel: "Review refill",
       category: "daily",
+    },
+    {
+      id: "prescription_context_analysis",
+      title: "Prescription + Report Contextual Analysis",
+      shortTitle: "Rx Context Analysis",
+      description: hasPrescription
+        ? "Upload a prescription, review related reports, then run confidence-aware analysis."
+        : "Upload a prescription, then select related analyzed reports for better understanding.",
+      status: hasPrescription ? "live" : "no_data",
+      route: "/reports/upload?type=prescription",
+      actionLabel: "Start flow",
+      category: "clinical",
     },
     {
       id: "lab_variance",
@@ -236,24 +237,6 @@ export function collectTrackedMarkers(reports: Report[]) {
   return [...counts.entries()].filter(([, count]) => count > 1).map(([name]) => name);
 }
 
-export function buildMedicationRiskSummary(reports: Report[]): MedicationRiskSummary {
-  const medications = reports.flatMap((report) => report.medications ?? []).filter((item) => item.name);
-  const medicationCount = new Set(medications.map((item) => item.name.toLowerCase())).size;
-  const prescriptionReports = reports.filter((report) => report.reportType === "prescription" || (report.medications?.length ?? 0) > 0);
-  const refillPrompts = prescriptionReports.slice(0, 3).map((report) => {
-    const days = daysSince(report.reportDate || report.uploadDate);
-    const names = (report.medications ?? []).map((item) => item.name).filter(Boolean).slice(0, 2).join(", ") || "this prescription";
-    return `${names}: uploaded ${days} day${days === 1 ? "" : "s"} ago. Confirm refill if this was a 30-day course.`;
-  });
-
-  return {
-    medicationCount,
-    polypharmacyRisk: medicationCount >= 8 ? "high" : medicationCount >= 5 ? "moderate" : "low",
-    anticholinergicBurdenStatus: medicationCount ? "backend_pending" : "no_data",
-    refillPrompts,
-  };
-}
-
 export function buildScreeningTasks(dob?: string, biologicalSex?: string | null): ScreeningTask[] {
   const age = dob ? ageFromDob(dob) : null;
   return [
@@ -309,10 +292,4 @@ function ageFromDob(dob: string) {
   const hadBirthday = now.getMonth() > birth.getMonth() || (now.getMonth() === birth.getMonth() && now.getDate() >= birth.getDate());
   if (!hadBirthday) age -= 1;
   return age;
-}
-
-function daysSince(date: string) {
-  const parsed = new Date(date);
-  if (Number.isNaN(parsed.getTime())) return 0;
-  return Math.max(0, Math.floor((Date.now() - parsed.getTime()) / (1000 * 60 * 60 * 24)));
 }

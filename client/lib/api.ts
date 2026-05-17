@@ -6,6 +6,17 @@ import { Report, TrendResponse, UserProfile } from "@/lib/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
+class ApiRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status?: number,
+    readonly path?: string,
+  ) {
+    super(message);
+    this.name = "ApiRequestError";
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!API_URL) {
     throw new Error("Missing NEXT_PUBLIC_API_URL");
@@ -21,7 +32,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     cache: "no-store"
   });
   if (!response.ok) {
-    throw new Error("Request failed");
+    throw new ApiRequestError(`Request failed: ${response.status} ${response.statusText}`, response.status, path);
   }
   return response.json() as Promise<T>;
 }
@@ -30,14 +41,24 @@ export async function getUserProfile(): Promise<UserProfile> {
   if (!API_URL) {
     return mockUser;
   }
-  return request<UserProfile>("/users/me");
+  try {
+    return await request<UserProfile>("/users/me");
+  } catch (error) {
+    console.warn("Using mock user profile because the API request failed.", error);
+    return mockUser;
+  }
 }
 
 export async function getReports(): Promise<Report[]> {
   if (!API_URL) {
     return mockReports;
   }
-  return request<Report[]>("/reports");
+  try {
+    return await request<Report[]>("/reports");
+  } catch (error) {
+    console.warn("Using mock reports because the API request failed.", error);
+    return mockReports;
+  }
 }
 
 export async function getReport(id: string): Promise<Report> {
@@ -48,12 +69,26 @@ export async function getReport(id: string): Promise<Report> {
     }
     return report;
   }
-  return request<Report>(`/reports/${id}`);
+  try {
+    return await request<Report>(`/reports/${id}`);
+  } catch (error) {
+    const report = mockReports.find((item) => item._id === id);
+    if (!report) {
+      throw error;
+    }
+    console.warn("Using a mock report because the API request failed.", error);
+    return report;
+  }
 }
 
 export async function getTrends(): Promise<TrendResponse> {
   if (!API_URL) {
     return mockTrends;
   }
-  return request<TrendResponse>("/reports/trends");
+  try {
+    return await request<TrendResponse>("/reports/trends");
+  } catch (error) {
+    console.warn("Using mock trends because the API request failed.", error);
+    return mockTrends;
+  }
 }
