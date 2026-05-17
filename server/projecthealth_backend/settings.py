@@ -84,6 +84,9 @@ else:
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": BASE_DIR / "db.sqlite3",
+            "OPTIONS": {
+                "init_command": "PRAGMA journal_mode=WAL",
+            },
         }
     }
 
@@ -109,7 +112,23 @@ REST_FRAMEWORK = {
 }
 
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOWED_ORIGINS = [env("FRONTEND_URL", "http://localhost:3000") or "http://localhost:3000"]
+DEFAULT_FRONTEND_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+]
+configured_frontend_origins = [
+    origin.strip()
+    for origin in ",".join(
+        [
+            env("FRONTEND_URL", "") or "",
+            env("FRONTEND_URLS", "") or "",
+        ]
+    ).split(",")
+    if origin.strip()
+]
+CORS_ALLOWED_ORIGINS = list(dict.fromkeys([*DEFAULT_FRONTEND_ORIGINS, *configured_frontend_origins]))
 
 APP_NAME = env("APP_NAME", "MedClaro API") or "MedClaro API"
 API_V1_PREFIX = env("API_V1_PREFIX", "/api") or "/api"
