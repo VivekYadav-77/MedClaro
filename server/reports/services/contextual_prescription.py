@@ -11,6 +11,10 @@ def _key(value: str | None) -> str:
     return re.sub(r"[^a-z0-9]+", " ", (value or "").lower()).strip()
 
 
+def _json_safe(value):
+    return json.loads(json.dumps(value, default=str))
+
+
 THERAPY_DOMAINS = {
     "diabetes": {
         "medicine_terms": ("metformin", "insulin", "glimepiride", "sitagliptin", "dapagliflozin", "empagliflozin", "gliclazide"),
@@ -85,7 +89,7 @@ class PrescriptionContextualAnalysisService:
         for report in selected_reports:
             PrescriptionReportLink.objects.get_or_create(prescription=prescription, report=report)
 
-        context = self._build_context(prescription, selected_reports if mode != "prescription_only" else [])
+        context = _json_safe(self._build_context(prescription, selected_reports if mode != "prescription_only" else []))
         confidence = self._confidence_for(context)
         existing = (
             PrescriptionContextualAnalysis.objects.filter(
@@ -103,6 +107,7 @@ class PrescriptionContextualAnalysisService:
             result = self._ai_analysis(context, prescription.user.preferred_language)
         except Exception:
             result = self._fallback_analysis(context)
+        result = _json_safe(result)
         result.setdefault("likelyTreating", "This prescription can be explained from the saved prescription details.")
         result.setdefault("reportConnections", [])
         result.setdefault("medicineExplanations", [])
