@@ -495,8 +495,14 @@ export function CirclesClient() {
         ) : null}
       </div>
       {uploadOpen ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 px-4 py-6 backdrop-blur-sm sm:items-center">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white shadow-dialog animate-scale-in">
+        <div className="fixed inset-0 z-[80] flex items-end justify-center px-4 py-6 sm:items-center" role="dialog" aria-modal="true">
+          <button
+            type="button"
+            className="absolute inset-0 z-0 bg-slate-950/45 backdrop-blur-sm"
+            onClick={() => setUploadOpen(false)}
+            aria-label="Close upload modal"
+          />
+          <div className="relative z-10 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white shadow-dialog animate-scale-in">
             <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-brand-600">Circle upload</p>

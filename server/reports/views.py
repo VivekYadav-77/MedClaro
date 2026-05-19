@@ -15,6 +15,7 @@ from reports.serializers import ReportChatRequestSerializer, ReportShareSerializ
 from reports.services import GeminiService, RateLimiter, ReportHydrator, ReportService, TrendService
 from reports.services.contextual_prescription import PrescriptionContextualAnalysisService
 from reports.services.prescription_extraction import extract_medicines_from_text, extract_text_from_file
+from reports.services.prescription_risk import PrescriptionRiskAnalysisService
 from reminders.models import Reminder
 
 
@@ -754,6 +755,47 @@ class PrescriptionContextualAnalysisView(APIView):
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         record.refresh_from_db()
         return Response({"analysis": result, "prescription": _serialize_prescription_record(record, request)})
+
+
+class PrescriptionRiskAnalysisView(APIView):
+    def get(self, request):
+        family_member_id = request.query_params.get("familyMemberId") or None
+        if family_member_id:
+            try:
+                family_member_id = str(uuid.UUID(str(family_member_id)))
+            except (TypeError, ValueError):
+                return Response({"error": "familyMemberId must be a valid family member ID"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            result = PrescriptionRiskAnalysisService().analyze(request.user, family_member_id=family_member_id)
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(result)
+
+    def post(self, request):
+        family_member_id = request.data.get("familyMemberId") or None
+        prescription_ids = request.data.get("prescriptionIds", None)
+        report_ids = request.data.get("reportIds", None)
+        if prescription_ids is not None and not isinstance(prescription_ids, list):
+            return Response({"error": "prescriptionIds must be an array"}, status=status.HTTP_400_BAD_REQUEST)
+        if report_ids is not None and not isinstance(report_ids, list):
+            return Response({"error": "reportIds must be an array"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            normalized_family_member_id = str(uuid.UUID(str(family_member_id))) if family_member_id else None
+            normalized_prescription_ids = (
+                [str(uuid.UUID(str(item))) for item in prescription_ids]
+                if prescription_ids is not None
+                else None
+            )
+            normalized_report_ids = [str(uuid.UUID(str(item))) for item in report_ids] if report_ids is not None else None
+            result = PrescriptionRiskAnalysisService().analyze(
+                request.user,
+                family_member_id=normalized_family_member_id,
+                prescription_ids=normalized_prescription_ids,
+                report_ids=normalized_report_ids,
+            )
+        except (TypeError, ValueError) as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(result)
 
 
 class PrescriptionExtractView(APIView):

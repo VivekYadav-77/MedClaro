@@ -7,6 +7,24 @@ from users.models import FamilyMember, User
 encryptor = EncryptionService()
 
 
+def normalize_allergies(value) -> list[dict]:
+    if not isinstance(value, list):
+        return []
+    allergies = []
+    for item in value[:30]:
+        if isinstance(item, str):
+            name = item.strip()
+            reaction = ""
+        elif isinstance(item, dict):
+            name = str(item.get("name") or item.get("allergen") or "").strip()
+            reaction = str(item.get("reaction") or "").strip()
+        else:
+            continue
+        if name:
+            allergies.append({"name": name[:120], "reaction": reaction[:160]})
+    return allergies
+
+
 class SettingsPayloadSerializer(serializers.Serializer):
     notifications = serializers.BooleanField(default=True)
     nudges = serializers.BooleanField(default=True)
@@ -15,21 +33,40 @@ class SettingsPayloadSerializer(serializers.Serializer):
 class FamilyMemberSerializer(serializers.ModelSerializer):
     id = serializers.SerializerMethodField()
     biologicalSex = serializers.CharField(source="biological_sex")
+    allergies = serializers.SerializerMethodField()
 
     class Meta:
         model = FamilyMember
-        fields = ["id", "name", "relationship", "dob", "biologicalSex"]
+        fields = ["id", "name", "relationship", "dob", "biologicalSex", "allergies"]
 
     def get_id(self, obj):
         return str(obj.id)
 
+    def get_allergies(self, obj):
+        return normalize_allergies(obj.allergies)
+
 
 class FamilyMemberCreateSerializer(serializers.ModelSerializer):
     biologicalSex = serializers.CharField(source="biological_sex")
+    allergies = serializers.JSONField(required=False)
 
     class Meta:
         model = FamilyMember
-        fields = ["name", "relationship", "dob", "biologicalSex"]
+        fields = ["name", "relationship", "dob", "biologicalSex", "allergies"]
+
+    def validate_allergies(self, value):
+        return normalize_allergies(value)
+
+
+class FamilyMemberUpdateSerializer(serializers.Serializer):
+    name = serializers.CharField(required=False, allow_blank=False)
+    relationship = serializers.CharField(required=False, allow_blank=False)
+    dob = serializers.DateTimeField(required=False)
+    biologicalSex = serializers.CharField(source="biological_sex", required=False)
+    allergies = serializers.JSONField(required=False)
+
+    def validate_allergies(self, value):
+        return normalize_allergies(value)
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
@@ -39,6 +76,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     biologicalSex = serializers.CharField(source="biological_sex", allow_null=True)
     preferredLanguage = serializers.CharField(source="preferred_language")
     familyMembers = serializers.SerializerMethodField()
+    allergies = serializers.SerializerMethodField()
     settings = SettingsPayloadSerializer()
     createdAt = serializers.DateTimeField(source="created_at")
     deletedAt = serializers.DateTimeField(source="deleted_at", allow_null=True)
@@ -55,6 +93,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "dob",
             "biologicalSex",
             "preferredLanguage",
+            "allergies",
             "familyMembers",
             "settings",
             "createdAt",
@@ -75,13 +114,20 @@ class UserProfileSerializer(serializers.ModelSerializer):
     def get_familyMembers(self, obj):
         return FamilyMemberSerializer(obj.family_members.all(), many=True).data
 
+    def get_allergies(self, obj):
+        return normalize_allergies(obj.allergies)
+
 
 class UserUpdateSerializer(serializers.Serializer):
     name = serializers.CharField(required=False, allow_blank=False)
     dob = serializers.DateTimeField(required=False, allow_null=True)
     biologicalSex = serializers.CharField(source="biological_sex", required=False, allow_null=True)
     preferredLanguage = serializers.CharField(source="preferred_language", required=False)
+    allergies = serializers.JSONField(required=False)
     settings = SettingsPayloadSerializer(required=False)
+
+    def validate_allergies(self, value):
+        return normalize_allergies(value)
 
 
 class AuthCallbackSerializer(serializers.Serializer):

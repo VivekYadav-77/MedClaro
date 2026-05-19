@@ -119,6 +119,20 @@ export function DashboardClient({
     }, 80);
   }, [searchParams]);
 
+  useEffect(() => {
+    if (!uploadOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setUploadOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [uploadOpen]);
+
   const clearFamilyFilter = () => {
     window.localStorage.removeItem("selectedFamilyMemberId");
     setSelectedFamilyMemberId(null);
@@ -350,12 +364,18 @@ export function DashboardClient({
       </div>
 
       {uploadOpen ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 px-4 py-6 backdrop-blur-sm sm:items-center">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white shadow-dialog animate-scale-in">
+        <div className="fixed inset-0 z-[80] flex items-end justify-center px-4 py-6 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="dashboard-upload-title">
+          <button
+            type="button"
+            className="absolute inset-0 z-0 bg-slate-950/45 backdrop-blur-sm"
+            onClick={() => setUploadOpen(false)}
+            aria-label="Close upload modal"
+          />
+          <div className="relative z-10 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white shadow-dialog animate-scale-in">
             <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-brand-600">Upload Report</p>
-                <h2 className="mt-1 font-display text-xl font-bold text-slate-900">Add analysis to {contextLabel}</h2>
+                <h2 id="dashboard-upload-title" className="mt-1 font-display text-xl font-bold text-slate-900">Add analysis to {contextLabel}</h2>
               </div>
               <Button variant="ghost" size="icon" onClick={() => setUploadOpen(false)} aria-label="Close upload modal">
                 <X className="h-4 w-4" />

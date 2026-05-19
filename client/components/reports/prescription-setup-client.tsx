@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Brain, FileText, Loader2, Pill, Save } from "lucide-react";
+import { ArrowLeft, Brain, FileText, Loader2, Pill, Save, ShieldAlert } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,7 @@ import {
   PrescriptionCandidateReport,
   PrescriptionContextualAnalysis,
   PrescriptionRecord,
+  PrescriptionRiskAnalysis,
   PrescriptionStatus,
 } from "@/lib/types";
 
@@ -35,6 +36,7 @@ export function PrescriptionSetupClient() {
   const [candidateReports, setCandidateReports] = useState<PrescriptionCandidateReport[]>([]);
   const [selectedReportIds, setSelectedReportIds] = useState<string[]>([]);
   const [analysis, setAnalysis] = useState<PrescriptionContextualAnalysis | null>(null);
+  const [riskAnalysis, setRiskAnalysis] = useState<PrescriptionRiskAnalysis | null>(null);
   const [status, setStatus] = useState<PrescriptionStatus>("ongoing");
   const [doctorName, setDoctorName] = useState("");
   const [specialty, setSpecialty] = useState("");
@@ -107,6 +109,7 @@ export function PrescriptionSetupClient() {
     setSaving(true);
     setError("");
     setAnalysis(null);
+    setRiskAnalysis(null);
     try {
       const headers = {
         Authorization: `Bearer ${session.accessToken}`,
@@ -137,6 +140,18 @@ export function PrescriptionSetupClient() {
       }
       setRecord(analysisPayload.prescription ?? record);
       setAnalysis(analysisPayload.analysis ?? null);
+      const riskResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports/prescriptions/risk-analysis`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          familyMemberId: record.report.familyMemberId ?? null,
+          prescriptionIds: [record.id],
+          reportIds: mode === "prescription_only" ? [] : selectedReportIds,
+        }),
+      });
+      if (riskResponse.ok) {
+        setRiskAnalysis((await riskResponse.json()) as PrescriptionRiskAnalysis);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save prescription context.");
     } finally {
@@ -288,10 +303,38 @@ export function PrescriptionSetupClient() {
             )}
 
             {analysis ? <ContextualAnalysisResult analysis={analysis} /> : null}
+            {riskAnalysis ? <CompactRiskSummary analysis={riskAnalysis} /> : null}
           </section>
         </div>
       ) : null}
     </div>
+  );
+}
+
+function CompactRiskSummary({ analysis }: { analysis: PrescriptionRiskAnalysis }) {
+  return (
+    <Card className="space-y-3 border-slate-200 p-5">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Safety review</p>
+          <h2 className="mt-1 flex items-center gap-2 font-semibold text-slate-950">
+            <ShieldAlert className="h-4 w-4 text-brand-600" />
+            Prescription risk check
+          </h2>
+        </div>
+        <Badge variant={analysis.severity === "high" ? "danger" : analysis.severity === "watch" ? "warning" : "success"}>
+          {analysis.severity === "none" ? "no risks found" : analysis.severity}
+        </Badge>
+      </div>
+      <p className="text-sm leading-6 text-slate-700">{analysis.summary}</p>
+      {analysis.findings.slice(0, 3).map((finding) => (
+        <div key={`${finding.id}-${finding.title}`} className="rounded-lg bg-slate-50 p-3">
+          <p className="text-sm font-semibold text-slate-900">{finding.title}</p>
+          <p className="mt-1 text-sm text-slate-600">{finding.nextStep}</p>
+        </div>
+      ))}
+      <p className="text-xs leading-5 text-slate-500">{analysis.disclaimer}</p>
+    </Card>
   );
 }
 

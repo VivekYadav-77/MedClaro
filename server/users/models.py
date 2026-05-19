@@ -35,6 +35,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     avatar_url = models.URLField(blank=True, null=True)
     dob = models.DateTimeField(blank=True, null=True)
     biological_sex = models.CharField(max_length=20, choices=BIOLOGICAL_SEX_CHOICES, blank=True, null=True)
+    allergies = models.JSONField(default=list)
     preferred_language = models.CharField(max_length=5, choices=LANGUAGE_CHOICES, default="en")
     settings = models.JSONField(default=dict)
     created_at = models.DateTimeField(default=timezone.now)
@@ -63,6 +64,7 @@ class FamilyMember(models.Model):
     relationship = models.CharField(max_length=40)
     dob = models.DateTimeField()
     biological_sex = models.CharField(max_length=20, choices=BIOLOGICAL_SEX_CHOICES)
+    allergies = models.JSONField(default=list)
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:

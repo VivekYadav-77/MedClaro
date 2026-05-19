@@ -80,8 +80,14 @@ export function ReportHistoryClient({
       )}
 
       {chooserOpen ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 px-4 py-6 backdrop-blur-sm sm:items-center">
-          <Card className="max-h-[86vh] w-full max-w-3xl overflow-hidden p-0 shadow-dialog">
+        <div className="fixed inset-0 z-[80] flex items-end justify-center px-4 py-6 sm:items-center" role="dialog" aria-modal="true">
+          <button
+            type="button"
+            className="absolute inset-0 z-0 bg-slate-950/45 backdrop-blur-sm"
+            onClick={() => setChooserOpen(false)}
+            aria-label="Close EHR export chooser"
+          />
+          <Card className="relative z-10 max-h-[86vh] w-full max-w-3xl overflow-hidden p-0 shadow-dialog">
             <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-brand-600">EHR Export</p>

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Loader2, UserRound } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 
 export function AuthContainer() {
   const [mode, setMode] = useState<"login" | "signup">("login");
+  const searchParams = useSearchParams();
+  const sessionExpired = searchParams.get("error") === "session_expired";
 
   return (
     <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-1 shadow-dialog">
@@ -31,6 +33,11 @@ export function AuthContainer() {
       </div>
 
       <div className="p-5">
+        {sessionExpired ? (
+          <p className="mb-4 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            Your session expired or could not be verified. Please sign in again to continue.
+          </p>
+        ) : null}
         {mode === "login" ? <LoginForm /> : <SignupForm />}
 
         <div className="relative my-5">

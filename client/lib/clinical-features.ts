@@ -44,6 +44,7 @@ export const featureIcons: Record<string, LucideIcon> = {
   wearable_sync: Activity,
   seasonal_grocery: ShoppingBasket,
   adherence_tracker: ClipboardCheck,
+  medication_safety_review: ShieldAlert,
   prescription_context_analysis: Pill,
   lab_variance: ScanSearch,
   preventive_screening: CalendarCheck,
@@ -141,6 +142,18 @@ export function buildClinicalFeatureCards(reports: Report[], circleCount: number
       route: reportTabRoute(abnormalReport, "diet", "/reports/history?focus=grocery"),
       actionLabel: "View diet",
       category: "daily",
+    },
+    {
+      id: "medication_safety_review",
+      title: "Prescription Clash & Report-Based Safety Review",
+      shortTitle: "Medication Safety",
+      description: hasPrescription
+        ? "Review active medicines against allergies, duplicate therapy, and report-based safety signals."
+        : "Upload a prescription and add allergies to unlock the medication safety review.",
+      status: hasPrescription ? "live" : "no_data",
+      route: hasPrescription ? "/reports/medications?tab=risks" : "/reports/upload?type=prescription",
+      actionLabel: hasPrescription ? "Review safety" : "Add prescription",
+      category: "safety",
     },
     {
       id: "adherence_tracker",

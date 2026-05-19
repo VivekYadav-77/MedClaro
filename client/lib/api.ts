@@ -1,4 +1,5 @@
 import { getServerSession } from "next-auth";
+import { redirect } from "next/navigation";
 
 import { mockReports, mockTrends, mockUser } from "@/lib/mock-data";
 import { authOptions } from "@/lib/auth";
@@ -44,6 +45,9 @@ export async function getUserProfile(): Promise<UserProfile> {
   try {
     return await request<UserProfile>("/users/me");
   } catch (error) {
+    if (error instanceof ApiRequestError && (error.status === 401 || error.status === 403)) {
+      redirect("/login?error=session_expired");
+    }
     console.warn("Using mock user profile because the API request failed.", error);
     return mockUser;
   }
@@ -56,6 +60,9 @@ export async function getReports(): Promise<Report[]> {
   try {
     return await request<Report[]>("/reports");
   } catch (error) {
+    if (error instanceof ApiRequestError && (error.status === 401 || error.status === 403)) {
+      redirect("/login?error=session_expired");
+    }
     console.warn("Using mock reports because the API request failed.", error);
     return mockReports;
   }
@@ -72,6 +79,9 @@ export async function getReport(id: string): Promise<Report> {
   try {
     return await request<Report>(`/reports/${id}`);
   } catch (error) {
+    if (error instanceof ApiRequestError && (error.status === 401 || error.status === 403)) {
+      redirect("/login?error=session_expired");
+    }
     const report = mockReports.find((item) => item._id === id);
     if (!report) {
       throw error;
@@ -88,6 +98,9 @@ export async function getTrends(): Promise<TrendResponse> {
   try {
     return await request<TrendResponse>("/reports/trends");
   } catch (error) {
+    if (error instanceof ApiRequestError && (error.status === 401 || error.status === 403)) {
+      redirect("/login?error=session_expired");
+    }
     console.warn("Using mock trends because the API request failed.", error);
     return mockTrends;
   }

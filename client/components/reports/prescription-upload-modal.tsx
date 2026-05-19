@@ -90,8 +90,14 @@ export function PrescriptionUploadModal({ onExtracted, onCancel }: Props) {
   // Render
   // -----------------------------------------------------------------------
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6 backdrop-blur-sm">
-      <Card className="relative w-full max-w-xl shadow-2xl">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center px-4 py-6" role="dialog" aria-modal="true">
+      <button
+        type="button"
+        className="absolute inset-0 z-0 bg-slate-950/50 backdrop-blur-sm"
+        onClick={onCancel}
+        aria-label="Close prescription upload"
+      />
+      <Card className="relative z-10 w-full max-w-xl shadow-2xl">
         {/* Header */}
         <div className="flex items-start justify-between gap-3 border-b border-slate-100 p-5">
           <div>

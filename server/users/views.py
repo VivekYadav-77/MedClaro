@@ -11,6 +11,7 @@ from users.serializers import (
     AuthCallbackSerializer,
     FamilyMemberCreateSerializer,
     FamilyMemberSerializer,
+    FamilyMemberUpdateSerializer,
     UserProfileSerializer,
     UserUpdateSerializer,
     UserRegistrationSerializer,
@@ -125,6 +126,17 @@ class FamilyListCreateView(APIView):
 
 
 class FamilyDeleteView(APIView):
+    def patch(self, request, member_id: str):
+        member = FamilyMember.objects.filter(id=member_id, user=request.user).first()
+        if not member:
+            return Response({"error": "Family member not found"}, status=status.HTTP_404_NOT_FOUND)
+        serializer = FamilyMemberUpdateSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        for field, value in serializer.validated_data.items():
+            setattr(member, field, value)
+        member.save()
+        return Response(FamilyMemberSerializer(member).data)
+
     def delete(self, request, member_id: str):
         member = FamilyMember.objects.filter(id=member_id, user=request.user).first()
         if member:

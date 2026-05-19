@@ -28,6 +28,7 @@ export function SettingsClient({ user }: { user: UserProfile }) {
   const [name, setName] = useState(user.name);
   const [preferredLanguage, setPreferredLanguage] = useState<LanguageCode>(user.preferredLanguage);
   const [biologicalSex, setBiologicalSex] = useState(user.biologicalSex ?? "undisclosed");
+  const [allergiesText, setAllergiesText] = useState(formatAllergies(user.allergies ?? []));
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +46,7 @@ export function SettingsClient({ user }: { user: UserProfile }) {
           "Content-Type": "application/json",
           ...((session as any)?.accessToken ? { Authorization: `Bearer ${(session as any).accessToken}` } : {})
         },
-        body: JSON.stringify({ name, preferredLanguage, biologicalSex })
+        body: JSON.stringify({ name, preferredLanguage, biologicalSex, allergies: parseAllergies(allergiesText) })
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
@@ -109,6 +110,16 @@ export function SettingsClient({ user }: { user: UserProfile }) {
               <option value="other">Other</option>
               <option value="undisclosed">Prefer not to say</option>
             </Select>
+          </div>
+          <div className="space-y-1.5 md:col-span-2">
+            <label className="text-sm font-medium text-slate-700">Medicine allergies</label>
+            <textarea
+              className="min-h-[92px] w-full rounded-lg border border-slate-200 bg-white p-3 text-sm outline-none focus:border-brand-400"
+              value={allergiesText}
+              onChange={(event) => setAllergiesText(event.target.value)}
+              placeholder="Penicillin - rash&#10;Ibuprofen - swelling"
+            />
+            <p className="text-xs text-slate-500">Add one allergy per line. Use “name - reaction” when you know the reaction.</p>
           </div>
         </div>
 
@@ -210,6 +221,23 @@ export function SettingsClient({ user }: { user: UserProfile }) {
       </Card>
     </div>
   );
+}
+
+function parseAllergies(raw: string) {
+  return raw
+    .split(/\r?\n|,/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 30)
+    .map((line) => {
+      const [name, ...reactionParts] = line.split(/\s+-\s+/);
+      return { name: name.trim(), reaction: reactionParts.join(" - ").trim() };
+    })
+    .filter((item) => item.name);
+}
+
+function formatAllergies(allergies: { name: string; reaction?: string }[]) {
+  return allergies.map((allergy) => [allergy.name, allergy.reaction].filter(Boolean).join(" - ")).join("\n");
 }
 
 function IntegrationCard({

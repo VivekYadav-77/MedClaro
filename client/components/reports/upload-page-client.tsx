@@ -203,8 +203,14 @@ function PrescriptionContextModal({
   const result = analysis?.result;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 px-4 py-6 backdrop-blur-sm">
-      <Card className="max-h-[90vh] w-full max-w-4xl overflow-y-auto p-0 shadow-2xl">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center px-4 py-6" role="dialog" aria-modal="true">
+      <button
+        type="button"
+        className="absolute inset-0 z-0 bg-slate-950/50 backdrop-blur-sm"
+        onClick={onClose}
+        aria-label="Close prescription context modal"
+      />
+      <Card className="relative z-10 max-h-[90vh] w-full max-w-4xl overflow-y-auto p-0 shadow-2xl">
         <div className="flex items-start justify-between gap-3 border-b border-slate-100 p-5">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Prescription context</p>

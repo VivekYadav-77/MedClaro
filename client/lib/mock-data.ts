@@ -7,20 +7,23 @@ export const mockUser: UserProfile = {
   preferredLanguage: "en",
   dob: "1990-08-12T00:00:00.000Z",
   biologicalSex: "male",
+  allergies: [],
   familyMembers: [
     {
       id: "f1",
       name: "Dad",
       relationship: "Father",
       biologicalSex: "male",
-      dob: "1960-03-10T00:00:00.000Z"
+      dob: "1960-03-10T00:00:00.000Z",
+      allergies: []
     },
     {
       id: "f2",
       name: "Mom",
       relationship: "Mother",
       biologicalSex: "female",
-      dob: "1963-07-25T00:00:00.000Z"
+      dob: "1963-07-25T00:00:00.000Z",
+      allergies: []
     }
   ],
   settings: {

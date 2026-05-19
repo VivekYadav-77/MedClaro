@@ -736,15 +736,22 @@ class ParserService:
         }
 
     def _detect_date(self, text: str):
-        match = re.search(r"\b(\d{2}[/-]\d{2}[/-]\d{4})\b", text)
+        match = re.search(r"\b(\d{1,2}[/-]\d{1,2}[/-]\d{4})\b", text)
         if match:
             raw = match.group(1).replace("-", "/")
-            return datetime.strptime(raw, "%d/%m/%Y").replace(tzinfo=UTC)
+            try:
+                return datetime.strptime(raw, "%d/%m/%Y").replace(tzinfo=UTC)
+            except ValueError:
+                return None
 
         named_month = re.search(r"\b(\d{1,2})[-\s]([A-Za-z]{3,9})[-\s](\d{4})\b", text)
         if named_month:
             raw = " ".join(named_month.groups())
-            return datetime.strptime(raw, "%d %b %Y").replace(tzinfo=UTC)
+            for date_format in ("%d %b %Y", "%d %B %Y"):
+                try:
+                    return datetime.strptime(raw, date_format).replace(tzinfo=UTC)
+                except ValueError:
+                    continue
         return None
 
     def _detect_lab_name(self, text: str):

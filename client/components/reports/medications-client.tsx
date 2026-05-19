@@ -3,13 +3,25 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { CalendarClock, FileText, Loader2, Pill, RefreshCw, Settings2, type LucideIcon } from "lucide-react";
+import {
+  AlertTriangle,
+  CalendarClock,
+  CheckCircle2,
+  FileText,
+  ListChecks,
+  Loader2,
+  Pill,
+  RefreshCw,
+  Settings2,
+  ShieldAlert,
+  type LucideIcon,
+} from "lucide-react";
 import { useSession } from "next-auth/react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { PrescriptionRecord } from "@/lib/types";
+import { PrescriptionRecord, PrescriptionRiskAnalysis, PrescriptionRiskFinding, RiskSeverity } from "@/lib/types";
 
 type RefillPrompt = {
   reportId: string;
@@ -21,8 +33,8 @@ type RefillPrompt = {
 
 export function MedicationsClient({
   eyebrow = "Medication Center",
-  title = "Prescription tracking",
-  description = "Keep prescriptions organized, mark whether they are ongoing or completed, and connect supporting reports for future review.",
+  title = "Medication safety center",
+  description = "Keep prescriptions organized, check for medicine clashes, add allergies, and connect reports for safer clinician review.",
   basePath = "/reports/medications",
 }: {
   eyebrow?: string;
@@ -80,6 +92,7 @@ export function MedicationsClient({
 
       <div className="flex flex-wrap gap-2">
         <TabLink href={basePath} label="Overview" active={activeTab === "overview"} />
+        <TabLink href={`${basePath}?tab=risks`} label="Safety Review" active={activeTab === "risks"} />
         <TabLink href={`${basePath}?tab=refills`} label="Refills" active={activeTab === "refills"} />
         <TabLink href={`${basePath}?tab=generics`} label="Generics" active={activeTab === "generics"} />
         <Button variant="ghost" size="sm" onClick={() => void load()} className="gap-2">
@@ -93,6 +106,8 @@ export function MedicationsClient({
           <Loader2 className="h-4 w-4 animate-spin" />
           Loading prescriptions
         </Card>
+      ) : activeTab === "risks" ? (
+        <RiskCheckPanel token={session?.accessToken as string | undefined} />
       ) : activeTab === "refills" ? (
         <RefillList prompts={refills} />
       ) : activeTab === "generics" ? (
@@ -102,6 +117,296 @@ export function MedicationsClient({
       )}
     </div>
   );
+}
+
+function RiskCheckPanel({ token }: { token?: string }) {
+  const [analysis, setAnalysis] = useState<PrescriptionRiskAnalysis | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState("");
+
+  async function load(recalculate = false) {
+    if (!process.env.NEXT_PUBLIC_API_URL || !token) {
+      setLoading(false);
+      setAnalysis(null);
+      return;
+    }
+    setError("");
+    setRefreshing(recalculate);
+    if (!recalculate) setLoading(true);
+    try {
+      const familyMemberId = window.localStorage.getItem("selectedFamilyMemberId");
+      const headers = {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      };
+      const response = recalculate
+        ? await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports/prescriptions/risk-analysis`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ familyMemberId }),
+          })
+        : await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL}/reports/prescriptions/risk-analysis${familyMemberId ? `?familyMemberId=${familyMemberId}` : ""}`,
+            { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" },
+          );
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || "Could not run prescription risk analysis.");
+      }
+      setAnalysis(payload as PrescriptionRiskAnalysis);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not run prescription risk analysis.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }
+
+  useEffect(() => {
+    void load(false);
+  }, [token]);
+
+  if (loading) {
+    return (
+      <Card className="flex items-center gap-3 p-5 text-sm text-slate-500">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Checking prescription risks
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card className={`p-5 ${analysis?.severity === "high" ? "border-rose-200 bg-rose-50/60" : analysis?.severity === "watch" ? "border-amber-200 bg-amber-50/50" : ""}`}>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex items-start gap-3">
+            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${analysis?.severity === "high" ? "bg-rose-100 text-rose-700" : analysis?.severity === "watch" ? "bg-amber-100 text-amber-700" : "bg-brand-50 text-brand-700"}`}>
+              <ShieldAlert className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Medication Safety Review</p>
+              <h2 className="mt-1 font-semibold text-slate-950">{analysis ? safetyHeadline(analysis) : "Check prescription clashes, allergies, and report signals"}</h2>
+              <p className="mt-1 text-sm leading-6 text-slate-600">
+                {analysis ? safetySummaryText(analysis) : "Run a guided review using active prescriptions, saved allergies, and analyzed report markers."}
+              </p>
+              {analysis ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Badge variant={severityVariant(analysis.severity)}>{severityLabel(analysis.severity)}</Badge>
+                  <Badge variant="default">{analysis.confidence} confidence</Badge>
+                  <Badge variant="default">{analysis.medicineCount} medicine(s)</Badge>
+                  <Badge variant="default">{analysis.reportCount} report(s)</Badge>
+                  <Badge variant="default">{analysis.allergies.length} allerg{analysis.allergies.length === 1 ? "y" : "ies"}</Badge>
+                </div>
+              ) : null}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 lg:justify-end">
+            <Link href="/settings">
+              <Button variant="outline" className="gap-2">
+                <ListChecks className="h-4 w-4" />
+                Update allergies
+              </Button>
+            </Link>
+            <Button onClick={() => void load(true)} disabled={refreshing} className="gap-2">
+              {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              Run safety review
+            </Button>
+          </div>
+        </div>
+      </Card>
+
+      {error ? <Card className="border-rose-200 bg-rose-50 p-4 text-sm font-medium text-rose-800">{error}</Card> : null}
+
+      {analysis ? <SafetySetupChecklist analysis={analysis} /> : null}
+
+      {analysis && analysis.prescriptionCount === 0 ? (
+        <GuidedEmptyState
+          icon={Pill}
+          title="Add an active prescription first"
+          body="The safety review needs at least one ongoing, short-course, or unknown-status prescription."
+          primaryHref="/reports/upload?type=prescription"
+          primaryLabel="Upload prescription"
+          secondaryHref="/reports/medications"
+          secondaryLabel="Review saved prescriptions"
+        />
+      ) : analysis && analysis.findings.length === 0 ? (
+        <Card className="border-emerald-200 bg-emerald-50/70 p-5">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-700" />
+            <div>
+              <h2 className="font-semibold text-emerald-950">No obvious clash found in saved data</h2>
+              <p className="mt-1 text-sm leading-6 text-emerald-900">
+                Keep prescriptions, allergies, and recent reports updated. This review is a preparation tool, not a replacement for pharmacist-grade interaction screening.
+              </p>
+            </div>
+          </div>
+        </Card>
+      ) : null}
+
+      {analysis?.findings.length ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          {analysis.findings.map((finding) => (
+            <RiskFindingCard key={`${finding.id}-${finding.title}`} finding={finding} />
+          ))}
+        </div>
+      ) : null}
+
+      {analysis?.nextSteps.length ? (
+        <Card className="space-y-2 p-4">
+          <p className="font-semibold text-slate-950">Next steps</p>
+          {analysis.nextSteps.filter((step) => step !== analysis.disclaimer).map((step) => (
+            <p key={step} className="text-sm leading-6 text-slate-600">{step}</p>
+          ))}
+        </Card>
+      ) : null}
+
+      {analysis?.disclaimer ? <p className="text-xs leading-5 text-slate-500">{analysis.disclaimer}</p> : null}
+    </div>
+  );
+}
+
+function RiskFindingCard({ finding }: { finding: PrescriptionRiskFinding }) {
+  return (
+    <Card className={`space-y-3 border-l-4 p-4 ${severityBorder(finding.severity)}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="flex items-center gap-2 font-semibold text-slate-950">
+            <AlertTriangle className="h-4 w-4 text-slate-500" />
+            {finding.title}
+          </p>
+          <p className="mt-1 text-xs font-medium uppercase tracking-wide text-slate-400">{finding.source.replace("_", " ")}</p>
+        </div>
+        <Badge variant={severityVariant(finding.severity)}>{finding.severity}</Badge>
+      </div>
+      {finding.relatedMedicines.length ? (
+        <div className="flex flex-wrap gap-2">
+          {finding.relatedMedicines.slice(0, 5).map((medicine) => (
+            <Badge key={`${medicine.name}-${medicine.prescriptionId}`} variant="default">{medicine.name}</Badge>
+          ))}
+        </div>
+      ) : null}
+      {finding.relatedMarkers.length ? (
+        <div className="space-y-1">
+          {finding.relatedMarkers.slice(0, 3).map((marker) => (
+            <p key={`${marker.name}-${marker.reportId}`} className="text-sm text-slate-600">
+              {marker.name}: {marker.value} {marker.unit} {marker.flag ? `(${marker.flag})` : ""}
+            </p>
+          ))}
+        </div>
+      ) : null}
+      {finding.relatedAllergies.length ? (
+        <p className="text-sm text-rose-700">
+          Allergy: {finding.relatedAllergies.map((allergy) => allergy.name).join(", ")}
+        </p>
+      ) : null}
+      <p className="text-sm leading-6 text-slate-700">{finding.nextStep}</p>
+    </Card>
+  );
+}
+
+function SafetySetupChecklist({ analysis }: { analysis: PrescriptionRiskAnalysis }) {
+  const items = [
+    {
+      label: "Active prescription saved",
+      done: analysis.prescriptionCount > 0,
+      action: "Upload or mark prescriptions as ongoing",
+    },
+    {
+      label: "Medicine allergies added",
+      done: analysis.allergies.length > 0,
+      action: "Add allergies in Settings or Family profiles",
+    },
+    {
+      label: "Recent reports available",
+      done: analysis.reportCount > 0,
+      action: "Upload lab reports for report-based safety context",
+    },
+  ];
+  return (
+    <div className="grid gap-3 md:grid-cols-3">
+      {items.map((item) => (
+        <Card key={item.label} className="p-3 shadow-none">
+          <div className="flex items-start gap-2">
+            {item.done ? <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-600" /> : <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-600" />}
+            <div>
+              <p className="text-sm font-semibold text-slate-900">{item.label}</p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">{item.done ? "Ready for this review." : item.action}</p>
+            </div>
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function GuidedEmptyState({
+  icon: Icon,
+  title,
+  body,
+  primaryHref,
+  primaryLabel,
+  secondaryHref,
+  secondaryLabel,
+}: {
+  icon: LucideIcon;
+  title: string;
+  body: string;
+  primaryHref: string;
+  primaryLabel: string;
+  secondaryHref: string;
+  secondaryLabel: string;
+}) {
+  return (
+    <Card className="p-6 text-center">
+      <Icon className="mx-auto h-8 w-8 text-slate-400" />
+      <h2 className="mt-3 font-semibold text-slate-950">{title}</h2>
+      <p className="mx-auto mt-1 max-w-lg text-sm leading-6 text-slate-500">{body}</p>
+      <div className="mt-4 flex flex-wrap justify-center gap-2">
+        <Link href={primaryHref}>
+          <Button>{primaryLabel}</Button>
+        </Link>
+        <Link href={secondaryHref}>
+          <Button variant="outline">{secondaryLabel}</Button>
+        </Link>
+      </div>
+    </Card>
+  );
+}
+
+function severityVariant(severity: RiskSeverity | PrescriptionRiskFinding["severity"]) {
+  if (severity === "high") return "danger";
+  if (severity === "watch") return "warning";
+  if (severity === "info") return "brand";
+  return "success";
+}
+
+function severityLabel(severity: RiskSeverity) {
+  if (severity === "high") return "prompt review";
+  if (severity === "watch") return "watch points";
+  if (severity === "info") return "context only";
+  return "no obvious clash";
+}
+
+function safetyHeadline(analysis: PrescriptionRiskAnalysis) {
+  if (analysis.prescriptionCount === 0) return "Add prescriptions to start the safety review";
+  if (analysis.severity === "high") return "Prompt clinician or pharmacist review recommended";
+  if (analysis.severity === "watch") return "Review these medication watch points";
+  if (analysis.findings.length) return "Helpful context found for your next review";
+  return "No obvious clash found from saved data";
+}
+
+function safetySummaryText(analysis: PrescriptionRiskAnalysis) {
+  if (analysis.prescriptionCount === 0) {
+    return "Add at least one active prescription, then the review can check medicines against allergies and report markers.";
+  }
+  return analysis.summary;
+}
+
+function severityBorder(severity: PrescriptionRiskFinding["severity"]) {
+  if (severity === "high") return "border-l-red-500";
+  if (severity === "watch") return "border-l-amber-500";
+  return "border-l-brand-500";
 }
 
 function PrescriptionList({ prescriptions }: { prescriptions: PrescriptionRecord[] }) {

@@ -6,6 +6,7 @@ export type FamilyMember = {
   relationship: string;
   biologicalSex: string;
   dob: string;
+  allergies?: MedicationAllergy[];
 };
 
 export type Parameter = {
@@ -45,6 +46,11 @@ export type MedicationCard = {
   sideEffects: string[];
   avoid: string[];
   interactionNotes: string;
+};
+
+export type MedicationAllergy = {
+  name: string;
+  reaction?: string;
 };
 
 export type ChatMessage = {
@@ -147,6 +153,56 @@ export type PrescriptionContextualAnalysis = {
   updatedAt: string;
 };
 
+export type RiskSeverity = "high" | "watch" | "info" | "none";
+
+export type PrescriptionRiskFinding = {
+  id: string;
+  severity: Exclude<RiskSeverity, "none">;
+  source: "local_rule" | "report_context" | "allergy" | "ai_explanation" | string;
+  title: string;
+  description: string;
+  relatedMedicines: {
+    name: string;
+    dosage?: string;
+    frequency?: string;
+    prescriptionId?: string;
+    reportId?: string;
+    sourceDate?: string;
+  }[];
+  relatedMarkers: {
+    name?: string;
+    value?: number | string;
+    unit?: string;
+    flag?: string;
+    reportId?: string;
+    reportDate?: string;
+  }[];
+  relatedAllergies: MedicationAllergy[];
+  nextStep: string;
+};
+
+export type PrescriptionRiskAnalysis = {
+  profile: {
+    familyMemberId?: string | null;
+    name: string;
+  };
+  generatedAt: string;
+  prescriptionCount: number;
+  medicineCount: number;
+  reportCount: number;
+  allergies: MedicationAllergy[];
+  findings: PrescriptionRiskFinding[];
+  severity: RiskSeverity;
+  confidence: "high" | "medium" | "low";
+  summary: string;
+  nextSteps: string[];
+  disclaimer: string;
+  inputs: {
+    prescriptionIds: string[];
+    reportIds: string[];
+  };
+};
+
 export type ReportShare = {
   id: string;
   circleId: string;
@@ -166,6 +222,7 @@ export type UserProfile = {
   preferredLanguage: LanguageCode;
   dob: string;
   biologicalSex: string;
+  allergies?: MedicationAllergy[];
   familyMembers: FamilyMember[];
   settings: {
     notifications: boolean;
