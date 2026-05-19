@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
+  ArrowRight,
   CalendarClock,
   CheckCircle2,
   FileText,
@@ -30,6 +31,168 @@ type RefillPrompt = {
   risk: "normal" | "watch" | "high";
   message: string;
 };
+
+type GenericOption = {
+  originalName: string;
+  genericName: string;
+  className: string;
+  confidence: "matched" | "review";
+  note: string;
+  sourcePrescription: PrescriptionRecord;
+};
+
+const GENERIC_GUIDE = [
+  {
+    genericName: "Paracetamol / Acetaminophen",
+    aliases: ["paracetamol", "acetaminophen", "dolo", "calpol", "crocin"],
+    className: "Pain and fever medicine",
+    note: "Confirm total daily dose and avoid accidentally combining multiple cold/fever products with the same ingredient.",
+  },
+  {
+    genericName: "Ibuprofen",
+    aliases: ["ibuprofen", "brufen", "advil", "nurofen"],
+    className: "NSAID pain medicine",
+    note: "Ask whether it is suitable with kidney, acidity/ulcer, blood pressure, blood thinner, or pregnancy context.",
+  },
+  {
+    genericName: "Diclofenac",
+    aliases: ["diclofenac", "voveran", "cataflam"],
+    className: "NSAID pain medicine",
+    note: "Check whether a safer pain option is preferred if kidney, stomach, heart, or blood pressure risks are present.",
+  },
+  {
+    genericName: "Aspirin",
+    aliases: ["aspirin", "ecosprin", "disprin"],
+    className: "Antiplatelet / pain medicine",
+    note: "Confirm the exact reason and dose because low-dose heart protection and pain dosing are reviewed differently.",
+  },
+  {
+    genericName: "Atorvastatin",
+    aliases: ["atorvastatin", "atorva", "lipitor"],
+    className: "Statin cholesterol medicine",
+    note: "Confirm strength, timing, and whether liver enzyme or muscle symptom review is needed.",
+  },
+  {
+    genericName: "Rosuvastatin",
+    aliases: ["rosuvastatin", "rozavel", "crestor", "rosuvas"],
+    className: "Statin cholesterol medicine",
+    note: "Confirm strength and whether kidney function or muscle symptom review changes monitoring needs.",
+  },
+  {
+    genericName: "Metformin",
+    aliases: ["metformin", "glucophage", "glycomet"],
+    className: "Diabetes medicine",
+    note: "Ask whether kidney function, stomach tolerance, and extended-release versus immediate-release form are appropriate.",
+  },
+  {
+    genericName: "Glimepiride",
+    aliases: ["glimepiride", "amaryl", "glypride"],
+    className: "Diabetes medicine",
+    note: "Review meal timing and low-sugar risk, especially when doses or eating patterns change.",
+  },
+  {
+    genericName: "Levothyroxine",
+    aliases: ["levothyroxine", "thyroxine", "thyronorm", "eltroxin"],
+    className: "Thyroid hormone",
+    note: "Confirm empty-stomach timing and separation from calcium, iron, antacids, or multivitamins.",
+  },
+  {
+    genericName: "Amlodipine",
+    aliases: ["amlodipine", "amlong", "norvasc", "amlor"],
+    className: "Blood pressure medicine",
+    note: "Ask whether ankle swelling, dizziness, and dose strength need review.",
+  },
+  {
+    genericName: "Telmisartan",
+    aliases: ["telmisartan", "telma", "telsar", "micardis"],
+    className: "ARB blood pressure medicine",
+    note: "Confirm kidney function and potassium monitoring, especially if paired with diuretics or ACE/ARB medicines.",
+  },
+  {
+    genericName: "Losartan",
+    aliases: ["losartan", "losar", "cozaar"],
+    className: "ARB blood pressure medicine",
+    note: "Confirm kidney function and potassium monitoring when reports show kidney or electrolyte changes.",
+  },
+  {
+    genericName: "Ramipril",
+    aliases: ["ramipril", "cardace", "altace"],
+    className: "ACE inhibitor blood pressure medicine",
+    note: "Ask about potassium, kidney function, cough, and whether it overlaps with any ARB medicine.",
+  },
+  {
+    genericName: "Pantoprazole",
+    aliases: ["pantoprazole", "pantocid", "pan 40", "protonix"],
+    className: "Acidity / reflux medicine",
+    note: "Confirm duration and whether long-term use needs magnesium, B12, or bone-health discussion.",
+  },
+  {
+    genericName: "Omeprazole",
+    aliases: ["omeprazole", "omez", "prilosec"],
+    className: "Acidity / reflux medicine",
+    note: "Confirm timing before meals and whether it affects any other medicine schedule.",
+  },
+  {
+    genericName: "Cetirizine",
+    aliases: ["cetirizine", "cetzine", "zyrtec"],
+    className: "Antihistamine allergy medicine",
+    note: "Ask about sleepiness and whether driving or work timing matters.",
+  },
+  {
+    genericName: "Montelukast",
+    aliases: ["montelukast", "montek", "singulair"],
+    className: "Allergy / asthma controller",
+    note: "Confirm why it was prescribed and discuss mood or sleep changes if they occur.",
+  },
+  {
+    genericName: "Azithromycin",
+    aliases: ["azithromycin", "azee", "zithromax"],
+    className: "Antibiotic",
+    note: "Confirm course duration, indication, and whether heart rhythm or interaction risks need review.",
+  },
+  {
+    genericName: "Amoxicillin + Clavulanate",
+    aliases: ["amoxicillin clavulanate", "amoxycillin clavulanate", "augmentin", "clavam"],
+    className: "Antibiotic combination",
+    note: "Check penicillin allergy history and confirm the exact course length.",
+  },
+  {
+    genericName: "Cefixime",
+    aliases: ["cefixime", "taxim-o", "zifi"],
+    className: "Antibiotic",
+    note: "Confirm course duration and allergy history before comparing brands.",
+  },
+  {
+    genericName: "Furosemide",
+    aliases: ["furosemide", "frusemide", "lasix"],
+    className: "Diuretic",
+    note: "Ask about kidney function, sodium/potassium, swelling, blood pressure, and dehydration symptoms.",
+  },
+  {
+    genericName: "Clopidogrel",
+    aliases: ["clopidogrel", "clopilet", "plavix"],
+    className: "Antiplatelet",
+    note: "Confirm bleeding-risk review and whether it is paired with aspirin or a blood thinner.",
+  },
+  {
+    genericName: "Warfarin",
+    aliases: ["warfarin", "coumadin"],
+    className: "Anticoagulant",
+    note: "Do not substitute casually; INR monitoring, diet, antibiotics, and brand consistency matter.",
+  },
+  {
+    genericName: "Apixaban",
+    aliases: ["apixaban", "eliquis"],
+    className: "Anticoagulant",
+    note: "Confirm dose, kidney function, and bleeding-risk review before any brand/generic change.",
+  },
+  {
+    genericName: "Rivaroxaban",
+    aliases: ["rivaroxaban", "xarelto"],
+    className: "Anticoagulant",
+    note: "Confirm dose timing with food where applicable and review kidney function and bleeding risk.",
+  },
+];
 
 export function MedicationsClient({
   eyebrow = "Medication Center",
@@ -111,7 +274,7 @@ export function MedicationsClient({
       ) : activeTab === "refills" ? (
         <RefillList prompts={refills} />
       ) : activeTab === "generics" ? (
-        <GenericsPlaceholder hasPrescriptions={prescriptions.length > 0} />
+        <GenericOptionsPanel prescriptions={prescriptions} />
       ) : (
         <PrescriptionList prescriptions={prescriptions} />
       )}
@@ -477,18 +640,133 @@ function RefillList({ prompts }: { prompts: RefillPrompt[] }) {
   );
 }
 
-function GenericsPlaceholder({ hasPrescriptions }: { hasPrescriptions: boolean }) {
+function GenericOptionsPanel({ prescriptions }: { prescriptions: PrescriptionRecord[] }) {
+  const options = buildGenericOptions(prescriptions);
+  const medicineCount = prescriptions.reduce((count, record) => count + (record.medications ?? []).filter((medication) => medication.name).length, 0);
+
+  if (!prescriptions.length || medicineCount === 0) {
+    return (
+      <GuidedEmptyState
+        icon={FileText}
+        title="Upload a prescription first"
+        body="Generic review needs extracted medicine names from an uploaded prescription."
+        primaryHref="/reports/upload?type=prescription"
+        primaryLabel="Upload prescription"
+        secondaryHref="/reports/medications"
+        secondaryLabel="Review prescriptions"
+      />
+    );
+  }
+
   return (
-    <EmptyState
-      icon={FileText}
-      title={hasPrescriptions ? "Generic options are not configured yet" : "Upload a prescription first"}
-      body={
-        hasPrescriptions
-          ? "The saved prescription list is ready for the generic finder when that module is connected."
-          : "Generic alternatives need extracted prescription medicines before they can be reviewed."
-      }
-    />
+    <div className="space-y-4">
+      <Card className="p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Generic Options Review</p>
+            <h2 className="mt-1 font-semibold text-slate-950">Check brand-to-generic discussion points</h2>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">
+              This local review identifies common generic molecules from saved prescriptions and prepares safe questions for your pharmacist or clinician.
+              It does not compare prices or approve substitutions.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Badge variant="brand">{options.filter((option) => option.confidence === "matched").length} matched</Badge>
+              <Badge variant="default">{options.filter((option) => option.confidence === "review").length} need review</Badge>
+              <Badge variant="default">{medicineCount} medicine(s)</Badge>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 lg:justify-end">
+            <Link href="/reports/medications?tab=risks">
+              <Button variant="outline" className="gap-2">
+                Safety review
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+            <Link href="/reports/upload?type=prescription">
+              <Button className="gap-2">
+                <Pill className="h-4 w-4" />
+                Add prescription
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </Card>
+
+      <div className="grid gap-3 lg:grid-cols-2">
+        {options.map((option) => (
+          <Card key={`${option.sourcePrescription.id}-${option.originalName}-${option.genericName}`} className="p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Saved medicine</p>
+                <h3 className="mt-1 font-semibold text-slate-950">{option.originalName}</h3>
+              </div>
+              <Badge variant={option.confidence === "matched" ? "success" : "warning"}>
+                {option.confidence === "matched" ? "matched" : "pharmacist review"}
+              </Badge>
+            </div>
+            <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Generic molecule</p>
+              <p className="mt-1 font-semibold text-slate-950">{option.genericName}</p>
+              <p className="mt-1 text-sm text-slate-600">{option.className}</p>
+            </div>
+            <p className="mt-3 text-sm leading-6 text-slate-700">{option.note}</p>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+              <span>{option.sourcePrescription.report.labName || "Prescription"}</span>
+              <span>/</span>
+              <span>{option.sourcePrescription.status.replace("_", " ")}</span>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      <Card className="border-amber-200 bg-amber-50/70 p-4">
+        <p className="font-semibold text-amber-950">Substitution safety note</p>
+        <p className="mt-1 text-sm leading-6 text-amber-900">
+          Do not start, stop, switch, or change medicines based on this review. Brand and generic decisions depend on molecule, dose,
+          release form, route, combination ingredients, allergies, reports, and prescriber instructions.
+        </p>
+      </Card>
+    </div>
   );
+}
+
+function buildGenericOptions(prescriptions: PrescriptionRecord[]): GenericOption[] {
+  const seen = new Set<string>();
+  const options: GenericOption[] = [];
+
+  prescriptions.forEach((record) => {
+    (record.medications ?? []).forEach((medication) => {
+      const originalName = medication.name?.trim();
+      if (!originalName) return;
+      const normalized = normalizeMedicineName(originalName);
+      const key = `${record.id}-${normalized}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      const match = GENERIC_GUIDE.find((entry) => entry.aliases.some((alias) => normalized.includes(normalizeMedicineName(alias))));
+      options.push({
+        originalName,
+        genericName: match?.genericName ?? "Needs pharmacist confirmation",
+        className: match?.className ?? "Medicine name could not be confidently mapped locally",
+        confidence: match ? "matched" : "review",
+        note:
+          match?.note ??
+          "Ask the pharmacist to confirm the generic molecule, strength, release form, route, and whether the prescription says brand-only.",
+        sourcePrescription: record,
+      });
+    });
+  });
+
+  return options.sort((a, b) => (a.confidence === b.confidence ? a.originalName.localeCompare(b.originalName) : a.confidence === "review" ? -1 : 1));
+}
+
+function normalizeMedicineName(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/\b\d+(\.\d+)?\s*(mg|mcg|g|ml|iu|units?)\b/g, " ")
+    .replace(/\b(tablet|tab|capsule|cap|syrup|injection|inj|cream|ointment|drops|sr|xr|er|dr|od|bd|tds)\b/g, " ")
+    .replace(/[^a-z0-9+]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function EmptyState({ icon: Icon, title, body }: { icon: LucideIcon; title: string; body: string }) {

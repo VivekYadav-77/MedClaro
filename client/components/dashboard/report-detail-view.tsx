@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   Activity,
@@ -310,12 +311,14 @@ function GenericMedicinePanel({ hasMedication }: { hasMedication: boolean }) {
       <p className="text-sm font-semibold text-slate-900">Generic medicine finder</p>
       <p className="mt-1 text-sm leading-6 text-slate-600">
         {hasMedication
-          ? "Active molecules can be sent to `/medications/generic-options` once the lookup backend is available."
+          ? "Review common generic molecules and pharmacist-ready substitution questions in the medication center."
           : "No prescription medicines are available for comparison."}
       </p>
-      <Button variant="outline" size="sm" className="mt-3" disabled>
-        Needs backend
-      </Button>
+      <Link href={hasMedication ? "/reports/medications?tab=generics" : "/reports/upload?type=prescription"} className="mt-3 inline-flex">
+        <Button variant="outline" size="sm">
+          {hasMedication ? "Open generic review" : "Add prescription"}
+        </Button>
+      </Link>
     </div>
   );
 }

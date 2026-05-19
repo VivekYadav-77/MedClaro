@@ -201,10 +201,10 @@ export function buildClinicalFeatureCards(reports: Report[], circleCount: number
       id: "generic_finder",
       title: "Cost-Optimized Generic Medicine Finder",
       shortTitle: "Generic Finder",
-      description: hasPrescription ? "Prescription medicines detected; generic price lookup endpoint is pending." : "Upload prescriptions to compare generic options.",
-      status: hasPrescription ? "backend_pending" : "no_data",
+      description: hasPrescription ? "Review common generic molecules and pharmacist-ready substitution questions from saved prescriptions." : "Upload prescriptions to compare generic options.",
+      status: hasPrescription ? "live" : "no_data",
       route: hasPrescription ? "/reports/medications?tab=generics" : "/reports/upload?type=prescription&next=generics",
-      actionLabel: "Compare",
+      actionLabel: hasPrescription ? "Review options" : "Add prescription",
       category: "clinical",
     },
     {
