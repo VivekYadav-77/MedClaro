@@ -334,37 +334,51 @@ class ReportListCreateView(APIView):
         return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
-def _latest_report_for_emergency(user, circle_id=None):
-    queryset = accessible_reports(user, circle_id=circle_id).prefetch_related("chat_messages")
-    return queryset.order_by("-upload_date").first()
-
-
-def _emergency_report_context(report):
-    if not report:
+def _emergency_health_context(user, circle_id=None):
+    reports = list(
+        accessible_reports(user, circle_id=circle_id)
+        .select_related("user", "family_member")
+        .prefetch_related("chat_messages")
+        .order_by("-upload_date")[:8]
+    )
+    if not reports:
         return {
+            "reportId": None,
             "medications": [],
             "abnormalMarkers": [],
             "reportDate": None,
             "reportType": None,
         }
-    hydrated = ReportHydrator().hydrate(report)
+    hydrator = ReportHydrator()
+    hydrated_reports = [hydrator.hydrate(report) for report in reports]
+    latest = hydrated_reports[0]
+    medication_names = []
+    for report in hydrated_reports:
+        for item in report.get("medications", []):
+            name = item.get("name")
+            if name and name not in medication_names:
+                medication_names.append(name)
+    abnormal_markers = [
+        {
+            "name": item.get("testName"),
+            "value": item.get("value"),
+            "unit": item.get("unit", ""),
+            "flag": item.get("flag"),
+            "reportId": report.get("_id"),
+            "reportDate": report.get("reportDate") or report.get("uploadDate"),
+        }
+        for report in hydrated_reports
+        for item in report.get("structuredData", [])
+        if item.get("flag") != "normal"
+    ][:12]
     return {
-        "reportId": str(report.id),
-        "reportType": hydrated.get("reportType"),
-        "reportDate": hydrated.get("reportDate"),
-        "medications": [item.get("name") for item in hydrated.get("medications", []) if item.get("name")][:12],
-        "abnormalMarkers": [
-            {
-                "name": item.get("testName"),
-                "value": item.get("value"),
-                "unit": item.get("unit", ""),
-                "flag": item.get("flag"),
-            }
-            for item in hydrated.get("structuredData", [])
-            if item.get("flag") != "normal"
-        ][:12],
-        "familyMemberId": hydrated.get("familyMemberId"),
-        "familyMemberName": hydrated.get("familyMemberName"),
+        "reportId": latest.get("_id"),
+        "reportType": latest.get("reportType"),
+        "reportDate": latest.get("reportDate"),
+        "medications": medication_names[:12],
+        "abnormalMarkers": abnormal_markers,
+        "familyMemberId": latest.get("familyMemberId"),
+        "familyMemberName": latest.get("familyMemberName"),
     }
 
 
@@ -436,8 +450,8 @@ class EmergencySosView(APIView):
         if circle_id and not _user_belongs_to_circle(circle_id, request.user):
             return Response({"error": "Circle not found"}, status=status.HTTP_404_NOT_FOUND)
         location_payload = request.data.get("location") if isinstance(request.data.get("location"), dict) else {}
-        latest_report = _latest_report_for_emergency(request.user, circle_id=circle_id)
-        context = _emergency_report_context(latest_report)
+        latest_report = accessible_reports(request.user, circle_id=circle_id).order_by("-upload_date").first()
+        context = _emergency_health_context(request.user, circle_id=circle_id)
         summary_text = _build_emergency_summary(request.user, context, location_payload)
         recipients = _circle_recipients(circle_id, request.user)
         event = EmergencyEvent.objects.create(

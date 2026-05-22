@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   Activity,
   ArrowLeft,
@@ -9,25 +10,39 @@ import {
   FileDown,
   FileText,
   Pill,
+  ShieldCheck,
   Stethoscope,
   TableProperties,
+  UsersRound,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Select } from "@/components/ui/select";
 import { ChatPanel } from "@/components/reports/chat-panel";
 import { DietAdvicePanel } from "@/components/reports/diet-advice-panel";
 import { LifestyleCorrelationCard } from "@/components/reports/lifestyle-correlation-card";
 import { MedicationCard } from "@/components/reports/medication-card";
 import { SummaryGenerator } from "@/components/reports/summary-generator";
 import { VoiceReadout } from "@/components/reports/voice-readout";
-import { Report } from "@/lib/types";
+import { Circle, Report, ReportShare } from "@/lib/types";
 import { loincHint, markerRisk } from "@/lib/clinical-features";
 import { cn } from "@/lib/utils";
 
 const tabs = ["summary", "values", "doctor-export", "meds", "diet", "chat", "sharing"] as const;
 type ReportTab = (typeof tabs)[number];
+type DoctorExportRow = {
+  marker: string;
+  value: number | string;
+  unit: string;
+  referenceRangeLow?: number | null;
+  referenceRangeHigh?: number | null;
+  referenceRangeText?: string;
+  flag: string;
+  loincCode?: string;
+  risk: string;
+};
 
 const tabLabels: Record<ReportTab, string> = {
   summary: "Summary",
@@ -98,7 +113,7 @@ export function ReportDetailClient({ report }: { report: Report }) {
       {activeTab === "meds" ? <MedsTab report={report} /> : null}
       {activeTab === "diet" ? <DietAdvicePanel reportId={report._id} /> : null}
       {activeTab === "chat" ? <ChatPanel reportId={report._id} language={report.language} initialMessages={report.chatHistory ?? []} /> : null}
-      {activeTab === "sharing" ? <SharingPlaceholder /> : null}
+      {activeTab === "sharing" ? <ReportSharingTab report={report} /> : null}
     </div>
   );
 }
@@ -163,13 +178,56 @@ function ValuesTab({ report }: { report: Report }) {
 }
 
 function DoctorExportTab({ report }: { report: Report }) {
+  const { data: session } = useSession();
+  const [backendRows, setBackendRows] = useState<DoctorExportRow[] | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadExportRows() {
+      if (!process.env.NEXT_PUBLIC_API_URL || !session?.accessToken || !report.structuredData.length) return;
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports/${report._id}/ehr-export`, {
+          headers: { Authorization: `Bearer ${session.accessToken}` },
+          cache: "no-store",
+        });
+        const payload = await response.json().catch(() => null);
+        if (!response.ok) {
+          setMessage(payload?.error ?? "Using local export rows because the backend export did not respond.");
+          return;
+        }
+        setBackendRows(payload.rows ?? []);
+        setMessage(payload.generatedAt ? "Using backend EHR export rows from saved report analysis." : null);
+      } catch {
+        setMessage("Using local export rows because the backend export did not respond.");
+      }
+    }
+    void loadExportRows();
+  }, [report._id, report.structuredData.length, session?.accessToken]);
+
+  const rows = useMemo(() => {
+    if (backendRows?.length) {
+      return backendRows.map((row) => ({
+        item: {
+          testName: row.marker,
+          value: row.value,
+          unit: row.unit,
+          referenceRangeLow: row.referenceRangeLow ?? null,
+          referenceRangeHigh: row.referenceRangeHigh ?? null,
+          flag: row.flag as Report["structuredData"][number]["flag"],
+        },
+        risk: row.risk,
+        loinc: row.loincCode ?? "Mapping pending",
+        referenceRangeText: row.referenceRangeText,
+      }));
+    }
+    return report.structuredData.map((item) => ({ item, risk: markerRisk(item), loinc: loincHint(item.testName), referenceRangeText: undefined }));
+  }, [backendRows, report.structuredData]);
+  const exportText = rows
+    .map(({ item, risk, loinc, referenceRangeText }) => `${item.testName}\t${item.value} ${item.unit}\t${referenceRangeText ?? formatRange(item.referenceRangeLow, item.referenceRangeHigh, item.unit)}\t${item.flag}\t${risk}\t${loinc}`)
+    .join("\n");
   if (!report.structuredData.length) {
     return <EmptyPanel icon={Stethoscope} title="EHR export needs lab values" body="Prescription-only and unstructured reports cannot generate a lab handoff table yet." />;
   }
-  const rows = report.structuredData.map((item) => ({ item, risk: markerRisk(item), loinc: loincHint(item.testName) }));
-  const exportText = rows
-    .map(({ item, risk, loinc }) => `${item.testName}\t${item.value} ${item.unit}\t${formatRange(item.referenceRangeLow, item.referenceRangeHigh, item.unit)}\t${item.flag}\t${risk}\t${loinc}`)
-    .join("\n");
   return (
     <div className="space-y-4">
       <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
@@ -178,7 +236,8 @@ function DoctorExportTab({ report }: { report: Report }) {
             <Stethoscope className="h-4 w-4 text-brand-600" />
             Doctor Export
           </h2>
-          <p className="mt-1 text-sm text-slate-500">Tabular handoff with backend-compatible rows and local LOINC hints.</p>
+          <p className="mt-1 text-sm text-slate-500">Tabular handoff generated from saved report analysis with LOINC hints.</p>
+          {message ? <p className="mt-2 text-xs font-medium text-brand-700">{message}</p> : null}
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(exportText)}>
@@ -218,13 +277,157 @@ function MedsTab({ report }: { report: Report }) {
   );
 }
 
-function SharingPlaceholder() {
+function ReportSharingTab({ report }: { report: Report }) {
+  const { data: session } = useSession();
+  const [circles, setCircles] = useState<Circle[]>([]);
+  const [shares, setShares] = useState<ReportShare[]>([]);
+  const [circleId, setCircleId] = useState("");
+  const [message, setMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const token = session?.accessToken;
+  const isOwner = Boolean(report.userId && session?.user?.id === report.userId);
+  const shareableCircles = circles.filter(
+    (circle) => (circle.myRole === "admin" || circle.myRole === "caregiver") && !shares.some((share) => share.circleId === circle.id && share.status === "active")
+  );
+
+  useEffect(() => {
+    if (!isOwner || !token || !process.env.NEXT_PUBLIC_API_URL) return;
+    async function loadSharing() {
+      setLoading(true);
+      setMessage(null);
+      try {
+        const headers = { Authorization: `Bearer ${token}` };
+        const [circleResponse, shareResponse] = await Promise.all([
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/circles`, { headers, cache: "no-store" }),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports/${report._id}/shares`, { headers, cache: "no-store" }),
+        ]);
+        const circlePayload = await circleResponse.json().catch(() => []);
+        const sharePayload = await shareResponse.json().catch(() => []);
+        setCircles(circleResponse.ok ? circlePayload : []);
+        setShares(shareResponse.ok ? sharePayload : []);
+        if (!circleResponse.ok || !shareResponse.ok) {
+          setMessage("Could not load all sharing details. Try refreshing this tab.");
+        }
+      } catch {
+        setMessage("Could not load sharing details.");
+      } finally {
+        setLoading(false);
+      }
+    }
+    void loadSharing();
+  }, [isOwner, report._id, token]);
+
+  async function shareReport() {
+    if (!circleId || !token || !process.env.NEXT_PUBLIC_API_URL) return;
+    setLoading(true);
+    setMessage(null);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports/${report._id}/shares`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ circleId }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        setMessage(payload?.error ?? "Could not share report.");
+        return;
+      }
+      setShares((current) => [payload as ReportShare, ...current.filter((share) => share.circleId !== circleId)]);
+      setCircleId("");
+      setMessage("Report shared with explicit consent.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function revokeShare(nextCircleId: string) {
+    if (!token || !process.env.NEXT_PUBLIC_API_URL) return;
+    setLoading(true);
+    setMessage(null);
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports/${report._id}/shares?circleId=${nextCircleId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        setMessage(payload?.error ?? "Could not revoke sharing.");
+        return;
+      }
+      setShares((current) =>
+        current.map((share) => (share.circleId === nextCircleId ? { ...share, status: "revoked", revokedAt: new Date().toISOString() } : share))
+      );
+      setMessage("Report sharing revoked.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (!isOwner) {
+    return (
+      <Card className="p-5">
+        <h2 className="font-semibold text-slate-900">Sharing</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          This report is visible to you through your own access or a Care Circle share. Only the report owner can change sharing permissions.
+        </p>
+      </Card>
+    );
+  }
+
   return (
-    <Card className="p-5">
-      <h2 className="font-semibold text-slate-900">Sharing</h2>
-      <p className="mt-2 text-sm leading-6 text-slate-600">
-        Report sharing controls remain available from dashboard report context during this transition. Full-page sharing controls can be promoted here next.
-      </p>
+    <Card className="space-y-5 border-teal-100 bg-teal-50/60 p-5">
+      <div className="flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-teal-700">
+          <ShieldCheck className="h-5 w-5" />
+        </span>
+        <div>
+          <h2 className="font-semibold text-slate-900">Explicit Circle Sharing</h2>
+          <p className="mt-1 text-sm leading-6 text-slate-600">
+            This report is private until you share it with a Care Circle. Active shares give view access to that circle.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Select value={circleId} onChange={(event) => setCircleId(event.target.value)} disabled={loading || !shareableCircles.length}>
+          <option value="">{shareableCircles.length ? "Choose a circle" : "No shareable circles"}</option>
+          {shareableCircles.map((circle) => (
+            <option key={circle.id} value={circle.id}>
+              {circle.name}
+            </option>
+          ))}
+        </Select>
+        <Button type="button" onClick={() => void shareReport()} disabled={!circleId || loading} className="gap-2">
+          <UsersRound className="h-4 w-4" />
+          {loading ? "Working..." : "Share"}
+        </Button>
+      </div>
+
+      {message ? <p className="rounded-lg bg-white px-3 py-2 text-sm text-slate-700">{message}</p> : null}
+
+      <div className="space-y-2">
+        <p className="text-sm font-semibold text-slate-900">Current shares</p>
+        {shares.length ? (
+          shares.map((share) => (
+            <div key={share.id} className="flex flex-col gap-2 rounded-lg bg-white px-3 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+              <span>
+                <span className="font-medium text-slate-900">{share.circleName}</span>
+                <span className="ml-2 text-xs uppercase tracking-wide text-slate-500">{share.status}</span>
+              </span>
+              {share.status === "active" ? (
+                <Button type="button" variant="ghost" size="sm" onClick={() => void revokeShare(share.circleId)} disabled={loading}>
+                  Revoke
+                </Button>
+              ) : null}
+            </div>
+          ))
+        ) : (
+          <p className="rounded-lg border border-dashed border-teal-200 bg-white/70 px-3 py-4 text-sm text-slate-500">
+            This report has not been shared with any Care Circle yet.
+          </p>
+        )}
+      </div>
     </Card>
   );
 }
@@ -256,16 +459,16 @@ function attentionVariant(score: number): "success" | "warning" | "danger" | "de
 
 function printDoctorExport(
   report: Report,
-  rows: { item: Report["structuredData"][number]; risk: string; loinc: string }[]
+  rows: { item: Report["structuredData"][number]; risk: string; loinc: string; referenceRangeText?: string }[]
 ) {
   const printedAt = new Date().toLocaleString("en-IN");
   const reportDate = new Date(report.reportDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
   const rowsHtml = rows
-    .map(({ item, risk, loinc }) => `
+    .map(({ item, risk, loinc, referenceRangeText }) => `
       <tr>
         <td>${escapeHtml(item.testName)}</td>
         <td>${escapeHtml(`${item.value} ${item.unit || ""}`.trim())}</td>
-        <td>${escapeHtml(formatRange(item.referenceRangeLow, item.referenceRangeHigh, item.unit))}</td>
+        <td>${escapeHtml(referenceRangeText ?? formatRange(item.referenceRangeLow, item.referenceRangeHigh, item.unit))}</td>
         <td>${escapeHtml(item.flag)}</td>
         <td>${escapeHtml(risk)}</td>
         <td>${escapeHtml(loinc)}</td>

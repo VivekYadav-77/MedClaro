@@ -329,7 +329,7 @@ export function DashboardClient({
 
         <aside className="space-y-4">
           <div id="ice-card-panel" className="scroll-mt-24">
-            <EmergencyCard user={user} latestReport={reports[0] ?? null} circleId={selectedCircleId} />
+            <EmergencyCard user={user} reports={reports} latestReport={reports[0] ?? null} circleId={selectedCircleId} />
           </div>
           <RemindersPanel reports={reports} />
 

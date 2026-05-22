@@ -803,34 +803,46 @@ class TrendService:
                 }
             )
             for item in report["structuredData"]:
-                if item.get("normalizedValue") is None or not item.get("normalizedUnit"):
+                value = parse_lab_number(item.get("normalizedValue"))
+                if value is None:
+                    value = parse_lab_number(item.get("value"))
+                unit = item.get("normalizedUnit") or item.get("unit") or "reported"
+                if value is None:
                     continue
                 grouped[item["testName"]].append(
                     {
                         "date": report.get("reportDate") or report["uploadDate"],
-                        "value": item["normalizedValue"],
+                        "value": value,
                         "low": item.get("referenceRangeLow"),
                         "high": item.get("referenceRangeHigh"),
                     }
                 )
-                units[item["testName"]] = item.get("normalizedUnit") or "standard"
+                units[item["testName"]] = unit
         series = []
         for parameter, points in grouped.items():
-            if len(points) < 2:
-                continue
             first, last = points[0], points[-1]
-            delta = round(((last["value"] - first["value"]) / first["value"]) * 100, 1) if first["value"] else 0
-            direction = "↑" if delta >= 0 else "↓"
+            has_repeat_data = len(points) >= 2
+            delta = round(((last["value"] - first["value"]) / first["value"]) * 100, 1) if has_repeat_data and first["value"] else 0
+            direction = "up" if delta >= 0 else "down"
             series.append(
                 {
                     "parameter": parameter,
                     "normalizedUnit": units.get(parameter, "standard"),
-                    "trendSummary": f"Your {parameter} has {'risen' if delta >= 0 else 'declined'} across {len(points)} reports.",
-                    "deltaText": f"{direction} {abs(delta)}% vs first report",
+                    "trendSummary": (
+                        f"Your {parameter} has {'risen' if delta >= 0 else 'declined'} across {len(points)} reports."
+                        if has_repeat_data
+                        else f"Your current {parameter} value is charted from the latest analyzed report. Upload another report to see movement."
+                    ),
+                    "deltaText": f"{direction} {abs(delta)}% vs first report" if has_repeat_data else "Baseline",
                     "points": points,
                 }
             )
-            months = {point["date"].month for point in points}
+            months = {
+                parsed_date.month
+                for point in points
+                for parsed_date in [self._coerce_date(point.get("date"))]
+                if parsed_date
+            }
             if len(points) >= 3 and len(months) >= 3:
                 seasonal_insights.append(f"{parameter} shows enough history to inspect seasonal movement over time.")
         try:
@@ -846,6 +858,14 @@ class TrendService:
             "series": series,
             "trajectories": trajectories,
         }
+
+    def _coerce_date(self, value):
+        if hasattr(value, "month"):
+            return value
+        try:
+            return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        except (TypeError, ValueError):
+            return None
 
     def _fallback_trajectories(self, series: list[dict]) -> list[dict]:
         trajectories = []

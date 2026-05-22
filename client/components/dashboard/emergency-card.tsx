@@ -11,10 +11,12 @@ import { Report, UserProfile } from "@/lib/types";
 
 export function EmergencyCard({
   user,
+  reports = [],
   latestReport,
   circleId
 }: {
   user: UserProfile;
+  reports?: Report[];
   latestReport: Report | null;
   circleId?: string;
 }) {
@@ -30,10 +32,21 @@ export function EmergencyCard({
   const [sendingSos, setSendingSos] = useState(false);
   const broadcastingRef = useRef(false);
 
-  const medications = useMemo(() => latestReport?.medications?.map((medication) => medication.name) ?? [], [latestReport]);
+  const visibleReports = reports.length ? reports : latestReport ? [latestReport] : [];
+  const medications = useMemo(() => {
+    const names = visibleReports
+      .flatMap((report) => report.medications ?? [])
+      .map((medication) => medication.name)
+      .filter(Boolean);
+    return [...new Set(names)].slice(0, 12);
+  }, [visibleReports]);
   const abnormalMarkers = useMemo(
-    () => latestReport?.structuredData.filter((item) => item.flag !== "normal").map((item) => `${item.testName} ${item.value} ${item.unit}`) ?? [],
-    [latestReport]
+    () =>
+      visibleReports
+        .flatMap((report) => report.structuredData.filter((item) => item.flag !== "normal"))
+        .map((item) => `${item.testName} ${item.value} ${item.unit}`)
+        .slice(0, 12),
+    [visibleReports]
   );
   const emergencyText = useMemo(
     () => [

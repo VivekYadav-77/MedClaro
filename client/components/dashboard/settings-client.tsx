@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import {
   Activity,
@@ -192,12 +193,12 @@ export function SettingsClient({ user }: { user: UserProfile }) {
           </div>
           <div>
             <h2 className="font-semibold text-slate-900">Discharge checklists & remission pathways</h2>
-            <p className="text-xs text-slate-500">Both modules are visible but wait for backend extraction and habit-tracking APIs.</p>
+            <p className="text-xs text-slate-500">Both modules are connected to saved report context with conservative fallback logic.</p>
           </div>
         </div>
         <div className="grid gap-3 md:grid-cols-2">
-          <PendingModule title="Post-op discharge checklist" body="Upload discharge PDFs, extract action items, and assign caregiver tasks once `/discharge-checklists` exists." />
-          <PendingModule title="90-day remission pathway" body="Prediabetes, fatty liver, and hypertension coaching will use `/remission-pathways` for habits and marker goals." />
+          <LinkedModule title="Post-op discharge checklist" body="Upload discharge PDFs or paste notes to prepare action items and caregiver review points." href="/reports/discharge" action="Open discharge" />
+          <LinkedModule title="90-day remission pathway" body="Prediabetes, fatty liver, and hypertension coaching uses saved abnormal markers to suggest habit pathways." href="/pathways" action="View pathways" />
         </div>
       </Card>
 
@@ -347,14 +348,14 @@ function parseHealthRows(rawRows: string) {
   });
 }
 
-function PendingModule({ title, body }: { title: string; body: string }) {
+function LinkedModule({ title, body, href, action }: { title: string; body: string; href: string; action: string }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
       <p className="font-semibold text-slate-900">{title}</p>
       <p className="mt-2 text-sm leading-6 text-slate-600">{body}</p>
-      <Button variant="outline" size="sm" className="mt-3" disabled>
-        Backend pending
-      </Button>
+      <Link href={href} className="mt-3 inline-flex">
+        <Button variant="outline" size="sm">{action}</Button>
+      </Link>
     </div>
   );
 }
