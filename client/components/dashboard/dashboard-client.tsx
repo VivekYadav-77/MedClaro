@@ -172,7 +172,7 @@ export function DashboardClient({
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Clinical Command Center</p>
-          <h1 className="font-display text-2xl font-bold text-slate-950">{firstName}'s family health operations view</h1>
+          <h1 className="font-display text-2xl font-bold text-slate-950">{firstName}&apos;s family health operations view</h1>
           <p className="max-w-3xl text-sm leading-6 text-slate-600">
             A dense view of {contextLabel}: urgent markers, shared-care access, medication safety, follow-ups, and roadmap readiness.
           </p>

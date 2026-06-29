@@ -24,7 +24,7 @@ from app.utils.normalizer import normalize_value
 from app.utils.pii import strip_pii
 from app.utils.sanitizer import is_off_topic, sanitize_report_text
 from projecthealth_backend import settings
-from reports.models import AnalysisQueueEntry, ChatMessage, RateLimitEntry, Report, StructuredParameter
+from reports.models import AnalysisQueueEntry, AuditEvent, ChatMessage, RateLimitEntry, Report, StructuredParameter
 
 
 logger = logging.getLogger(__name__)
@@ -934,6 +934,11 @@ class ReportHydrator:
             "aiExplanation": report.ai_explanation or {},
             "language": report.language,
             "medications": report.medications or [],
+            "analysisStatus": getattr(report, "analysis_status", "completed"),
+            "analysisMetadata": getattr(report, "analysis_metadata", {}) or {},
+            "originalFilename": getattr(report, "original_filename", "") or "",
+            "confidence": (getattr(report, "analysis_metadata", {}) or {}).get("confidence", "medium"),
+            "fallbackUsed": bool((getattr(report, "analysis_metadata", {}) or {}).get("fallbackUsed")),
             "chatHistory": [
                 {"role": message.role, "content": message.content, "timestamp": message.timestamp}
                 for message in report.chat_messages.all()
@@ -958,6 +963,7 @@ class ReportService:
         if upload_kind == "prescription":
             parsed["report_type"] = "prescription"
             parsed["structured_data"] = []
+        base_metadata = self._analysis_metadata(upload, parsed, fallback_used=False)
         file_ref = self.storage.upload_bytes(parsed["file_key"], parsed["file_bytes"], parsed["mime_type"])
         user_age = None
         if current_user.dob:
@@ -983,6 +989,9 @@ class ReportService:
                 ai_explanation=explanation_payload,
                 language=current_user.preferred_language,
                 medications=medications,
+                original_filename=upload.name[:255],
+                analysis_status="completed",
+                analysis_metadata={**base_metadata, "confidence": prescription_context.get("extractionConfidence", "medium")},
             )
             self._persist_structured_parameters(report, parsed["structured_data"])
             self._after_report_saved(report, parsed, current_user, circle_id=circle_id)
@@ -1005,6 +1014,7 @@ class ReportService:
             report_id = uuid4()
             AnalysisQueueEntry.objects.create(id=report_id, user=current_user, reason="gemini_failed")
             explanation_payload = self._fallback_explanation(parsed["report_type"], parsed["structured_data"])
+            fallback_metadata = {**base_metadata, "fallbackUsed": True, "confidence": "low", "parserSource": "local_fallback"}
             report = Report.objects.create(
                 id=report_id,
                 user=current_user,
@@ -1017,6 +1027,9 @@ class ReportService:
                 ai_explanation=explanation_payload,
                 language=current_user.preferred_language,
                 medications=medications,
+                original_filename=upload.name[:255],
+                analysis_status="fallback_used",
+                analysis_metadata=fallback_metadata,
             )
             self._persist_structured_parameters(report, parsed["structured_data"])
             self._after_report_saved(report, parsed, current_user, circle_id=circle_id)
@@ -1036,6 +1049,9 @@ class ReportService:
             ai_explanation=explanation_payload,
             language=current_user.preferred_language,
             medications=medications,
+            original_filename=upload.name[:255],
+            analysis_status="completed",
+            analysis_metadata=base_metadata,
         )
         self._persist_structured_parameters(report, parsed["structured_data"])
         self._after_report_saved(report, parsed, current_user, circle_id=circle_id)
@@ -1043,6 +1059,19 @@ class ReportService:
         if prescription_context:
             hydrated["prescriptionContext"] = prescription_context
         return hydrated
+
+    def _analysis_metadata(self, upload, parsed: dict, fallback_used: bool) -> dict:
+        abnormal_count = sum(1 for item in parsed.get("structured_data", []) if item.get("flag") in {"high", "low"})
+        return {
+            "originalFilename": upload.name,
+            "detectedReportType": parsed.get("report_type", "unknown"),
+            "mimeType": parsed.get("mime_type", ""),
+            "parserSource": "gemini_or_local_parser",
+            "structuredMarkerCount": len(parsed.get("structured_data", [])),
+            "abnormalMarkerCount": abnormal_count,
+            "confidence": "medium" if parsed.get("structured_data") or parsed.get("report_type") == "prescription" else "low",
+            "fallbackUsed": fallback_used,
+        }
 
     def _prescription_upload_placeholder(self, prescription_context: dict, medications: list[dict]) -> dict:
         medication_count = len(medications or prescription_context.get("medications", []))
@@ -1111,6 +1140,18 @@ class ReportService:
         previous_hydrated = self.hydrator.hydrate(previous) if previous else None
         if circle_id:
             self._share_report_with_circle(report, circle_id, current_user)
+        AuditEvent.objects.create(
+            user=current_user,
+            event_type="report_uploaded",
+            object_type="report",
+            object_id=str(report.id),
+            metadata={
+                "reportType": parsed.get("report_type"),
+                "familyMemberId": str(report.family_member_id) if report.family_member_id else None,
+                "circleId": circle_id,
+                "analysisStatus": getattr(report, "analysis_status", "completed"),
+            },
+        )
         self._publish_circle_upload(report, parsed, current_user, circle_id=circle_id)
         self._apply_lifestyle_correlation(report, current_user, previous_hydrated)
         self._publish_marker_milestones(report, parsed, current_user, previous_hydrated, circle_id=circle_id)

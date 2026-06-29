@@ -3,6 +3,7 @@ import re
 import uuid
 
 from django.conf import settings
+from django.db import models
 from django.utils import timezone
 from rest_framework import permissions
 from rest_framework import status
@@ -10,7 +11,23 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from reports.access import accessible_reports, can_contribute_to_circle, share_report_with_circle, shared_or_owned_reports
-from reports.models import EmergencyCardAccess, EmergencyEvent, PrescriptionRecord, PrescriptionReportLink, Report, ReportShare, WearableMetric
+from reports.models import (
+    AuditEvent,
+    DischargePlan,
+    DischargeTask,
+    EmergencyCardAccess,
+    EmergencyEvent,
+    GlobalChatMessage,
+    GlobalChatSession,
+    PrescriptionRecord,
+    PrescriptionReportLink,
+    RemissionPathway,
+    PathwayLog,
+    Report,
+    ReportShare,
+    ScreeningSchedule,
+    WearableMetric,
+)
 from reports.serializers import ReportChatRequestSerializer, ReportShareSerializer, WearableMetricImportSerializer
 from reports.services import GeminiService, RateLimiter, ReportHydrator, ReportService, TrendService
 from reports.services.contextual_prescription import PrescriptionContextualAnalysisService
@@ -21,6 +38,16 @@ from reminders.models import Reminder
 
 def _marker_key(name):
     return re.sub(r"[^a-z0-9]+", " ", (name or "").lower()).strip()
+
+
+def _record_audit(user, event_type, object_type="", object_id="", metadata=None):
+    AuditEvent.objects.create(
+        user=user if getattr(user, "is_authenticated", False) else None,
+        event_type=event_type,
+        object_type=object_type,
+        object_id=str(object_id or ""),
+        metadata=metadata or {},
+    )
 
 
 def _loinc_hint(marker):
@@ -78,6 +105,8 @@ def _build_ehr_export_rows(report):
                 ),
                 "loincCode": _loinc_hint(marker.get("testName")),
                 "risk": _marker_risk(marker),
+                "deltaFromPrevious": marker.get("deltaFromPrevious"),
+                "sourceConfidence": report.get("confidence") or report.get("analysisMetadata", {}).get("confidence", "medium"),
             }
         )
     return rows
@@ -120,6 +149,7 @@ def _build_lab_variance(trends):
                     "parameter": series.get("parameter"),
                     "deltaPercent": round(delta_percent, 1),
                     "severity": "repeat_test" if abs(delta_percent) >= 200 else "review",
+                    "reason": "extreme_delta",
                     "message": (
                         f"{series.get('parameter')} changed by {abs(delta_percent):.1f}% between the last two results. "
                         "Treat this as a repeat-test discussion point before making clinical changes."
@@ -127,6 +157,46 @@ def _build_lab_variance(trends):
                 }
             )
     return findings[:8]
+
+
+def _build_guideline_notes(trends):
+    notes = []
+    for series in trends.get("series", []):
+        parameter = _marker_key(series.get("parameter"))
+        points = series.get("points", [])
+        if not points:
+            continue
+        latest = points[-1]
+        value = latest.get("value")
+        high = latest.get("high")
+        low = latest.get("low")
+        out_of_range = (
+            isinstance(high, (int, float))
+            and isinstance(value, (int, float))
+            and value > high
+        ) or (
+            isinstance(low, (int, float))
+            and isinstance(value, (int, float))
+            and value < low
+        )
+        if not out_of_range:
+            continue
+        if any(term in parameter for term in ("hba1c", "a1c", "glucose")):
+            category = "glucose_control"
+        elif any(term in parameter for term in ("ldl", "hdl", "triglyceride", "cholesterol")):
+            category = "cardiometabolic"
+        elif any(term in parameter for term in ("creatinine", "egfr", "urea")):
+            category = "kidney_function"
+        else:
+            category = "general_review"
+        notes.append(
+            {
+                "parameter": series.get("parameter"),
+                "category": category,
+                "message": "This value is outside the report reference range. Use it as a clinician discussion point, not a diagnosis.",
+            }
+        )
+    return notes[:8]
 
 
 def _build_refill_summary(reports):
@@ -301,6 +371,20 @@ def build_health_context(user, circle_id=None, limit=5):
         "watchMarkerCount": len(chronic_watch_markers),
         "medications": medications[:20],
         "watchMarkers": chronic_watch_markers,
+        "lifestyleLogs": [
+            {"note": log.note, "loggedAt": log.logged_at}
+            for log in user.lifestyle_logs.filter(active=True).order_by("-logged_at")[:10]
+        ],
+        "manualMetrics": [
+            {
+                "metricType": metric.metric_type,
+                "value": metric.value,
+                "unit": metric.unit,
+                "recordedAt": metric.recorded_at,
+                "source": metric.source,
+            }
+            for metric in user.wearable_metrics.order_by("-recorded_at")[:20]
+        ],
         "reports": [
             {
                 "owner": report.get("ownerName"),
@@ -324,11 +408,24 @@ class ReportListCreateView(APIView):
     def get(self, request):
         family_member_id = request.query_params.get("familyMemberId")
         circle_id = request.query_params.get("circleId")
+        report_type = request.query_params.get("reportType")
+        abnormal_only = request.query_params.get("abnormal") in {"1", "true", "yes"}
+        prescriptions_only = request.query_params.get("prescriptions") in {"1", "true", "yes"}
         reports = get_accessible_report_queryset(request.user, circle_id)
         if family_member_id:
             reports = reports.filter(family_member_id=family_member_id)
+        if report_type:
+            reports = reports.filter(report_type=report_type)
+        if prescriptions_only:
+            reports = reports.filter(models.Q(report_type="prescription") | models.Q(medications__0__isnull=False))
         hydrator = ReportHydrator()
-        return Response([hydrator.hydrate(report) for report in reports.prefetch_related("chat_messages")])
+        hydrated_reports = [hydrator.hydrate(report) for report in reports.prefetch_related("chat_messages")]
+        if abnormal_only:
+            hydrated_reports = [
+                report for report in hydrated_reports
+                if any(item.get("flag") != "normal" for item in report.get("structuredData", []))
+            ]
+        return Response(hydrated_reports)
 
     def post(self, request):
         return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
@@ -463,6 +560,7 @@ class EmergencySosView(APIView):
             summary_text=summary_text,
             recipient_count=len(recipients),
         )
+        _record_audit(request.user, "emergency_sos", "emergency_event", event.id, {"circleId": circle_id, "recipientCount": len(recipients)})
         _publish_emergency_feed(
             event,
             "emergency_sos",
@@ -508,6 +606,7 @@ class EmergencyCardAccessView(APIView):
             user_agent=request.META.get("HTTP_USER_AGENT", "")[:512],
             metadata={"method": request.method},
         )
+        _record_audit(event.requester, "emergency_card_accessed", "emergency_event", event.id, {"accessId": str(access.id)})
         recipients = _circle_recipients(str(event.circle_id), event.requester) if event.circle_id else []
         _publish_emergency_feed(
             event,
@@ -515,7 +614,13 @@ class EmergencyCardAccessView(APIView):
             {"eventId": str(event.id), "accessId": str(access.id), "familyMemberName": event.report_context.get("familyMemberName")},
             recipients,
         )
-        return Response({"message": "Emergency card access logged", "summaryText": event.summary_text})
+        return Response({
+            "message": "Emergency card access logged",
+            "summaryText": event.summary_text,
+            "eventId": str(event.id),
+            "accessId": str(access.id),
+            "createdAt": access.created_at,
+        })
 
     def get(self, request, event_id):
         return self.post(request, event_id)
@@ -566,6 +671,8 @@ class WearableMetricImportView(APIView):
                 source=data.get("source", "manual_import") or "manual_import",
             )
             imported.append({"id": str(metric.id), "metricType": metric.metric_type})
+        if imported:
+            _record_audit(request.user, "manual_metric_imported", "wearable_metric", metadata={"importedCount": len(imported), "errorCount": len(errors)})
         return Response({"importedCount": len(imported), "errorCount": len(errors), "imported": imported, "errors": errors})
 
 
@@ -622,6 +729,8 @@ class ReportTrendsView(APIView):
         ]
         trends = TrendService().build(reports, request.user.preferred_language)
         trends["labVariance"] = _build_lab_variance(trends)
+        trends["varianceFlags"] = trends["labVariance"]
+        trends["guidelineNotes"] = _build_guideline_notes(trends)
         return Response(trends)
 
 
@@ -645,7 +754,7 @@ class ReportEhrExportView(APIView):
                 ],
             ]
         )
-        return Response({"reportId": str(report.id), "rows": rows, "tableText": table_text})
+        return Response({"reportId": str(report.id), "rows": rows, "tableText": table_text, "sourceConfidence": hydrated.get("confidence", "medium")})
 
 
 class ReportAdherenceView(APIView):
@@ -843,13 +952,34 @@ class PrescriptionExtractView(APIView):
 
 class ScreeningPreviewView(APIView):
     def get(self, request):
-        return Response({"tasks": _build_screening_tasks(request.user)})
+        tasks = _sync_screening_schedules(request.user)
+        return Response({"tasks": tasks, "schedules": tasks})
+
+    def post(self, request):
+        title = request.data.get("title")
+        status_value = request.data.get("status")
+        if not title or status_value not in {choice[0] for choice in ScreeningSchedule.STATUS_CHOICES}:
+            return Response({"error": "title and valid status are required"}, status=status.HTTP_400_BAD_REQUEST)
+        schedule = ScreeningSchedule.objects.filter(user=request.user, title=title).first()
+        if not schedule:
+            return Response({"error": "Screening schedule not found"}, status=status.HTTP_404_NOT_FOUND)
+        schedule.status = status_value
+        schedule.save(update_fields=["status", "updated_at"])
+        _record_audit(request.user, "screening_status_updated", "screening_schedule", schedule.id, {"title": title, "status": status_value})
+        return Response(_serialize_screening_schedule(schedule))
 
 
 class DischargeUploadView(APIView):
+    def get(self, request):
+        plans = DischargePlan.objects.filter(user=request.user).prefetch_related("tasks")[:20]
+        return Response({"plans": [_serialize_discharge_plan(plan) for plan in plans]})
+
     def post(self, request):
         upload = request.FILES.get("file")
         notes = request.data.get("notes", "")
+        circle_id = request.data.get("circleId") or None
+        if circle_id and not _user_belongs_to_circle(circle_id, request.user):
+            return Response({"error": "Circle not found"}, status=status.HTTP_404_NOT_FOUND)
         source_name = upload.name if upload else "manual discharge notes"
         text = notes or source_name
         task_templates = [
@@ -867,10 +997,20 @@ class DischargeUploadView(APIView):
             {"title": title, "detail": detail, "status": "open", "source": source_name}
             for title, detail in task_templates[:6]
         ]
+        plan = DischargePlan.objects.create(user=request.user, circle_id=circle_id, source_name=source_name, notes=notes[:4000])
+        DischargeTask.objects.bulk_create(
+            [
+                DischargeTask(plan=plan, title=item["title"], detail=item["detail"], status=item["status"], source=item["source"])
+                for item in tasks
+            ]
+        )
+        plan.refresh_from_db()
+        _record_audit(request.user, "discharge_plan_created", "discharge_plan", plan.id, {"taskCount": len(tasks), "circleId": circle_id})
         return Response(
             {
+                "planId": str(plan.id),
                 "sourceName": source_name,
-                "tasks": tasks,
+                "tasks": _serialize_discharge_plan(plan)["tasks"],
                 "message": "Checklist prepared with local fallback extraction. Review against the original discharge summary before acting.",
             },
             status=status.HTTP_201_CREATED,
@@ -902,7 +1042,23 @@ class PathwayRecommendationView(APIView):
             pathways.append(_pathway_payload("hypertension", "Blood pressure routine", "Measure BP at the same time today and log sleep/stress context."))
         if not pathways:
             pathways.append(_pathway_payload("general", "90-day health foundation", "Upload qualifying markers or start with sleep, walking, and medication adherence basics."))
-        return Response({"pathways": pathways, "markerCount": len(markers)})
+        saved = [_get_or_create_pathway(request.user, item) for item in pathways]
+        return Response({"pathways": saved, "markerCount": len(markers)})
+
+    def post(self, request):
+        pathway_id = request.data.get("pathwayId")
+        note = (request.data.get("note") or "").strip()
+        if not pathway_id or not note:
+            return Response({"error": "pathwayId and note are required"}, status=status.HTTP_400_BAD_REQUEST)
+        pathway = RemissionPathway.objects.filter(id=pathway_id, user=request.user).first()
+        if not pathway:
+            return Response({"error": "Pathway not found"}, status=status.HTTP_404_NOT_FOUND)
+        log = PathwayLog.objects.create(pathway=pathway, note=note[:240])
+        pathway.progress_percent = min(100, pathway.progress_percent + 3)
+        pathway.current_week = max(pathway.current_week, min(13, ((timezone.now().date() - pathway.start_date.date()).days // 7) + 1))
+        pathway.save(update_fields=["progress_percent", "current_week", "updated_at"])
+        _record_audit(request.user, "pathway_progress_logged", "remission_pathway", pathway.id, {"logId": str(log.id)})
+        return Response(_serialize_pathway(pathway))
 
 
 def _pathway_payload(condition, title, next_habit):
@@ -923,6 +1079,106 @@ def _pathway_payload(condition, title, next_habit):
         ],
         "disclaimer": "This pathway is coaching support from saved records, not a diagnosis or medication plan.",
     }
+
+
+def _serialize_screening_schedule(schedule):
+    return {
+        "id": str(schedule.id),
+        "title": schedule.title,
+        "dueStatus": schedule.status,
+        "status": schedule.status,
+        "dueDate": schedule.due_date,
+        "reason": schedule.reason,
+        "actionLabel": "Review" if schedule.status in {"done", "deferred"} else "Add reminder",
+        "metadata": schedule.metadata,
+    }
+
+
+def _sync_screening_schedules(user):
+    schedules = []
+    for task in _build_screening_tasks(user):
+        schedule, created = ScreeningSchedule.objects.get_or_create(
+            user=user,
+            title=task["title"],
+            defaults={
+                "status": task["dueStatus"],
+                "reason": task["reason"],
+                "metadata": {"actionLabel": task["actionLabel"]},
+            },
+        )
+        if not created and schedule.status in {"due", "upcoming", "not_applicable", "needs_profile"}:
+            schedule.status = task["dueStatus"]
+            schedule.reason = task["reason"]
+            schedule.metadata = {**(schedule.metadata or {}), "actionLabel": task["actionLabel"]}
+            schedule.save(update_fields=["status", "reason", "metadata", "updated_at"])
+        schedules.append(_serialize_screening_schedule(schedule))
+    return schedules
+
+
+def _serialize_discharge_plan(plan):
+    return {
+        "id": str(plan.id),
+        "sourceName": plan.source_name,
+        "notes": plan.notes,
+        "message": plan.review_message,
+        "createdAt": plan.created_at,
+        "updatedAt": plan.updated_at,
+        "tasks": [
+            {
+                "id": str(task.id),
+                "title": task.title,
+                "detail": task.detail,
+                "status": task.status,
+                "source": task.source,
+                "dueDate": task.due_date,
+                "assigneeName": task.assignee_name,
+            }
+            for task in plan.tasks.all()
+        ],
+    }
+
+
+def _serialize_pathway(pathway):
+    return {
+        "id": str(pathway.id),
+        "condition": pathway.condition,
+        "title": pathway.title,
+        "status": pathway.status,
+        "progressPercent": pathway.progress_percent,
+        "currentWeek": pathway.current_week,
+        "nextHabit": pathway.next_habit,
+        "weeklyHabits": pathway.weekly_habits,
+        "markerGoals": pathway.marker_goals,
+        "startDate": pathway.start_date,
+        "updatedAt": pathway.updated_at,
+        "disclaimer": "This pathway is coaching support from saved records, not a diagnosis or medication plan.",
+    }
+
+
+def _get_or_create_pathway(user, payload):
+    pathway, created = RemissionPathway.objects.get_or_create(
+        user=user,
+        condition=payload["condition"],
+        defaults={
+            "title": payload["title"],
+            "progress_percent": payload["progressPercent"],
+            "current_week": payload["currentWeek"],
+            "next_habit": payload["nextHabit"],
+            "weekly_habits": payload["weeklyHabits"],
+            "marker_goals": payload["markerGoals"],
+        },
+    )
+    if created:
+        _record_audit(user, "pathway_created", "remission_pathway", pathway.id, {"condition": pathway.condition})
+    return _serialize_pathway(pathway)
+
+
+def _get_global_chat_session(user, circle_id=None):
+    normalized_circle_id = circle_id or None
+    session = GlobalChatSession.objects.filter(user=user, circle_id=normalized_circle_id).prefetch_related("messages").first()
+    if session:
+        return session
+    return GlobalChatSession.objects.create(user=user, circle_id=normalized_circle_id)
 
 
 class ReportChatView(APIView):
@@ -988,6 +1244,7 @@ class ReportShareView(APIView):
             share = share_report_with_circle(report, circle_id, request.user)
         except PermissionError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+        _record_audit(request.user, "report_shared", "report", report.id, {"circleId": circle_id, "shareId": str(share.id)})
         return Response(ReportShareSerializer(share).data, status=status.HTTP_201_CREATED)
 
     def delete(self, request, report_id):
@@ -1003,6 +1260,7 @@ class ReportShareView(APIView):
         )
         if not updated:
             return Response({"error": "Active share not found"}, status=status.HTTP_404_NOT_FOUND)
+        _record_audit(request.user, "report_share_revoked", "report", report.id, {"circleId": str(circle_id)})
         return Response({"message": "Report share revoked"})
 
 
@@ -1059,7 +1317,15 @@ class TreatmentEffectivenessView(APIView):
 class GlobalChatView(APIView):
     def get(self, request):
         circle_id = request.query_params.get("circleId")
-        return Response({"healthContext": build_health_context(request.user, circle_id=circle_id, limit=5)})
+        session = _get_global_chat_session(request.user, circle_id)
+        return Response({
+            "healthContext": build_health_context(request.user, circle_id=circle_id, limit=5),
+            "sessionId": str(session.id),
+            "chatHistory": [
+                {"role": message.role, "content": message.content, "timestamp": message.created_at}
+                for message in session.messages.all()[:50]
+            ],
+        })
 
     def post(self, request):
         RateLimiter().enforce(request.user, "global_chat", settings.CHAT_LIMIT_PER_DAY)
@@ -1084,7 +1350,11 @@ Health state: {json.dumps(health_state, default=str)}
             answer = GeminiService().generate_chat_text(prompt, timeout=30)
         except Exception:
             answer = self._fallback_global_answer(health_state, message)
-        return Response({"message": answer})
+        session = _get_global_chat_session(request.user, circle_id)
+        GlobalChatMessage.objects.create(session=session, role="user", content=message, health_context_snapshot=health_state)
+        GlobalChatMessage.objects.create(session=session, role="assistant", content=answer, health_context_snapshot=health_state)
+        _record_audit(request.user, "global_chat_message", "global_chat_session", session.id, {"circleId": circle_id})
+        return Response({"message": answer, "sessionId": str(session.id)})
 
     def _fallback_global_answer(self, health_state: dict, message: str) -> str:
         lowered = message.lower()

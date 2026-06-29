@@ -6,6 +6,7 @@ import { authOptions } from "@/lib/auth";
 import { Report, TrendResponse, UserProfile } from "@/lib/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
 
 class ApiRequestError extends Error {
   constructor(
@@ -39,7 +40,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function getUserProfile(): Promise<UserProfile> {
-  if (!API_URL) {
+  if (!API_URL || DEMO_MODE) {
     return mockUser;
   }
   try {
@@ -48,13 +49,12 @@ export async function getUserProfile(): Promise<UserProfile> {
     if (error instanceof ApiRequestError && (error.status === 401 || error.status === 403)) {
       redirect("/login?error=session_expired");
     }
-    console.warn("Using mock user profile because the API request failed.", error);
-    return mockUser;
+    throw error;
   }
 }
 
 export async function getReports(): Promise<Report[]> {
-  if (!API_URL) {
+  if (!API_URL || DEMO_MODE) {
     return mockReports;
   }
   try {
@@ -63,13 +63,12 @@ export async function getReports(): Promise<Report[]> {
     if (error instanceof ApiRequestError && (error.status === 401 || error.status === 403)) {
       redirect("/login?error=session_expired");
     }
-    console.warn("Using mock reports because the API request failed.", error);
-    return mockReports;
+    throw error;
   }
 }
 
 export async function getReport(id: string): Promise<Report> {
-  if (!API_URL) {
+  if (!API_URL || DEMO_MODE) {
     const report = mockReports.find((item) => item._id === id);
     if (!report) {
       throw new Error("Report not found");
@@ -82,17 +81,12 @@ export async function getReport(id: string): Promise<Report> {
     if (error instanceof ApiRequestError && (error.status === 401 || error.status === 403)) {
       redirect("/login?error=session_expired");
     }
-    const report = mockReports.find((item) => item._id === id);
-    if (!report) {
-      throw error;
-    }
-    console.warn("Using a mock report because the API request failed.", error);
-    return report;
+    throw error;
   }
 }
 
 export async function getTrends(): Promise<TrendResponse> {
-  if (!API_URL) {
+  if (!API_URL || DEMO_MODE) {
     return mockTrends;
   }
   try {
@@ -101,7 +95,6 @@ export async function getTrends(): Promise<TrendResponse> {
     if (error instanceof ApiRequestError && (error.status === 401 || error.status === 403)) {
       redirect("/login?error=session_expired");
     }
-    console.warn("Using mock trends because the API request failed.", error);
-    return mockTrends;
+    throw error;
   }
 }

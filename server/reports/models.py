@@ -8,6 +8,15 @@ from projecthealth_backend.choices import LANGUAGE_CHOICES, REPORT_TYPE_CHOICES
 
 
 class Report(models.Model):
+    ANALYSIS_STATUS_CHOICES = [
+        ("uploaded", "Uploaded"),
+        ("extracting", "Extracting"),
+        ("analyzing", "Analyzing"),
+        ("completed", "Completed"),
+        ("failed", "Failed"),
+        ("fallback_used", "Fallback used"),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="reports", on_delete=models.CASCADE)
     family_member = models.ForeignKey("users.FamilyMember", related_name="reports", on_delete=models.CASCADE, blank=True, null=True)
@@ -20,6 +29,9 @@ class Report(models.Model):
     ai_explanation = models.JSONField(default=dict)
     language = models.CharField(max_length=5, choices=LANGUAGE_CHOICES, default="en")
     medications = models.JSONField(default=list)
+    original_filename = models.CharField(max_length=255, blank=True, default="")
+    analysis_status = models.CharField(max_length=30, choices=ANALYSIS_STATUS_CHOICES, default="completed")
+    analysis_metadata = models.JSONField(default=dict)
 
     class Meta:
         ordering = ["-upload_date"]
@@ -134,6 +146,42 @@ class ChatMessage(models.Model):
         ordering = ["timestamp", "id"]
 
 
+class GlobalChatSession(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="global_chat_sessions", on_delete=models.CASCADE)
+    circle = models.ForeignKey("circles.Circle", related_name="global_chat_sessions", on_delete=models.SET_NULL, blank=True, null=True)
+    title = models.CharField(max_length=120, blank=True, default="Health assistant")
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at", "-created_at"]
+
+
+class GlobalChatMessage(models.Model):
+    session = models.ForeignKey(GlobalChatSession, related_name="messages", on_delete=models.CASCADE)
+    role = models.CharField(max_length=20)
+    content = models.TextField()
+    health_context_snapshot = models.JSONField(default=dict)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+
+
+class AuditEvent(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="audit_events", on_delete=models.CASCADE, blank=True, null=True)
+    event_type = models.CharField(max_length=80)
+    object_type = models.CharField(max_length=80, blank=True, default="")
+    object_id = models.CharField(max_length=80, blank=True, default="")
+    metadata = models.JSONField(default=dict)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
 class RateLimitEntry(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="rate_limits", on_delete=models.CASCADE)
     action = models.CharField(max_length=80)
@@ -204,3 +252,99 @@ class WearableMetric(models.Model):
 
     class Meta:
         ordering = ["-recorded_at", "-created_at"]
+
+
+class ScreeningSchedule(models.Model):
+    STATUS_CHOICES = [
+        ("due", "Due"),
+        ("upcoming", "Upcoming"),
+        ("done", "Done"),
+        ("deferred", "Deferred"),
+        ("not_applicable", "Not applicable"),
+        ("needs_profile", "Needs profile"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="screening_schedules", on_delete=models.CASCADE)
+    title = models.CharField(max_length=120)
+    status = models.CharField(max_length=30, choices=STATUS_CHOICES, default="upcoming")
+    due_date = models.DateTimeField(blank=True, null=True)
+    reason = models.TextField(blank=True, default="")
+    metadata = models.JSONField(default=dict)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("user", "title")
+        ordering = ["status", "due_date", "title"]
+
+
+class DischargePlan(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="discharge_plans", on_delete=models.CASCADE)
+    circle = models.ForeignKey("circles.Circle", related_name="discharge_plans", on_delete=models.SET_NULL, blank=True, null=True)
+    source_name = models.CharField(max_length=255, blank=True, default="")
+    notes = models.TextField(blank=True, default="")
+    review_message = models.TextField(default="Review each item against the original discharge summary before acting.")
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at", "-created_at"]
+
+
+class DischargeTask(models.Model):
+    STATUS_CHOICES = [("open", "Open"), ("done", "Done"), ("deferred", "Deferred")]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    plan = models.ForeignKey(DischargePlan, related_name="tasks", on_delete=models.CASCADE)
+    title = models.CharField(max_length=160)
+    detail = models.TextField(blank=True, default="")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="open")
+    due_date = models.DateTimeField(blank=True, null=True)
+    assignee_name = models.CharField(max_length=120, blank=True, default="")
+    source = models.CharField(max_length=255, blank=True, default="")
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["status", "due_date", "created_at"]
+
+
+class RemissionPathway(models.Model):
+    CONDITION_CHOICES = [
+        ("prediabetes", "Prediabetes"),
+        ("fatty_liver", "Fatty liver"),
+        ("hypertension", "Hypertension"),
+        ("general", "General"),
+    ]
+    STATUS_CHOICES = [("active", "Active"), ("completed", "Completed"), ("paused", "Paused")]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, related_name="remission_pathways", on_delete=models.CASCADE)
+    condition = models.CharField(max_length=40, choices=CONDITION_CHOICES)
+    title = models.CharField(max_length=120)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="active")
+    start_date = models.DateTimeField(default=timezone.now)
+    current_week = models.PositiveIntegerField(default=1)
+    progress_percent = models.PositiveIntegerField(default=8)
+    next_habit = models.CharField(max_length=255, blank=True, default="")
+    weekly_habits = models.JSONField(default=list)
+    marker_goals = models.JSONField(default=list)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("user", "condition")
+        ordering = ["status", "condition"]
+
+
+class PathwayLog(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    pathway = models.ForeignKey(RemissionPathway, related_name="logs", on_delete=models.CASCADE)
+    note = models.CharField(max_length=240)
+    logged_at = models.DateTimeField(default=timezone.now)
+    metadata = models.JSONField(default=dict)
+
+    class Meta:
+        ordering = ["-logged_at", "-id"]

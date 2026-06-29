@@ -84,6 +84,11 @@ export type Report = {
   aiExplanation: ReportExplanation;
   medications?: MedicationCard[];
   prescriptionRecordId?: string;
+  originalFilename?: string;
+  analysisStatus?: "uploaded" | "extracting" | "analyzing" | "completed" | "failed" | "fallback_used";
+  analysisMetadata?: Record<string, unknown>;
+  confidence?: "high" | "medium" | "low" | string;
+  fallbackUsed?: boolean;
   chatHistory: ChatMessage[];
 };
 
@@ -247,6 +252,13 @@ export type TrendResponse = {
     parameter: string;
     deltaPercent: number;
     severity: "review" | "repeat_test";
+    reason?: string;
+    message: string;
+  }[];
+  varianceFlags?: TrendResponse["labVariance"];
+  guidelineNotes?: {
+    parameter: string;
+    category: string;
     message: string;
   }[];
   trajectories: {
@@ -371,20 +383,28 @@ export type EhrExportRow = {
   unit: string;
   loincCode?: string;
   delta?: string;
+  deltaFromPrevious?: string | null;
   risk: "normal" | "watch" | "high";
+  sourceConfidence?: string;
 };
 
 export type ScreeningTask = {
+  id?: string;
   title: string;
-  dueStatus: "due" | "upcoming" | "not_applicable" | "needs_profile";
+  dueStatus: "due" | "upcoming" | "not_applicable" | "needs_profile" | "done" | "deferred";
+  status?: "due" | "upcoming" | "not_applicable" | "needs_profile" | "done" | "deferred";
+  dueDate?: string | null;
   reason: string;
   actionLabel: string;
 };
 
 export type RemissionPathway = {
-  condition: "prediabetes" | "fatty_liver" | "hypertension";
-  status: FeatureStatus;
+  id?: string;
+  condition: "prediabetes" | "fatty_liver" | "hypertension" | "general";
+  status: FeatureStatus | "active" | "completed" | "paused";
   progressPercent: number;
   currentWeek: number;
   nextHabit: string;
+  weeklyHabits?: string[];
+  markerGoals?: string[];
 };

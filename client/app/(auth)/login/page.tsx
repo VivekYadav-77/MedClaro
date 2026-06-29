@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { Activity, ArrowLeft, ShieldCheck } from "lucide-react";
 
 import { AuthContainer } from "@/components/auth/auth-forms";
@@ -40,7 +41,9 @@ export default function LoginPage() {
           </div>
 
           <div className="flex justify-center lg:justify-end">
-            <AuthContainer />
+            <Suspense fallback={<div className="h-[420px] w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-dialog" />}>
+              <AuthContainer />
+            </Suspense>
           </div>
         </section>
       </div>
