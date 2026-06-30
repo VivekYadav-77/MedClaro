@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { BentoCard } from "@/components/ui/bento-card";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ChatMessage, Circle, HealthContext } from "@/lib/types";
@@ -118,12 +118,12 @@ export function AssistantClient() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div className="space-y-6 animate-fade-in pb-12">
+      <BentoCard className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between bg-gradient-to-r from-brand-50 to-white border-brand-100/50">
         <div className="max-w-3xl">
-          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Omni-aware assistant</p>
-          <h1 className="mt-2 font-display text-2xl font-bold text-slate-950">Ask across the last 5 reports, medicines, and shared-care context</h1>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
+          <p className="text-xs font-bold uppercase tracking-wider text-brand-700">Omni-aware assistant</p>
+          <h1 className="mt-2 font-display text-3xl font-bold text-slate-900 tracking-tight">Ask across the last 5 reports, medicines, and shared-care context</h1>
+          <p className="mt-3 text-sm leading-relaxed text-slate-600">
             Answers stay grounded in the selected health context. Chronic-condition records are not connected yet, so the assistant will call out missing context.
           </p>
         </div>
@@ -137,11 +137,11 @@ export function AssistantClient() {
             ))}
           </Select>
         </div>
-      </div>
+      </BentoCard>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <Card className="flex min-h-[640px] flex-col overflow-hidden">
-          <div className="border-b border-slate-100 px-5 py-4">
+      <div className="grid gap-5 lg:grid-cols-12">
+        <BentoCard noPadding className="lg:col-span-8 flex min-h-[640px] flex-col overflow-hidden">
+          <div className="border-b border-slate-100 px-6 py-5 bg-white z-10">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="font-display text-xl font-semibold text-slate-900">
@@ -156,7 +156,7 @@ export function AssistantClient() {
             </div>
           </div>
 
-          <div className="flex-1 space-y-4 overflow-y-auto bg-slate-50/60 p-5">
+          <div className="flex-1 space-y-5 overflow-y-auto bg-slate-50/50 p-6">
             {!messages.length ? (
               <div className="grid gap-3 sm:grid-cols-2">
                 {suggestedQuestions.map((question) => (
@@ -201,49 +201,51 @@ export function AssistantClient() {
               className="min-h-24"
             />
             <div className="flex justify-end">
-              <Button type="submit" disabled={!draft.trim() || loading} className="gap-2">
+              <Button type="submit" disabled={!draft.trim() || loading} className="gap-2 rounded-xl">
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <SendHorizontal className="h-4 w-4" />}
                 Send
               </Button>
             </div>
           </form>
-        </Card>
+        </BentoCard>
 
-        <aside className="space-y-4">
+        <aside className="lg:col-span-4 space-y-5">
           <ContextStatCard icon={BrainCircuit} label="Reports in context" value={contextLoading ? "..." : String(context?.reportCount ?? 0)} />
           <ContextStatCard icon={Pill} label="Active or recent medicines" value={contextLoading ? "..." : String(context?.activeMedicationCount ?? 0)} />
           <ContextStatCard icon={AlertTriangle} label="Markers to watch" value={contextLoading ? "..." : String(context?.watchMarkerCount ?? 0)} />
 
-          <Card className="p-5">
-            <h2 className="font-semibold text-slate-900">Health Context JSON Preview</h2>
-            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">
+          <BentoCard>
+            <h2 className="font-display font-bold text-slate-900 text-lg">Health Context JSON Preview</h2>
+            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs leading-relaxed text-amber-900 font-medium">
               Chronic conditions are not available in the frontend/API yet. Reports and medications below are live context inputs.
             </div>
-            <div className="mt-4 space-y-3">
+            <div className="mt-5 space-y-4">
               {(context?.reports ?? []).slice(0, 5).map((report) => (
-                <div key={`${report.type}-${report.date}-${report.owner}`} className="rounded-lg border border-slate-200 p-3">
+                <div key={`${report.type}-${report.date}-${report.owner}`} className="rounded-xl border border-slate-100 bg-slate-50/50 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="flex items-center gap-2 font-medium text-slate-900">
-                        <FileText className="h-3.5 w-3.5 text-slate-400" />
+                      <p className="flex items-center gap-2 font-semibold text-slate-900 capitalize">
+                        <FileText className="h-4 w-4 text-slate-400" />
                         {report.type.replace(/_/g, " ")}
                       </p>
-                      <p className="text-xs text-slate-500">{report.familyMember || report.owner || "Saved profile"} - {report.date}</p>
+                      <p className="text-xs text-slate-500 mt-1">{report.familyMember || report.owner || "Saved profile"} - {report.date}</p>
                     </div>
-                    <Badge>{report.abnormalMarkers.length} flags</Badge>
+                    <Badge className="bg-white text-slate-700 border-slate-200 shadow-sm">{report.abnormalMarkers.length} flags</Badge>
                   </div>
                 </div>
               ))}
               {!contextLoading && !context?.reports?.length ? (
-                <p className="text-sm leading-6 text-slate-500">Upload reports or select a Care Circle to build assistant context.</p>
+                <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm leading-6 text-slate-500">
+                  Upload reports or select a Care Circle to build assistant context.
+                </div>
               ) : null}
             </div>
-          </Card>
+          </BentoCard>
 
-          <Card className="border-amber-200 bg-amber-50 p-5 text-sm leading-6 text-amber-900 shadow-none">
-            <MessageSquareText className="mb-3 h-5 w-5" />
+          <BentoCard className="border-amber-200 bg-amber-50 shadow-none text-sm leading-relaxed text-amber-900 font-medium">
+            <MessageSquareText className="mb-4 h-6 w-6 text-amber-600" />
             The assistant is for understanding records and preparing better questions. It should not replace emergency care or clinical decisions.
-          </Card>
+          </BentoCard>
         </aside>
       </div>
     </div>
@@ -260,14 +262,14 @@ function ContextStatCard({
   value: string;
 }) {
   return (
-    <Card className="flex items-center gap-4 p-4">
-      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+    <BentoCard className="flex items-center gap-4 p-5">
+      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600 shadow-inner">
         <Icon className="h-5 w-5" />
       </span>
       <span>
-        <span className="block text-xs font-medium text-slate-500">{label}</span>
-        <span className="font-display text-2xl font-bold text-slate-900">{value}</span>
+        <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</span>
+        <span className="font-display text-2xl font-bold text-slate-900 mt-0.5">{value}</span>
       </span>
-    </Card>
+    </BentoCard>
   );
 }

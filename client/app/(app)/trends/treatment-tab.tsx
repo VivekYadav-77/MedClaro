@@ -5,7 +5,7 @@ import { Loader2, Pill } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { BentoCard } from "@/components/ui/bento-card";
 import { cn } from "@/lib/utils";
 
 type TreatmentFinding = {
@@ -55,38 +55,44 @@ export function TreatmentTab() {
 
   if (loading) {
     return (
-      <Card className="flex items-center gap-3 p-5 text-sm text-slate-500">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Checking treatment timeline
-      </Card>
+      <BentoCard className="flex items-center gap-3 p-5 text-sm text-slate-500 justify-center min-h-[150px]">
+        <Loader2 className="h-5 w-5 animate-spin text-brand-600" />
+        <span className="font-medium text-slate-600">Checking treatment timeline...</span>
+      </BentoCard>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {data?.overallAssessment ? (
-        <Card className="border-brand-100 bg-brand-50/60 p-4 text-sm leading-7 text-brand-900">
-          {data.overallAssessment}
-        </Card>
+        <BentoCard className="bg-gradient-to-r from-brand-50 to-white border-brand-100/50 shadow-sm p-5">
+          <p className="text-sm leading-relaxed text-brand-900 font-medium">{data.overallAssessment}</p>
+        </BentoCard>
       ) : data?.message ? (
-        <Card className="p-4 text-sm text-slate-600">{data.message}</Card>
+        <BentoCard className="p-5">
+          <p className="text-sm text-slate-600">{data.message}</p>
+        </BentoCard>
       ) : null}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-5 md:grid-cols-2">
         {data?.findings?.map((finding) => (
-          <Card key={`${finding.medicationName}-${finding.targetMarker}`} className={cn("space-y-3 border-l-4 p-4", urgencyBorder(finding.urgency))}>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h3 className="flex items-center gap-2 font-semibold text-slate-900">
-                  <Pill className="h-4 w-4 text-slate-500" />
-                  {finding.medicationName}
-                </h3>
-                <p className="mt-1 text-sm text-slate-500">{finding.targetMarker}</p>
+          <BentoCard key={`${finding.medicationName}-${finding.targetMarker}`} className={cn("space-y-4 border-l-4 h-full flex flex-col justify-between", urgencyBorder(finding.urgency))}>
+            <div>
+              <div className="flex items-start justify-between gap-3 mb-4">
+                <div>
+                  <h3 className="flex items-center gap-2 font-display text-lg font-bold text-slate-900">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+                      <Pill className="h-4 w-4" />
+                    </span>
+                    {finding.medicationName}
+                  </h3>
+                  <p className="mt-2 text-xs font-bold uppercase tracking-wider text-slate-500">Target: {finding.targetMarker}</p>
+                </div>
+                <Badge variant={trendVariant(finding.trend)} className="rounded-md px-2 py-0.5">{finding.trend.replace("_", " ")}</Badge>
               </div>
-              <Badge variant={trendVariant(finding.trend)}>{finding.trend.replace("_", " ")}</Badge>
+              <p className="text-sm leading-relaxed text-slate-700">{finding.recommendation}</p>
             </div>
-            <p className="text-sm leading-6 text-slate-700">{finding.recommendation}</p>
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Urgency: {finding.urgency}</p>
-          </Card>
+            <p className="mt-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">Urgency: {finding.urgency}</p>
+          </BentoCard>
         ))}
       </div>
     </div>

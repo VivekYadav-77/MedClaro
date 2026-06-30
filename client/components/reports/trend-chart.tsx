@@ -3,7 +3,7 @@
 import { Area, CartesianGrid, ComposedChart, Line, ReferenceArea, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { BentoCard } from "@/components/ui/bento-card";
 import { TrendSeries } from "@/lib/types";
 
 export function TrendChart({ series }: { series: TrendSeries }) {
@@ -30,77 +30,80 @@ export function TrendChart({ series }: { series: TrendSeries }) {
   const domain = buildYAxisDomain(data, referenceRange);
 
   return (
-    <Card className="space-y-4 p-5">
+    <BentoCard className="flex flex-col space-y-5 h-full">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-semibold text-slate-950">{series.parameter}</h3>
-            <Badge variant={movement === "Rising" ? "warning" : movement === "Falling" ? "brand" : "default"}>{movement}</Badge>
+            <h3 className="font-display text-lg font-bold text-slate-950">{series.parameter}</h3>
+            <Badge variant={movement === "Rising" ? "warning" : movement === "Falling" ? "brand" : "default"} className="rounded-md px-2 py-0.5">
+              {movement}
+            </Badge>
           </div>
-          <p className="mt-1 text-sm leading-6 text-slate-600">{series.trendSummary}</p>
+          <p className="mt-1 text-sm leading-6 text-slate-500">{series.trendSummary}</p>
         </div>
         <div className="text-left sm:text-right">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Latest</p>
-          <p className="mt-1 text-lg font-bold text-slate-950">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Latest Value</p>
+          <p className="mt-0.5 text-2xl font-display font-bold text-slate-900 tracking-tight">
             {latest ? `${latest.value} ${series.normalizedUnit || ""}`.trim() : "--"}
           </p>
-          <p className="text-xs font-semibold text-brand-700">{series.deltaText}</p>
+          <p className="text-xs font-semibold text-brand-600 mt-1">{series.deltaText}</p>
         </div>
       </div>
-      <div className="h-72 min-w-0">
+      <div className="h-72 min-w-0 flex-1">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={data} margin={{ top: 14, right: 12, bottom: 4, left: 0 }}>
-            <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="dateLabel" tickLine={false} axisLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
+            <CartesianGrid stroke="#f1f5f9" strokeDasharray="3 3" vertical={false} />
+            <XAxis dataKey="dateLabel" tickLine={false} axisLine={false} tick={{ fill: "#64748b", fontSize: 12, fontWeight: 500 }} />
             <YAxis
               tickLine={false}
               axisLine={false}
               width={54}
               domain={domain}
-              tick={{ fill: "#64748b", fontSize: 12 }}
+              tick={{ fill: "#64748b", fontSize: 12, fontWeight: 500 }}
               tickFormatter={(value) => compactNumber(value)}
               label={{
                 value: series.normalizedUnit,
                 angle: -90,
                 position: "insideLeft",
-                fill: "#64748b",
+                fill: "#94a3b8",
                 fontSize: 11,
+                fontWeight: 600
               }}
             />
-            <Tooltip content={<TrendTooltip unit={series.normalizedUnit} />} cursor={{ stroke: "#0f766e", strokeDasharray: "4 4" }} />
+            <Tooltip content={<TrendTooltip unit={series.normalizedUnit} />} cursor={{ stroke: "#0ea5e9", strokeDasharray: "4 4" }} />
             {referenceRange ? (
               <ReferenceArea
                 y1={referenceRange.low ?? 0}
                 y2={referenceRange.high ?? 0}
-                fill="#ccfbf1"
-                fillOpacity={0.55}
+                fill="#f0fdfa"
+                fillOpacity={0.6}
                 stroke="#5eead4"
-                strokeOpacity={0.35}
+                strokeOpacity={0.4}
               />
             ) : null}
-            <Area type="monotone" dataKey="value" stroke="none" fill="#0ea5e9" fillOpacity={0.08} activeDot={false} />
+            <Area type="monotone" dataKey="value" stroke="none" fill="#0ea5e9" fillOpacity={0.06} activeDot={false} />
             <Line
               type="monotone"
               dataKey="value"
-              stroke="#0f766e"
+              stroke="#0284c7"
               strokeWidth={3}
-              dot={{ fill: "#ffffff", stroke: "#0f766e", strokeWidth: 2, r: 4 }}
-              activeDot={{ fill: "#0f766e", stroke: "#ffffff", strokeWidth: 2, r: 6 }}
+              dot={{ fill: "#ffffff", stroke: "#0284c7", strokeWidth: 2, r: 4 }}
+              activeDot={{ fill: "#0284c7", stroke: "#ffffff", strokeWidth: 2, r: 6 }}
             />
           </ComposedChart>
         </ResponsiveContainer>
       </div>
-      <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+      <div className="flex flex-wrap gap-2 text-xs pt-2 border-t border-slate-100">
         {referenceRange ? (
-          <span className="rounded-md bg-teal-50 px-2 py-1 font-medium text-teal-800">
+          <span className="rounded-lg bg-teal-50 px-2.5 py-1.5 font-semibold text-teal-700">
             Reference band: {referenceRange.low}-{referenceRange.high} {series.normalizedUnit}
           </span>
         ) : (
-          <span className="rounded-md bg-slate-100 px-2 py-1 font-medium text-slate-600">No reference band in saved reports</span>
+          <span className="rounded-lg bg-slate-100 px-2.5 py-1.5 font-medium text-slate-500">No reference band in saved reports</span>
         )}
-        <span className="rounded-md bg-slate-100 px-2 py-1 font-medium text-slate-600">{data.length} report points</span>
+        <span className="rounded-lg bg-slate-100 px-2.5 py-1.5 font-medium text-slate-500">{data.length} report points</span>
       </div>
-    </Card>
+    </BentoCard>
   );
 }
 

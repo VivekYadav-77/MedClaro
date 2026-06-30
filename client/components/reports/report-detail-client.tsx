@@ -18,7 +18,7 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { BentoCard } from "@/components/ui/bento-card";
 import { Select } from "@/components/ui/select";
 import { ChatPanel } from "@/components/reports/chat-panel";
 import { DietAdvicePanel } from "@/components/reports/diet-advice-panel";
@@ -78,26 +78,26 @@ export function ReportDetailClient({ report }: { report: Report }) {
         Report history
       </button>
 
-      <Card className="space-y-4 p-5">
+      <BentoCard className="space-y-5 p-6 bg-gradient-to-r from-brand-50 to-white border-brand-100/50">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-brand-600">{report.reportType.replace(/_/g, " ")}</p>
-            <h1 className="mt-1 font-display text-3xl font-bold text-slate-950">{report.labName || "Health Report"}</h1>
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-brand-600">{report.reportType.replace(/_/g, " ")}</p>
+            <h1 className="mt-2 font-display text-4xl font-bold text-slate-900 tracking-tight">{report.labName || "Health Report"}</h1>
+            <p className="mt-3 text-sm font-medium text-slate-500">
               {new Date(report.reportDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
               {report.familyMemberName || report.ownerName ? ` - ${report.familyMemberName ?? report.ownerName}` : ""}
             </p>
           </div>
-          <Badge variant={attentionVariant(score)}>{score}/5 attention</Badge>
+          <Badge variant={attentionVariant(score)} className="rounded-md px-3 py-1 shadow-sm border border-white/50">{score}/5 attention</Badge>
         </div>
 
-        <div className="flex gap-1 overflow-x-auto rounded-lg bg-slate-50 p-1">
+        <div className="flex gap-1.5 overflow-x-auto rounded-xl bg-white/50 p-1.5 border border-slate-200 backdrop-blur-sm">
           {tabs.map((tab) => (
             <button
               key={tab}
               className={cn(
-                "whitespace-nowrap rounded-md px-3 py-2 text-sm font-semibold transition-colors",
-                activeTab === tab ? "bg-white text-brand-700 shadow-sm" : "text-slate-600 hover:bg-white"
+                "whitespace-nowrap rounded-lg px-4 py-2 text-sm font-bold transition-all duration-200",
+                activeTab === tab ? "bg-white text-brand-700 shadow-sm border border-slate-200/50" : "text-slate-500 hover:bg-white hover:text-slate-900"
               )}
               onClick={() => changeTab(tab)}
             >
@@ -105,7 +105,7 @@ export function ReportDetailClient({ report }: { report: Report }) {
             </button>
           ))}
         </div>
-      </Card>
+      </BentoCard>
 
       {activeTab === "summary" ? <SummaryTab report={report} /> : null}
       {activeTab === "values" ? <ValuesTab report={report} /> : null}
@@ -120,24 +120,28 @@ export function ReportDetailClient({ report }: { report: Report }) {
 
 function SummaryTab({ report }: { report: Report }) {
   return (
-    <div className="space-y-5">
-      <Card className="space-y-4 border-brand-100 bg-brand-50/70 p-5">
-        <div className="flex items-center gap-2">
-          <Activity className="h-4 w-4 text-brand-600" />
-          <h2 className="font-semibold text-slate-900">Overall Summary</h2>
+    <div className="space-y-5 pt-2">
+      <BentoCard className="space-y-4 border-brand-100 bg-brand-50/70 p-6 shadow-sm">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-brand-600 shadow-sm">
+            <Activity className="h-5 w-5" />
+          </span>
+          <h2 className="font-display font-bold text-slate-900 text-lg">Overall Summary</h2>
         </div>
-        <p className="text-sm leading-7 text-slate-700">{report.aiExplanation.holisticSummary}</p>
+        <p className="text-sm leading-relaxed text-slate-700 font-medium">{report.aiExplanation.holisticSummary}</p>
         <VoiceReadout text={report.aiExplanation.holisticSummary} language={report.language} />
-      </Card>
+      </BentoCard>
 
       {report.aiExplanation.parameterLevel.length ? (
-        <section className="grid gap-4 lg:grid-cols-2">
+        <section className="grid gap-5 lg:grid-cols-2">
           {report.aiExplanation.parameterLevel.map((item) => (
-            <Card key={item.parameter} className="p-4">
-              <p className="font-semibold text-slate-900">{item.parameter}</p>
-              <p className="mt-2 text-sm leading-7 text-slate-600">{item.explanation}</p>
-              <p className="mt-3 text-xs font-medium uppercase tracking-wide text-slate-400">{item.confidence}</p>
-            </Card>
+            <BentoCard key={item.parameter} className="p-5 h-full flex flex-col justify-between">
+              <div>
+                <p className="font-display font-bold text-slate-900 text-lg">{item.parameter}</p>
+                <p className="mt-3 text-sm leading-relaxed text-slate-600">{item.explanation}</p>
+              </div>
+              <p className="mt-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">{item.confidence}</p>
+            </BentoCard>
           ))}
         </section>
       ) : null}
@@ -152,28 +156,28 @@ function ValuesTab({ report }: { report: Report }) {
     return <EmptyPanel icon={TableProperties} title="No parsed values" body="This report does not contain structured lab values." />;
   }
   return (
-    <Card className="overflow-x-auto p-0">
+    <BentoCard noPadding className="overflow-x-auto pt-2">
       <table className="min-w-full text-sm">
-        <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+        <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500 font-bold border-b border-slate-200">
           <tr>
-            <th className="px-4 py-3 text-left">Parameter</th>
-            <th className="px-4 py-3 text-left">Value</th>
-            <th className="px-4 py-3 text-left">Range</th>
-            <th className="px-4 py-3 text-left">Status</th>
+            <th className="px-5 py-4 text-left">Parameter</th>
+            <th className="px-5 py-4 text-left">Value</th>
+            <th className="px-5 py-4 text-left">Range</th>
+            <th className="px-5 py-4 text-left">Status</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-slate-100">
           {report.structuredData.map((item) => (
-            <tr key={`${item.testName}-${item.unit}`} className="border-t border-slate-100">
-              <td className="px-4 py-3 font-medium text-slate-900">{item.testName}</td>
-              <td className="px-4 py-3 text-slate-700">{item.value} {item.unit}</td>
-              <td className="px-4 py-3 text-slate-500">{formatRange(item.referenceRangeLow, item.referenceRangeHigh, item.unit)}</td>
-              <td className="px-4 py-3"><Badge variant={item.flag === "normal" ? "success" : "warning"}>{item.flag}</Badge></td>
+            <tr key={`${item.testName}-${item.unit}`} className="hover:bg-slate-50/50 transition-colors">
+              <td className="px-5 py-4 font-semibold text-slate-900">{item.testName}</td>
+              <td className="px-5 py-4 text-slate-700 font-medium">{item.value} {item.unit}</td>
+              <td className="px-5 py-4 text-slate-500">{formatRange(item.referenceRangeLow, item.referenceRangeHigh, item.unit)}</td>
+              <td className="px-5 py-4"><Badge variant={item.flag === "normal" ? "success" : "warning"} className="rounded-md">{item.flag}</Badge></td>
             </tr>
           ))}
         </tbody>
       </table>
-    </Card>
+    </BentoCard>
   );
 }
 
@@ -229,27 +233,29 @@ function DoctorExportTab({ report }: { report: Report }) {
     return <EmptyPanel icon={Stethoscope} title="EHR export needs lab values" body="Prescription-only and unstructured reports cannot generate a lab handoff table yet." />;
   }
   return (
-    <div className="space-y-4">
-      <Card className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
+    <div className="space-y-5 pt-2">
+      <BentoCard className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between bg-slate-50/50">
         <div>
-          <h2 className="flex items-center gap-2 font-semibold text-slate-900">
-            <Stethoscope className="h-4 w-4 text-brand-600" />
+          <h2 className="flex items-center gap-3 font-display font-bold text-slate-900 text-lg">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-brand-600 shadow-sm">
+              <Stethoscope className="h-4 w-4" />
+            </span>
             Doctor Export
           </h2>
-          <p className="mt-1 text-sm text-slate-500">Tabular handoff generated from saved report analysis with LOINC hints.</p>
-          {message ? <p className="mt-2 text-xs font-medium text-brand-700">{message}</p> : null}
+          <p className="mt-2 text-sm text-slate-500 leading-relaxed max-w-lg">Tabular handoff generated from saved report analysis with LOINC hints.</p>
+          {message ? <p className="mt-3 text-xs font-bold uppercase tracking-wider text-brand-700">{message}</p> : null}
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(exportText)}>
-            <ClipboardCopy className="h-4 w-4" />
+          <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(exportText)} className="rounded-xl">
+            <ClipboardCopy className="h-4 w-4 mr-2" />
             Copy table
           </Button>
-          <Button variant="soft" size="sm" onClick={() => printDoctorExport(report, rows)}>
-            <FileDown className="h-4 w-4" />
+          <Button variant="soft" size="sm" onClick={() => printDoctorExport(report, rows)} className="rounded-xl">
+            <FileDown className="h-4 w-4 mr-2" />
             Print PDF
           </Button>
         </div>
-      </Card>
+      </BentoCard>
       <ValuesTab report={report} />
       <SummaryGenerator reportId={report._id} />
     </div>
@@ -366,24 +372,24 @@ function ReportSharingTab({ report }: { report: Report }) {
 
   if (!isOwner) {
     return (
-      <Card className="p-5">
-        <h2 className="font-semibold text-slate-900">Sharing</h2>
-        <p className="mt-2 text-sm leading-6 text-slate-600">
+      <BentoCard className="p-6 mt-2">
+        <h2 className="font-display font-bold text-slate-900 text-lg">Sharing</h2>
+        <p className="mt-2 text-sm leading-relaxed text-slate-600 font-medium">
           This report is visible to you through your own access or a Care Circle share. Only the report owner can change sharing permissions.
         </p>
-      </Card>
+      </BentoCard>
     );
   }
 
   return (
-    <Card className="space-y-5 border-teal-100 bg-teal-50/60 p-5">
-      <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-teal-700">
-          <ShieldCheck className="h-5 w-5" />
+    <BentoCard className="space-y-6 border-teal-100 bg-teal-50/60 p-6 mt-2">
+      <div className="flex items-start gap-4">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-teal-700 shadow-sm">
+          <ShieldCheck className="h-6 w-6" />
         </span>
         <div>
-          <h2 className="font-semibold text-slate-900">Explicit Circle Sharing</h2>
-          <p className="mt-1 text-sm leading-6 text-slate-600">
+          <h2 className="font-display font-bold text-slate-900 text-xl">Explicit Circle Sharing</h2>
+          <p className="mt-2 text-sm leading-relaxed text-slate-600 font-medium">
             This report is private until you share it with a Care Circle. Active shares give view access to that circle.
           </p>
         </div>
@@ -428,26 +434,28 @@ function ReportSharingTab({ report }: { report: Report }) {
           </p>
         )}
       </div>
-    </Card>
+    </BentoCard>
   );
 }
 
 function MiniStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-1 truncate text-lg font-bold capitalize text-slate-950">{value}</p>
-    </div>
+    <BentoCard className="p-4 flex flex-col justify-center">
+      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
+      <p className="mt-1 truncate text-2xl font-display font-bold capitalize text-slate-900">{value}</p>
+    </BentoCard>
   );
 }
 
 function EmptyPanel({ icon: Icon, title, body }: { icon: typeof FileText; title: string; body: string }) {
   return (
-    <div className="rounded-lg border border-dashed border-slate-200 bg-white p-8 text-center">
-      <Icon className="mx-auto h-8 w-8 text-slate-300" />
-      <p className="mt-3 font-semibold text-slate-900">{title}</p>
-      <p className="mt-1 text-sm leading-6 text-slate-500">{body}</p>
-    </div>
+    <BentoCard className="flex flex-col items-center justify-center border-dashed border-2 border-slate-200 bg-slate-50/50 min-h-[300px]">
+      <span className="flex h-16 w-16 items-center justify-center rounded-3xl bg-white shadow-sm mb-4">
+        <Icon className="h-8 w-8 text-slate-300" />
+      </span>
+      <p className="font-display text-xl font-bold text-slate-900">{title}</p>
+      <p className="mt-2 text-sm leading-relaxed text-slate-500 max-w-sm text-center font-medium">{body}</p>
+    </BentoCard>
   );
 }
 

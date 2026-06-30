@@ -1,38 +1,40 @@
 import { ArrowDownRight, ArrowRight, ArrowUpRight } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { BentoCard } from "@/components/ui/bento-card";
 import { TrendResponse } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type Trajectory = TrendResponse["trajectories"][number];
 
 export function TrajectoryCard({ trajectory }: { trajectory: Trajectory }) {
-  const border = trajectory.warningLevel === "alert"
-    ? "border-l-red-500"
+  const bgGradient = trajectory.warningLevel === "alert"
+    ? "bg-gradient-to-br from-red-50/80 to-transparent dark:from-red-950/30 border-red-100"
     : trajectory.warningLevel === "watch"
-      ? "border-l-amber-500"
+      ? "bg-gradient-to-br from-amber-50/80 to-transparent dark:from-amber-950/30 border-amber-100"
       : trajectory.direction === "improving"
-        ? "border-l-green-500"
-        : "border-l-slate-400";
+        ? "bg-gradient-to-br from-teal-50/80 to-transparent dark:from-teal-950/30 border-teal-100"
+        : "";
 
   return (
-    <Card className={cn("space-y-3 border-l-4 p-4", border)}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="font-semibold text-slate-900">{trajectory.parameter}</h3>
-          <p className="mt-1 flex items-center gap-1 text-sm capitalize text-slate-500">
-            {directionIcon(trajectory.direction)}
-            {trajectory.direction}
-          </p>
+    <BentoCard className={cn("space-y-4 h-full flex flex-col justify-between", bgGradient)}>
+      <div>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="font-display font-bold text-slate-900">{trajectory.parameter}</h3>
+            <p className="mt-1 flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-slate-500">
+              {directionIcon(trajectory.direction)}
+              {trajectory.direction}
+            </p>
+          </div>
+          <Badge variant={trajectory.warningLevel === "alert" ? "danger" : trajectory.warningLevel === "watch" ? "warning" : "success"}>
+            {trajectory.warningLevel}
+          </Badge>
         </div>
-        <Badge variant={trajectory.warningLevel === "alert" ? "danger" : trajectory.warningLevel === "watch" ? "warning" : "success"}>
-          {trajectory.warningLevel}
-        </Badge>
+        <p className="mt-4 text-sm leading-relaxed text-slate-700">{trajectory.prediction}</p>
       </div>
-      <p className="text-sm leading-6 text-slate-700">{trajectory.prediction}</p>
-      <p className="rounded-xl bg-slate-50 p-3 text-sm leading-6 text-slate-600">{trajectory.advice}</p>
-    </Card>
+      <p className="mt-4 rounded-xl bg-slate-50 p-4 text-sm leading-relaxed text-slate-600 font-medium">{trajectory.advice}</p>
+    </BentoCard>
   );
 }
 

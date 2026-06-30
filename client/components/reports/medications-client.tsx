@@ -21,7 +21,7 @@ import { useSession } from "next-auth/react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { BentoCard } from "@/components/ui/bento-card";
 import { PrescriptionRecord, PrescriptionRiskAnalysis, PrescriptionRiskFinding, RiskSeverity } from "@/lib/types";
 
 type RefillPrompt = {
@@ -238,37 +238,37 @@ export function MedicationsClient({
   }, [session?.accessToken]);
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div className="space-y-6 animate-fade-in pb-12">
+      <BentoCard className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between bg-gradient-to-r from-brand-50 to-white border-brand-100/50">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">{eyebrow}</p>
-          <h1 className="mt-1 font-display text-2xl font-bold text-slate-950">{title}</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{description}</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-brand-700">{eyebrow}</p>
+          <h1 className="mt-2 font-display text-4xl font-bold text-slate-900 tracking-tight">{title}</h1>
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-600 font-medium">{description}</p>
         </div>
         <Link href="/reports/upload?type=prescription">
-          <Button className="gap-2">
+          <Button className="gap-2 rounded-xl">
             <Pill className="h-4 w-4" />
             Add prescription
           </Button>
         </Link>
-      </div>
+      </BentoCard>
 
       <div className="flex flex-wrap gap-2">
         <TabLink href={basePath} label="Overview" active={activeTab === "overview"} />
         <TabLink href={`${basePath}?tab=risks`} label="Safety Review" active={activeTab === "risks"} />
         <TabLink href={`${basePath}?tab=refills`} label="Refills" active={activeTab === "refills"} />
         <TabLink href={`${basePath}?tab=generics`} label="Generics" active={activeTab === "generics"} />
-        <Button variant="ghost" size="sm" onClick={() => void load()} className="gap-2">
+        <Button variant="ghost" size="sm" onClick={() => void load()} className="gap-2 rounded-xl">
           <RefreshCw className="h-4 w-4" />
           Refresh
         </Button>
       </div>
 
       {loading ? (
-        <Card className="flex items-center gap-3 p-5 text-sm text-slate-500">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading prescriptions
-        </Card>
+        <BentoCard className="flex items-center justify-center gap-3 p-12 text-sm text-slate-500 min-h-[300px]">
+          <Loader2 className="h-6 w-6 animate-spin text-brand-600" />
+          <span className="font-medium text-slate-600">Loading prescriptions...</span>
+        </BentoCard>
       ) : activeTab === "risks" ? (
         <RiskCheckPanel token={session?.accessToken as string | undefined} />
       ) : activeTab === "refills" ? (
@@ -332,54 +332,54 @@ function RiskCheckPanel({ token }: { token?: string }) {
 
   if (loading) {
     return (
-      <Card className="flex items-center gap-3 p-5 text-sm text-slate-500">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Checking prescription risks
-      </Card>
+      <BentoCard className="flex items-center justify-center gap-3 p-12 text-sm text-slate-500 min-h-[300px]">
+        <Loader2 className="h-6 w-6 animate-spin text-brand-600" />
+        <span className="font-medium text-slate-600">Checking prescription risks...</span>
+      </BentoCard>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <Card className={`p-5 ${analysis?.severity === "high" ? "border-rose-200 bg-rose-50/60" : analysis?.severity === "watch" ? "border-amber-200 bg-amber-50/50" : ""}`}>
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="flex items-start gap-3">
-            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${analysis?.severity === "high" ? "bg-rose-100 text-rose-700" : analysis?.severity === "watch" ? "bg-amber-100 text-amber-700" : "bg-brand-50 text-brand-700"}`}>
-              <ShieldAlert className="h-5 w-5" />
+    <div className="space-y-5">
+      <BentoCard className={`p-6 ${analysis?.severity === "high" ? "border-rose-200 bg-rose-50/60" : analysis?.severity === "watch" ? "border-amber-200 bg-amber-50/50" : "bg-slate-50/50"}`}>
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex items-start gap-4">
+            <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-sm ${analysis?.severity === "high" ? "bg-rose-100 text-rose-700" : analysis?.severity === "watch" ? "bg-amber-100 text-amber-700" : "bg-white text-brand-700 border border-brand-100"}`}>
+              <ShieldAlert className="h-6 w-6" />
             </span>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Medication Safety Review</p>
-              <h2 className="mt-1 font-semibold text-slate-950">{analysis ? safetyHeadline(analysis) : "Check prescription clashes, allergies, and report signals"}</h2>
-              <p className="mt-1 text-sm leading-6 text-slate-600">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-brand-700">Medication Safety Review</p>
+              <h2 className="mt-1 font-display text-xl font-bold text-slate-900">{analysis ? safetyHeadline(analysis) : "Check prescription clashes, allergies, and report signals"}</h2>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600 font-medium max-w-2xl">
                 {analysis ? safetySummaryText(analysis) : "Run a guided review using active prescriptions, saved allergies, and analyzed report markers."}
               </p>
               {analysis ? (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Badge variant={severityVariant(analysis.severity)}>{severityLabel(analysis.severity)}</Badge>
-                  <Badge variant="default">{analysis.confidence} confidence</Badge>
-                  <Badge variant="default">{analysis.medicineCount} medicine(s)</Badge>
-                  <Badge variant="default">{analysis.reportCount} report(s)</Badge>
-                  <Badge variant="default">{analysis.allergies.length} allerg{analysis.allergies.length === 1 ? "y" : "ies"}</Badge>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Badge variant={severityVariant(analysis.severity)} className="rounded-md px-2.5 py-1">{severityLabel(analysis.severity)}</Badge>
+                  <Badge variant="outline" className="bg-white rounded-md px-2.5 py-1">{analysis.confidence} confidence</Badge>
+                  <Badge variant="outline" className="bg-white rounded-md px-2.5 py-1">{analysis.medicineCount} medicine(s)</Badge>
+                  <Badge variant="outline" className="bg-white rounded-md px-2.5 py-1">{analysis.reportCount} report(s)</Badge>
+                  <Badge variant="outline" className="bg-white rounded-md px-2.5 py-1">{analysis.allergies.length} allerg{analysis.allergies.length === 1 ? "y" : "ies"}</Badge>
                 </div>
               ) : null}
             </div>
           </div>
           <div className="flex flex-wrap gap-2 lg:justify-end">
             <Link href="/settings">
-              <Button variant="outline" className="gap-2">
+              <Button variant="outline" className="gap-2 rounded-xl">
                 <ListChecks className="h-4 w-4" />
                 Update allergies
               </Button>
             </Link>
-            <Button onClick={() => void load(true)} disabled={refreshing} className="gap-2">
+            <Button onClick={() => void load(true)} disabled={refreshing} className="gap-2 rounded-xl">
               {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               Run safety review
             </Button>
           </div>
         </div>
-      </Card>
+      </BentoCard>
 
-      {error ? <Card className="border-rose-200 bg-rose-50 p-4 text-sm font-medium text-rose-800">{error}</Card> : null}
+      {error ? <BentoCard className="border-rose-200 bg-rose-50 p-4 text-sm font-medium text-rose-800">{error}</BentoCard> : null}
 
       {analysis ? <SafetySetupChecklist analysis={analysis} /> : null}
 
@@ -394,17 +394,19 @@ function RiskCheckPanel({ token }: { token?: string }) {
           secondaryLabel="Review saved prescriptions"
         />
       ) : analysis && analysis.findings.length === 0 ? (
-        <Card className="border-emerald-200 bg-emerald-50/70 p-5">
-          <div className="flex items-start gap-3">
-            <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-700" />
+        <BentoCard className="border-emerald-200 bg-emerald-50/70 p-6">
+          <div className="flex items-start gap-4">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-sm border border-emerald-100">
+              <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+            </span>
             <div>
-              <h2 className="font-semibold text-emerald-950">No obvious clash found in saved data</h2>
-              <p className="mt-1 text-sm leading-6 text-emerald-900">
+              <h2 className="font-display text-xl font-bold text-emerald-950">No obvious clash found in saved data</h2>
+              <p className="mt-2 text-sm leading-relaxed text-emerald-900 font-medium">
                 Keep prescriptions, allergies, and recent reports updated. This review is a preparation tool, not a replacement for pharmacist-grade interaction screening.
               </p>
             </div>
           </div>
-        </Card>
+        </BentoCard>
       ) : null}
 
       {analysis?.findings.length ? (
@@ -416,55 +418,59 @@ function RiskCheckPanel({ token }: { token?: string }) {
       ) : null}
 
       {analysis?.nextSteps.length ? (
-        <Card className="space-y-2 p-4">
-          <p className="font-semibold text-slate-950">Next steps</p>
+        <BentoCard className="space-y-3 p-5 bg-slate-50/50">
+          <p className="font-display font-bold text-slate-900 text-lg">Next steps</p>
           {analysis.nextSteps.filter((step) => step !== analysis.disclaimer).map((step) => (
-            <p key={step} className="text-sm leading-6 text-slate-600">{step}</p>
+            <p key={step} className="text-sm leading-relaxed text-slate-700 font-medium">{step}</p>
           ))}
-        </Card>
+        </BentoCard>
       ) : null}
 
-      {analysis?.disclaimer ? <p className="text-xs leading-5 text-slate-500">{analysis.disclaimer}</p> : null}
+      {analysis?.disclaimer ? <p className="text-xs leading-relaxed text-slate-400 font-medium px-4">{analysis.disclaimer}</p> : null}
     </div>
   );
 }
 
 function RiskFindingCard({ finding }: { finding: PrescriptionRiskFinding }) {
   return (
-    <Card className={`space-y-3 border-l-4 p-4 ${severityBorder(finding.severity)}`}>
+    <BentoCard className={`space-y-4 border-l-4 p-5 h-full flex flex-col ${severityBorder(finding.severity)}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="flex items-center gap-2 font-semibold text-slate-950">
-            <AlertTriangle className="h-4 w-4 text-slate-500" />
+          <p className="flex items-center gap-2 font-display font-bold text-slate-900 text-lg">
+            <AlertTriangle className="h-5 w-5 text-slate-400" />
             {finding.title}
           </p>
-          <p className="mt-1 text-xs font-medium uppercase tracking-wide text-slate-400">{finding.source.replace("_", " ")}</p>
+          <p className="mt-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">{finding.source.replace("_", " ")}</p>
         </div>
-        <Badge variant={severityVariant(finding.severity)}>{finding.severity}</Badge>
+        <Badge variant={severityVariant(finding.severity)} className="rounded-md px-2.5 py-1">{finding.severity}</Badge>
       </div>
-      {finding.relatedMedicines.length ? (
-        <div className="flex flex-wrap gap-2">
-          {finding.relatedMedicines.slice(0, 5).map((medicine) => (
-            <Badge key={`${medicine.name}-${medicine.prescriptionId}`} variant="default">{medicine.name}</Badge>
-          ))}
-        </div>
-      ) : null}
-      {finding.relatedMarkers.length ? (
-        <div className="space-y-1">
-          {finding.relatedMarkers.slice(0, 3).map((marker) => (
-            <p key={`${marker.name}-${marker.reportId}`} className="text-sm text-slate-600">
-              {marker.name}: {marker.value} {marker.unit} {marker.flag ? `(${marker.flag})` : ""}
-            </p>
-          ))}
-        </div>
-      ) : null}
-      {finding.relatedAllergies.length ? (
-        <p className="text-sm text-rose-700">
-          Allergy: {finding.relatedAllergies.map((allergy) => allergy.name).join(", ")}
-        </p>
-      ) : null}
-      <p className="text-sm leading-6 text-slate-700">{finding.nextStep}</p>
-    </Card>
+      <div className="flex-1 space-y-4">
+        {finding.relatedMedicines.length ? (
+          <div className="flex flex-wrap gap-2">
+            {finding.relatedMedicines.slice(0, 5).map((medicine) => (
+              <Badge key={`${medicine.name}-${medicine.prescriptionId}`} variant="outline" className="bg-slate-50">{medicine.name}</Badge>
+            ))}
+          </div>
+        ) : null}
+        {finding.relatedMarkers.length ? (
+          <div className="space-y-1">
+            {finding.relatedMarkers.slice(0, 3).map((marker) => (
+              <p key={`${marker.name}-${marker.reportId}`} className="text-sm text-slate-600 font-medium">
+                {marker.name}: <span className="font-semibold text-slate-900">{marker.value} {marker.unit}</span> {marker.flag ? `(${marker.flag})` : ""}
+              </p>
+            ))}
+          </div>
+        ) : null}
+        {finding.relatedAllergies.length ? (
+          <p className="text-sm text-rose-700 font-medium">
+            Allergy: {finding.relatedAllergies.map((allergy) => allergy.name).join(", ")}
+          </p>
+        ) : null}
+      </div>
+      <div className="pt-3 border-t border-slate-100">
+        <p className="text-sm leading-relaxed text-slate-700">{finding.nextStep}</p>
+      </div>
+    </BentoCard>
   );
 }
 
@@ -487,17 +493,17 @@ function SafetySetupChecklist({ analysis }: { analysis: PrescriptionRiskAnalysis
     },
   ];
   return (
-    <div className="grid gap-3 md:grid-cols-3">
+    <div className="grid gap-4 md:grid-cols-3">
       {items.map((item) => (
-        <Card key={item.label} className="p-3 shadow-none">
-          <div className="flex items-start gap-2">
-            {item.done ? <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-600" /> : <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-600" />}
+        <BentoCard key={item.label} className="p-4 shadow-sm bg-white border border-slate-200/60">
+          <div className="flex items-start gap-3">
+            {item.done ? <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-600" /> : <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-500" />}
             <div>
-              <p className="text-sm font-semibold text-slate-900">{item.label}</p>
-              <p className="mt-1 text-xs leading-5 text-slate-500">{item.done ? "Ready for this review." : item.action}</p>
+              <p className="text-sm font-bold text-slate-900">{item.label}</p>
+              <p className="mt-1 text-xs leading-relaxed text-slate-500 font-medium">{item.done ? "Ready for this review." : item.action}</p>
             </div>
           </div>
-        </Card>
+        </BentoCard>
       ))}
     </div>
   );
@@ -521,19 +527,21 @@ function GuidedEmptyState({
   secondaryLabel: string;
 }) {
   return (
-    <Card className="p-6 text-center">
-      <Icon className="mx-auto h-8 w-8 text-slate-400" />
-      <h2 className="mt-3 font-semibold text-slate-950">{title}</h2>
-      <p className="mx-auto mt-1 max-w-lg text-sm leading-6 text-slate-500">{body}</p>
-      <div className="mt-4 flex flex-wrap justify-center gap-2">
+    <BentoCard className="p-8 text-center flex flex-col items-center justify-center min-h-[300px] border-dashed border-2 border-slate-200 bg-slate-50/50">
+      <span className="flex h-16 w-16 items-center justify-center rounded-3xl bg-white shadow-sm mb-4">
+        <Icon className="h-8 w-8 text-slate-300" />
+      </span>
+      <h2 className="font-display text-xl font-bold text-slate-900">{title}</h2>
+      <p className="mt-2 max-w-lg text-sm leading-relaxed text-slate-500 font-medium">{body}</p>
+      <div className="mt-6 flex flex-wrap justify-center gap-3">
         <Link href={primaryHref}>
-          <Button>{primaryLabel}</Button>
+          <Button className="rounded-xl px-6">{primaryLabel}</Button>
         </Link>
         <Link href={secondaryHref}>
-          <Button variant="outline">{secondaryLabel}</Button>
+          <Button variant="outline" className="rounded-xl px-6 bg-white">{secondaryLabel}</Button>
         </Link>
       </div>
-    </Card>
+    </BentoCard>
   );
 }
 
@@ -575,44 +583,49 @@ function severityBorder(severity: PrescriptionRiskFinding["severity"]) {
 function PrescriptionList({ prescriptions }: { prescriptions: PrescriptionRecord[] }) {
   if (!prescriptions.length) {
     return (
-      <Card className="p-6 text-center">
-        <Pill className="mx-auto h-8 w-8 text-slate-400" />
-        <h2 className="mt-3 font-semibold text-slate-950">No prescriptions yet</h2>
-        <p className="mt-1 text-sm text-slate-500">Upload a prescription to save extracted medicines and status.</p>
-        <Link href="/reports/upload?type=prescription" className="mt-4 inline-flex">
-          <Button>Add prescription</Button>
+      <BentoCard className="p-8 text-center flex flex-col items-center justify-center min-h-[300px] border-dashed border-2 border-slate-200 bg-slate-50/50">
+        <span className="flex h-16 w-16 items-center justify-center rounded-3xl bg-white shadow-sm mb-4">
+          <Pill className="h-8 w-8 text-slate-300" />
+        </span>
+        <h2 className="font-display text-xl font-bold text-slate-900">No prescriptions yet</h2>
+        <p className="mt-2 text-sm text-slate-500 max-w-sm font-medium">Upload a prescription to save extracted medicines and status.</p>
+        <Link href="/reports/upload?type=prescription" className="mt-6 inline-flex">
+          <Button className="rounded-xl px-6">Add prescription</Button>
         </Link>
-      </Card>
+      </BentoCard>
     );
   }
 
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-4 md:grid-cols-2">
       {prescriptions.map((record) => (
-        <Card key={record.id} className="p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="font-semibold text-slate-950">{record.report.labName || "Prescription"}</h2>
-                <Badge variant={record.status === "ongoing" ? "success" : record.status === "unknown" ? "warning" : "default"}>
-                  {record.status.replace("_", " ")}
-                </Badge>
-              </div>
-              <p className="mt-1 text-sm text-slate-500">
+        <BentoCard key={record.id} className="p-5 h-full flex flex-col justify-between">
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-display font-bold text-slate-900 text-lg truncate max-w-[70%]">{record.report.labName || "Prescription"}</h2>
+              <Badge variant={record.status === "ongoing" ? "success" : record.status === "unknown" ? "warning" : "default"} className="rounded-md px-2.5 py-1">
+                {record.status.replace("_", " ")}
+              </Badge>
+            </div>
+            <div className="rounded-xl bg-slate-50 p-3 border border-slate-100">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Medicines</p>
+              <p className="text-sm font-medium text-slate-700 leading-relaxed">
                 {(record.medications ?? []).map((medication) => medication.name).filter(Boolean).slice(0, 4).join(", ") || "No medicines extracted"}
               </p>
-              <p className="mt-1 text-xs text-slate-500">
-                {record.linkedReports.length} linked report{record.linkedReports.length === 1 ? "" : "s"}
-              </p>
             </div>
+          </div>
+          <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between">
+            <p className="text-xs font-semibold text-slate-500">
+              {record.linkedReports.length} linked report{record.linkedReports.length === 1 ? "" : "s"}
+            </p>
             <Link href={`/reports/medications/setup?prescriptionReportId=${record.reportId}&prescriptionId=${record.id}`}>
-              <Button variant="outline" size="sm" className="gap-2">
+              <Button variant="outline" size="sm" className="gap-2 rounded-lg bg-white shadow-sm border-slate-200">
                 <Settings2 className="h-4 w-4" />
                 Manage
               </Button>
             </Link>
           </div>
-        </Card>
+        </BentoCard>
       ))}
     </div>
   );
@@ -624,17 +637,17 @@ function RefillList({ prompts }: { prompts: RefillPrompt[] }) {
   }
 
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-4 md:grid-cols-2">
       {prompts.map((prompt) => (
-        <Card key={`${prompt.reportId}-${prompt.daysSinceUpload}`} className="p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="font-medium text-slate-950">{prompt.medications.slice(0, 3).join(", ") || "Prescription"}</p>
-              <p className="mt-1 text-sm text-slate-600">{prompt.message}</p>
+        <BentoCard key={`${prompt.reportId}-${prompt.daysSinceUpload}`} className="p-5 h-full flex flex-col justify-between">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-2">
+              <p className="font-display font-bold text-slate-900 text-lg leading-tight">{prompt.medications.slice(0, 3).join(", ") || "Prescription"}</p>
+              <p className="text-sm text-slate-600 font-medium leading-relaxed">{prompt.message}</p>
             </div>
-            <Badge variant={prompt.risk === "high" ? "danger" : prompt.risk === "watch" ? "warning" : "success"}>{prompt.risk}</Badge>
+            <Badge variant={prompt.risk === "high" ? "danger" : prompt.risk === "watch" ? "warning" : "success"} className="rounded-md px-2.5 py-1 whitespace-nowrap">{prompt.risk}</Badge>
           </div>
-        </Card>
+        </BentoCard>
       ))}
     </div>
   );
@@ -659,73 +672,75 @@ function GenericOptionsPanel({ prescriptions }: { prescriptions: PrescriptionRec
   }
 
   return (
-    <div className="space-y-4">
-      <Card className="p-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+    <div className="space-y-5">
+      <BentoCard className="p-6 bg-slate-50/50">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Generic Options Review</p>
-            <h2 className="mt-1 font-semibold text-slate-950">Check brand-to-generic discussion points</h2>
-            <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-brand-700">Generic Options Review</p>
+            <h2 className="mt-1 font-display text-xl font-bold text-slate-900">Check brand-to-generic discussion points</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600 font-medium">
               This local review identifies common generic molecules from saved prescriptions and prepares safe questions for your pharmacist or clinician.
               It does not compare prices or approve substitutions.
             </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Badge variant="brand">{options.filter((option) => option.confidence === "matched").length} matched</Badge>
-              <Badge variant="default">{options.filter((option) => option.confidence === "review").length} need review</Badge>
-              <Badge variant="default">{medicineCount} medicine(s)</Badge>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Badge variant="brand" className="rounded-md px-2.5 py-1">{options.filter((option) => option.confidence === "matched").length} matched</Badge>
+              <Badge variant="outline" className="bg-white rounded-md px-2.5 py-1">{options.filter((option) => option.confidence === "review").length} need review</Badge>
+              <Badge variant="outline" className="bg-white rounded-md px-2.5 py-1">{medicineCount} medicine(s)</Badge>
             </div>
           </div>
           <div className="flex flex-wrap gap-2 lg:justify-end">
             <Link href="/reports/medications?tab=risks">
-              <Button variant="outline" className="gap-2">
+              <Button variant="outline" className="gap-2 rounded-xl bg-white">
                 Safety review
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
             <Link href="/reports/upload?type=prescription">
-              <Button className="gap-2">
+              <Button className="gap-2 rounded-xl">
                 <Pill className="h-4 w-4" />
                 Add prescription
               </Button>
             </Link>
           </div>
         </div>
-      </Card>
+      </BentoCard>
 
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         {options.map((option) => (
-          <Card key={`${option.sourcePrescription.id}-${option.originalName}-${option.genericName}`} className="p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Saved medicine</p>
-                <h3 className="mt-1 font-semibold text-slate-950">{option.originalName}</h3>
+          <BentoCard key={`${option.sourcePrescription.id}-${option.originalName}-${option.genericName}`} className="p-5 h-full flex flex-col justify-between">
+            <div className="space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Saved medicine</p>
+                  <h3 className="mt-1 font-display font-bold text-slate-900 text-lg">{option.originalName}</h3>
+                </div>
+                <Badge variant={option.confidence === "matched" ? "success" : "warning"} className="rounded-md px-2.5 py-1 whitespace-nowrap">
+                  {option.confidence === "matched" ? "matched" : "pharmacist review"}
+                </Badge>
               </div>
-              <Badge variant={option.confidence === "matched" ? "success" : "warning"}>
-                {option.confidence === "matched" ? "matched" : "pharmacist review"}
-              </Badge>
+              <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-4">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Generic molecule</p>
+                <p className="mt-1 font-semibold text-slate-900 text-base">{option.genericName}</p>
+                <p className="mt-1 text-sm text-slate-600 font-medium">{option.className}</p>
+              </div>
+              <p className="text-sm leading-relaxed text-slate-700 font-medium">{option.note}</p>
             </div>
-            <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Generic molecule</p>
-              <p className="mt-1 font-semibold text-slate-950">{option.genericName}</p>
-              <p className="mt-1 text-sm text-slate-600">{option.className}</p>
-            </div>
-            <p className="mt-3 text-sm leading-6 text-slate-700">{option.note}</p>
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+            <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
               <span>{option.sourcePrescription.report.labName || "Prescription"}</span>
-              <span>/</span>
+              <span className="text-slate-300">•</span>
               <span>{option.sourcePrescription.status.replace("_", " ")}</span>
             </div>
-          </Card>
+          </BentoCard>
         ))}
       </div>
 
-      <Card className="border-amber-200 bg-amber-50/70 p-4">
-        <p className="font-semibold text-amber-950">Substitution safety note</p>
-        <p className="mt-1 text-sm leading-6 text-amber-900">
+      <BentoCard className="border-amber-200 bg-amber-50/70 p-5 shadow-none">
+        <p className="font-display font-bold text-amber-950 text-lg">Substitution safety note</p>
+        <p className="mt-2 text-sm leading-relaxed text-amber-900 font-medium">
           Do not start, stop, switch, or change medicines based on this review. Brand and generic decisions depend on molecule, dose,
           release form, route, combination ingredients, allergies, reports, and prescriber instructions.
         </p>
-      </Card>
+      </BentoCard>
     </div>
   );
 }
@@ -771,11 +786,13 @@ function normalizeMedicineName(value: string) {
 
 function EmptyState({ icon: Icon, title, body }: { icon: LucideIcon; title: string; body: string }) {
   return (
-    <Card className="p-6 text-center">
-      <Icon className="mx-auto h-8 w-8 text-slate-400" />
-      <h2 className="mt-3 font-semibold text-slate-950">{title}</h2>
-      <p className="mt-1 text-sm text-slate-500">{body}</p>
-    </Card>
+    <BentoCard className="p-8 text-center flex flex-col items-center justify-center min-h-[250px] border-dashed border-2 border-slate-200 bg-slate-50/50">
+      <span className="flex h-16 w-16 items-center justify-center rounded-3xl bg-white shadow-sm mb-4">
+        <Icon className="h-8 w-8 text-slate-300" />
+      </span>
+      <h2 className="font-display text-xl font-bold text-slate-900">{title}</h2>
+      <p className="mt-2 text-sm font-medium text-slate-500 max-w-sm">{body}</p>
+    </BentoCard>
   );
 }
 

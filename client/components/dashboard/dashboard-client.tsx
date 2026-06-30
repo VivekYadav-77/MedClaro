@@ -26,6 +26,8 @@ import { Timeline } from "@/components/dashboard/timeline";
 import { MilestoneToast } from "@/components/circles/milestone-toast";
 import { FeatureStatusGrid } from "@/components/clinical/feature-status-grid";
 import { Button } from "@/components/ui/button";
+import { BentoCard } from "@/components/ui/bento-card";
+import { BentoGrid } from "@/components/ui/bento-grid";
 import { Card } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { buildClinicalFeatureCards, collectAbnormalMarkers } from "@/lib/clinical-features";
@@ -168,16 +170,17 @@ export function DashboardClient({
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+    <div className="space-y-6 animate-fade-in pb-12">
+      {/* 1. Header Area */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Clinical Command Center</p>
-          <h1 className="font-display text-2xl font-bold text-slate-950">{firstName}&apos;s family health operations view</h1>
-          <p className="max-w-3xl text-sm leading-6 text-slate-600">
-            A dense view of {contextLabel}: urgent markers, shared-care access, medication safety, follow-ups, and roadmap readiness.
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand-600">Clinical Command Center</p>
+          <h1 className="font-display text-3xl font-bold text-slate-950 tracking-tight">{firstName}&apos;s family health operations</h1>
+          <p className="max-w-2xl text-sm leading-6 text-slate-500">
+            A comprehensive view of {contextLabel}: urgent markers, shared-care access, medication safety, and predictive health trajectories.
           </p>
         </div>
-        <div className="flex flex-col gap-2 sm:min-w-80">
+        <div className="flex flex-col gap-3 sm:min-w-[320px]">
           {circles.length ? (
             <Select value={selectedCircleId} onChange={(event) => changeCircle(event.target.value)} aria-label="Care Circle report scope">
               <option value="">My private reports</option>
@@ -190,12 +193,12 @@ export function DashboardClient({
           ) : null}
           <div className="flex flex-wrap gap-2 sm:justify-end">
             <Link href="/trends">
-              <Button variant="outline" size="sm" className="gap-1.5">
-                <TrendingUp className="h-4 w-4" />
+              <Button variant="outline" className="gap-2 rounded-full px-5">
+                <TrendingUp className="h-4 w-4 text-teal-600" />
                 Trends
               </Button>
             </Link>
-            <Button size="sm" className="gap-1.5" onClick={() => setUploadOpen(true)}>
+            <Button className="gap-2 rounded-full px-5 shadow-sm" onClick={() => setUploadOpen(true)}>
               <Plus className="h-4 w-4" />
               Upload Report
             </Button>
@@ -203,185 +206,174 @@ export function DashboardClient({
         </div>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
-        <Card className="border-amber-200 p-4 shadow-none">
+      {/* 2. Bento Grid */}
+      <BentoGrid className="!grid-cols-1 md:!grid-cols-12 gap-5 md:gap-6 mt-6">
+        
+        {/* Urgent Alert Box (col 8) */}
+        <BentoCard className="md:col-span-12 lg:col-span-8 flex flex-col justify-center bg-gradient-to-br from-white to-amber-50/30">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex items-start gap-3">
-              <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-amber-100 text-amber-700">
-                {primaryAlert ? <ShieldAlert className="h-5 w-5" /> : <ClipboardCheck className="h-5 w-5" />}
+            <div className="flex items-start gap-4">
+              <span className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl ${primaryAlert ? 'bg-amber-100 text-amber-700 shadow-inner' : 'bg-brand-50 text-brand-600'}`}>
+                {primaryAlert ? <ShieldAlert className="h-6 w-6" /> : <ClipboardCheck className="h-6 w-6" />}
               </span>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                <p className="text-xs font-bold uppercase tracking-wider text-amber-600">
                   {primaryAlert ? "Highest active signal" : "No urgent visible marker"}
                 </p>
-                <h2 className="mt-1 text-base font-semibold text-slate-900">
+                <h2 className="mt-1.5 font-display text-xl font-bold text-slate-900 leading-tight">
                   {primaryAlert
                     ? `${primaryAlert.report.familyMemberName ?? primaryAlert.report.ownerName ?? firstName}: ${primaryAlert.testName} is ${primaryAlert.flag}`
                     : `Everything visible in ${contextLabel} looks calm`}
                 </h2>
-                <p className="mt-1 text-sm leading-6 text-slate-600">
+                <p className="mt-2 text-sm leading-relaxed text-slate-600 max-w-xl">
                   {primaryAlert
                     ? `${primaryAlert.value} ${primaryAlert.unit} from ${primaryAlert.report.labName || "latest visible report"}. Review before changing any care plan.`
                     : "Keep adding repeat reports so trend, variance, and guideline modules can become more useful."}
                 </p>
                 {selectedFamilyMemberId ? (
-                  <button className="mt-2 text-sm font-semibold text-brand-600 hover:text-brand-700" onClick={clearFamilyFilter}>
+                  <button className="mt-3 text-sm font-semibold text-brand-600 hover:text-brand-800 transition-colors" onClick={clearFamilyFilter}>
                     Clear family filter
                   </button>
                 ) : null}
               </div>
             </div>
-            <div className="flex flex-wrap gap-2 sm:justify-end">
-              <Button variant="outline" size="sm" className="gap-1.5" onClick={() => primaryAlert && openReport(primaryAlert.report)} disabled={!primaryAlert}>
-                <AlertTriangle className="h-4 w-4" />
-                Review
+            <div className="flex flex-wrap gap-2 sm:flex-col sm:items-end">
+              <Button variant="outline" className="gap-2 rounded-xl" onClick={() => primaryAlert && openReport(primaryAlert.report)} disabled={!primaryAlert}>
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                Review Flag
               </Button>
-              <Link href="/assistant">
-                <Button variant="soft" size="sm" className="gap-1.5">
+              <Link href="/assistant" className="w-full">
+                <Button variant="soft" className="w-full gap-2 rounded-xl bg-brand-50 text-brand-700 hover:bg-brand-100">
                   <Bot className="h-4 w-4" />
-                  Ask
+                  Ask AI
                 </Button>
               </Link>
             </div>
           </div>
-        </Card>
-        <Card className="grid grid-cols-2 gap-3 p-4 shadow-none sm:grid-cols-4 lg:grid-cols-2">
-          <CommandMetric label="Live modules" value={`${liveCount}/${features.length}`} icon={ClipboardCheck} />
-          <CommandMetric label="Backend pending" value={String(pendingCount)} icon={FileText} />
-          <CommandMetric label="Follow-ups" value={String(nextReminderCount)} icon={CalendarClock} />
-        </Card>
-      </div>
+        </BentoCard>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <StatCard label={selectedCircleId ? "Circle Reports" : "Visible Reports"} value={String(reports.length)} sub={contextLabel} accent="brand" icon={UsersRound} />
-        <StatCard
-          label="Highest Attention"
-          value={typeof highestRiskReport?.aiExplanation?.attentionScore === "number" ? `${highestRiskReport.aiExplanation.attentionScore}/5` : "--"}
-          sub={highestRiskReport?.labName || "No reports yet"}
-          accent="teal"
-          icon={ShieldAlert}
-        />
-        <StatCard label="Follow-up Signals" value={String(nextReminderCount)} sub={`${abnormalMarkers.length} marker flags`} accent="amber" icon={CalendarClock} />
-      </div>
+        {/* Quick Stats: Visible Reports (col 4) */}
+        <BentoCard className="md:col-span-6 lg:col-span-4 bg-slate-900 text-white flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 text-white">
+              <UsersRound className="h-5 w-5" />
+            </span>
+            <p className="text-xs font-medium tracking-wide text-slate-400 uppercase">{contextLabel}</p>
+          </div>
+          <div className="mt-6">
+            <p className="font-display text-5xl font-bold tracking-tight">{reports.length}</p>
+            <p className="mt-2 text-sm font-medium text-slate-300">Visible Reports</p>
+          </div>
+        </BentoCard>
 
-      <FeatureStatusGrid features={features} title="Feature readiness across Featurefix.md" />
-
-      <div className="grid gap-5 xl:grid-cols-[1fr_340px]">
-        <section className="space-y-6">
-          <div>
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="font-display text-lg font-semibold text-slate-900">Report History</h2>
-              <div className="flex flex-wrap gap-2">
-                <Link href="/reports/analysis">
-                  <Button variant="outline" size="sm" className="gap-1.5">
-                    <FileText className="h-3.5 w-3.5" />
-                    See all reports
-                  </Button>
-                </Link>
-                <Link href="/prescriptions/analysis">
-                  <Button variant="outline" size="sm" className="gap-1.5">
-                    <Pill className="h-3.5 w-3.5" />
-                    See all prescriptions
-                  </Button>
-                </Link>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="gap-1.5 text-brand-600 hover:bg-brand-50 hover:text-brand-700"
-                  onClick={() => setUploadOpen(true)}
-                >
-                  <Upload className="h-3.5 w-3.5" />
-                  Add report
+        {/* Timeline Box (col 8, row span 2) */}
+        <BentoCard className="md:col-span-12 lg:col-span-8 lg:row-span-2 flex flex-col">
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="font-display text-xl font-bold text-slate-900">Report History</h2>
+            <div className="flex flex-wrap gap-2">
+              <Link href="/reports/analysis">
+                <Button variant="ghost" size="sm" className="gap-1.5 rounded-lg text-slate-600 hover:text-slate-900">
+                  <FileText className="h-4 w-4" /> All reports
                 </Button>
-              </div>
+              </Link>
+              <Link href="/prescriptions/analysis">
+                <Button variant="ghost" size="sm" className="gap-1.5 rounded-lg text-slate-600 hover:text-slate-900">
+                  <Pill className="h-4 w-4" /> All prescriptions
+                </Button>
+              </Link>
             </div>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto pr-2 -mr-2">
             {reports.length ? (
-              <div className="relative space-y-3">
+              <div className="relative space-y-4">
                 <div className={timelineUpdating ? "sr-only" : ""}>
                   <Timeline reports={dashboardPreviewReports} onSelectReport={(report) => openReport(report)} />
                 </div>
                 {timelineUpdating ? <TimelineSkeleton /> : null}
-                {reports.length > dashboardPreviewReports.length ? (
-                  <p className="text-right text-xs font-medium text-slate-500">
-                    Showing latest {dashboardPreviewReports.length} of {reports.length}. Use the buttons above to see everything.
-                  </p>
-                ) : null}
               </div>
             ) : (
               timelineUpdating ? (
                 <TimelineSkeleton />
               ) : (
-                <div className="rounded-lg border-2 border-dashed border-slate-200 bg-white p-8 text-center shadow-card">
-                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-brand-50">
-                    <Upload className="h-7 w-7 text-brand-500" />
+                <div className="flex h-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-100 bg-slate-50/50 p-8 text-center">
+                  <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm">
+                    <Upload className="h-6 w-6 text-slate-400" />
                   </div>
-                  <h3 className="font-display text-lg font-semibold text-slate-900">No reports yet</h3>
-                  <p className="mt-1 text-sm text-slate-500">Upload your first blood report to get started with AI analysis.</p>
-                  <Button className="mt-5 gap-2" onClick={() => setUploadOpen(true)}>
-                    <Plus className="h-4 w-4" />
-                    Upload your first report
+                  <h3 className="font-display text-lg font-bold text-slate-900">No reports yet</h3>
+                  <p className="mt-2 text-sm text-slate-500 max-w-sm">Upload your first blood report or prescription to start building your health timeline.</p>
+                  <Button className="mt-6 gap-2 rounded-xl" onClick={() => setUploadOpen(true)}>
+                    <Plus className="h-4 w-4" /> Upload Report
                   </Button>
                 </div>
               )
             )}
           </div>
-        </section>
+        </BentoCard>
 
-        <aside className="space-y-4">
-          <div id="ice-card-panel" className="scroll-mt-24">
-            <EmergencyCard user={user} reports={reports} latestReport={reports[0] ?? null} circleId={selectedCircleId} />
+        {/* Emergency Card Box (col 4, row span 2) */}
+        <BentoCard id="ice-card-panel" noPadding className="md:col-span-6 lg:col-span-4 lg:row-span-2 scroll-mt-24 h-full bg-slate-50/50">
+           <EmergencyCard user={user} reports={reports} latestReport={reports[0] ?? null} circleId={selectedCircleId} />
+        </BentoCard>
+
+        {/* Action Panel Box (col 4) */}
+        <BentoCard className="md:col-span-6 lg:col-span-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">Quick Actions</p>
+          <div className="space-y-3">
+            <button
+              className="group flex w-full items-center gap-4 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm transition-all hover:border-brand-200 hover:shadow-md"
+              onClick={() => setUploadOpen(true)}
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 transition-colors group-hover:bg-brand-100">
+                <Upload className="h-5 w-5" />
+              </span>
+              <span className="text-sm font-semibold text-slate-700">Upload new document</span>
+            </button>
+            <Link href="/trends" className="group flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm transition-all hover:border-teal-200 hover:shadow-md">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-600 transition-colors group-hover:bg-teal-100">
+                <TrendingUp className="h-5 w-5" />
+              </span>
+              <span className="text-sm font-semibold text-slate-700">View trend charts</span>
+            </Link>
+            <Link href="/family" className="group flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm transition-all hover:border-slate-300 hover:shadow-md">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 transition-colors group-hover:bg-slate-200">
+                <UsersRound className="h-5 w-5" />
+              </span>
+              <span className="text-sm font-semibold text-slate-700">Manage Care Circles</span>
+            </Link>
           </div>
-          <RemindersPanel reports={reports} />
+        </BentoCard>
 
-          <Card className="space-y-3 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Quick Actions</p>
-            <div className="space-y-2">
-              <button
-                className="flex w-full items-center gap-3 rounded-xl p-2.5 text-left transition-colors hover:bg-slate-50"
-                onClick={() => setUploadOpen(true)}
-              >
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-100 text-brand-600">
-                  <Upload className="h-4 w-4" />
-                </span>
-                <span className="text-sm font-medium text-slate-700">Upload a new report</span>
-              </button>
-              <Link href="/trends" className="flex items-center gap-3 rounded-xl p-2.5 transition-colors hover:bg-slate-50">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-100 text-teal-600">
-                  <TrendingUp className="h-4 w-4" />
-                </span>
-                <span className="text-sm font-medium text-slate-700">View trend charts</span>
-              </Link>
-              <Link href="/family" className="flex items-center gap-3 rounded-xl p-2.5 transition-colors hover:bg-slate-50">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
-                  <UsersRound className="h-4 w-4" />
-                </span>
-                <span className="text-sm font-medium text-slate-700">Manage family profiles</span>
-              </Link>
-            </div>
-          </Card>
+        {/* Reminders Panel Box (col 8) */}
+        <BentoCard className="md:col-span-12 lg:col-span-8 h-full">
+           <RemindersPanel reports={reports} />
+        </BentoCard>
 
-        </aside>
+      </BentoGrid>
+
+      <div className="mt-8">
+         <FeatureStatusGrid features={features} title="Feature readiness across Featurefix.md" />
       </div>
 
       {uploadOpen ? (
         <div className="fixed inset-0 z-[80] flex items-end justify-center px-4 py-6 sm:items-center" role="dialog" aria-modal="true" aria-labelledby="dashboard-upload-title">
           <button
             type="button"
-            className="absolute inset-0 z-0 bg-slate-950/45 backdrop-blur-sm"
+            className="absolute inset-0 z-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
             onClick={() => setUploadOpen(false)}
             aria-label="Close upload modal"
           />
-          <div className="relative z-10 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white shadow-dialog animate-scale-in">
-            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
+          <div className="relative z-10 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white shadow-dialog animate-scale-in">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-brand-600">Upload Report</p>
-                <h2 id="dashboard-upload-title" className="mt-1 font-display text-xl font-bold text-slate-900">Add analysis to {contextLabel}</h2>
+                <p className="text-xs font-bold uppercase tracking-wider text-brand-600">Upload Report</p>
+                <h2 id="dashboard-upload-title" className="mt-1.5 font-display text-2xl font-bold text-slate-900">Add analysis to {contextLabel}</h2>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => setUploadOpen(false)} aria-label="Close upload modal">
-                <X className="h-4 w-4" />
+              <Button variant="ghost" size="icon" className="rounded-full bg-slate-50 hover:bg-slate-100" onClick={() => setUploadOpen(false)} aria-label="Close upload modal">
+                <X className="h-5 w-5" />
               </Button>
             </div>
-            <div className="p-5">
+            <div className="p-6">
               <InlineUploader
                 onUploaded={handleUploaded}
                 onViewReport={(report) => openReport(report)}

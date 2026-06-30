@@ -68,11 +68,13 @@ const config: Config = {
       borderRadius: {
         "4xl": "2rem",
       },
-      boxShadow: {
+        boxShadow: {
         card:    "0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06)",
         "card-hover": "0 4px 24px rgba(0,0,0,0.10)",
         navbar:  "0 1px 0 rgba(0,0,0,0.06)",
         dialog:  "0 20px 60px rgba(0,0,0,0.12)",
+        bento: "0 4px 20px -2px rgba(0,0,0,0.04), 0 0 3px rgba(0,0,0,0.02)",
+        "bento-hover": "0 10px 30px -4px rgba(0,0,0,0.08), 0 4px 10px -2px rgba(0,0,0,0.04)",
         // legacy
         calm:    "0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06)",
       },
