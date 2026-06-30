@@ -24,7 +24,7 @@ export function Navbar({ user }: { user: UserProfile }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white shadow-navbar">
+    <header className="sticky top-0 z-40 border-b border-white/40 dark:border-white/10 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl shadow-sm">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
         {/* Logo */}
         <Link

@@ -31,7 +31,8 @@ import { Timeline } from "@/components/dashboard/timeline";
 import { TrendChart } from "@/components/reports/trend-chart";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { BentoGrid } from "@/components/ui/bento-grid";
+import { BentoCard } from "@/components/ui/bento-card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -265,8 +266,8 @@ export function CirclesClient() {
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[340px_1fr]">
-      <Card className="space-y-4 p-4">
+    <BentoGrid className="!grid-cols-1 lg:!grid-cols-[340px_1fr] gap-6">
+      <BentoCard className="space-y-4 p-4 h-max">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-brand-600">Shared care</p>
@@ -312,11 +313,11 @@ export function CirclesClient() {
           ))}
           {!loading && !circles.length ? <p className="text-sm leading-6 text-slate-500">Create your first circle to invite family and share reports with explicit roles.</p> : null}
         </div>
-      </Card>
+      </BentoCard>
 
       <div className="space-y-5">
         {message ? <p className="rounded-xl border border-green-100 bg-green-50 px-3 py-2 text-sm text-green-700">{message}</p> : null}
-        <Card className="space-y-4 p-4">
+        <BentoCard className="space-y-4 p-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-brand-600">
@@ -378,10 +379,10 @@ export function CirclesClient() {
           ) : activeTab === "Assistant" ? (
             <CircleAssistant circleId={selectedId ?? ""} circleName={selectedCircle.name} context={dashboard?.healthContext ?? null} />
           ) : null}
-        </Card>
+        </BentoCard>
 
         {activeTab === "Members" ? (
-        <Card className="space-y-4 p-4">
+        <BentoCard className="space-y-4 p-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-brand-600">{selectedCircle?.myRole ?? "Circle"}</p>
             <h1 className="font-display text-2xl font-bold text-slate-900">{selectedCircle?.name ?? "Select a circle"}</h1>
@@ -485,13 +486,13 @@ export function CirclesClient() {
               </section>
             </>
           ) : null}
-        </Card>
+        </BentoCard>
         ) : null}
         {activeTab === "Activity" ? (
-        <Card className="space-y-4 p-4">
+        <BentoCard className="space-y-4 p-4">
           <h2 className="font-semibold text-slate-900">Activity Feed</h2>
           <ActivityFeed entries={dashboard?.feed ?? feed} />
-        </Card>
+        </BentoCard>
         ) : null}
       </div>
       {uploadOpen ? (
@@ -522,7 +523,7 @@ export function CirclesClient() {
           </div>
         </div>
       ) : null}
-    </div>
+    </BentoGrid>
   );
 }
 

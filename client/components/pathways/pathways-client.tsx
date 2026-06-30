@@ -5,7 +5,8 @@ import { Activity, CheckCircle2, HeartPulse, Loader2, Target } from "lucide-reac
 import { useSession } from "next-auth/react";
 
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { BentoCard } from "@/components/ui/bento-card";
+import { BentoGrid } from "@/components/ui/bento-grid";
 import { Progress } from "@/components/ui/progress";
 
 type Pathway = {
@@ -58,16 +59,16 @@ export function PathwaysClient() {
       </div>
 
       {loading ? (
-        <Card className="flex items-center gap-3 p-4 text-sm text-slate-500">
+        <BentoCard className="flex items-center gap-3 p-4 text-sm text-slate-500">
           <Loader2 className="h-4 w-4 animate-spin" />
           Loading pathways
-        </Card>
+        </BentoCard>
       ) : null}
 
-      <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
+      <BentoGrid className="!grid-cols-1 xl:!grid-cols-[1fr_320px] gap-5">
         <section className="grid gap-4">
           {pathways.map((pathway) => (
-            <Card key={pathway.condition} className="space-y-4 p-5">
+            <BentoCard key={pathway.condition} className="space-y-4 p-5 h-full flex flex-col">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h2 className="flex items-center gap-2 font-display text-xl font-bold text-slate-950">
@@ -88,11 +89,11 @@ export function PathwaysClient() {
                 <PathwayList icon={Target} title="Marker goals" items={pathway.markerGoals} />
               </div>
               <p className="text-xs leading-5 text-slate-500">{pathway.disclaimer}</p>
-            </Card>
+            </BentoCard>
           ))}
         </section>
 
-        <Card className="h-fit space-y-3 p-4">
+        <BentoCard className="h-fit space-y-3 p-4 bg-gradient-to-br from-teal-50/50 to-white">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-100 text-teal-700">
             <Activity className="h-5 w-5" />
           </div>
@@ -100,8 +101,8 @@ export function PathwaysClient() {
           <p className="text-sm leading-6 text-slate-600">
             {markerCount} out-of-range marker(s) were visible to the pathway engine. Upload repeat reports to make the pathway more specific.
           </p>
-        </Card>
-      </div>
+        </BentoCard>
+      </BentoGrid>
     </div>
   );
 }

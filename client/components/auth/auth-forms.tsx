@@ -14,7 +14,7 @@ export function AuthContainer() {
   const sessionExpired = searchParams.get("error") === "session_expired";
 
   return (
-    <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-1 shadow-dialog">
+    <div className="w-full max-w-md rounded-3xl border border-white/60 bg-white/70 backdrop-blur-2xl p-1 shadow-sm ring-1 ring-slate-900/5">
       {/* Tab switcher */}
       <div className="mb-1 flex rounded-xl bg-slate-100 p-1">
         {(["login", "signup"] as const).map((tab) => (

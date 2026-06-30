@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { CheckCircle2, CloudUpload, FileText, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { BentoCard } from "@/components/ui/bento-card";
 
 const STEPS = ["Uploading", "Extracting", "Analyzing", "Ready"] as const;
 
@@ -53,7 +53,7 @@ export function UploadWorkflow() {
   };
 
   return (
-    <Card className="p-6 space-y-6">
+    <BentoCard className="p-6 space-y-6 bg-white/70 backdrop-blur-xl">
       {/* Drop zone */}
       <div
         onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
@@ -162,6 +162,6 @@ export function UploadWorkflow() {
           </Button>
         )}
       </div>
-    </Card>
+    </BentoCard>
   );
 }

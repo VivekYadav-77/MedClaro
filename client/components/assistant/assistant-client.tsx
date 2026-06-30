@@ -7,6 +7,7 @@ import { useSession } from "next-auth/react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BentoCard } from "@/components/ui/bento-card";
+import { BentoGrid } from "@/components/ui/bento-grid";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ChatMessage, Circle, HealthContext } from "@/lib/types";
@@ -139,7 +140,7 @@ export function AssistantClient() {
         </div>
       </BentoCard>
 
-      <div className="grid gap-5 lg:grid-cols-12">
+      <BentoGrid className="!grid-cols-1 lg:!grid-cols-12 gap-5">
         <BentoCard noPadding className="lg:col-span-8 flex min-h-[640px] flex-col overflow-hidden">
           <div className="border-b border-slate-100 px-6 py-5 bg-white z-10">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -247,7 +248,7 @@ export function AssistantClient() {
             The assistant is for understanding records and preparing better questions. It should not replace emergency care or clinical decisions.
           </BentoCard>
         </aside>
-      </div>
+      </BentoGrid>
     </div>
   );
 }

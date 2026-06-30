@@ -7,6 +7,7 @@ import { useSession } from "next-auth/react";
 
 import { Button } from "@/components/ui/button";
 import { BentoCard } from "@/components/ui/bento-card";
+import { BentoGrid } from "@/components/ui/bento-grid";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { FamilyMember, UserProfile } from "@/lib/types";
@@ -161,7 +162,7 @@ export function FamilyClient({ user }: { user: UserProfile }) {
         {error ? <p className="mt-4 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700 font-medium">{error}</p> : null}
       </BentoCard>
 
-      <div className="md:col-span-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+      <BentoGrid className="md:col-span-12 !grid-cols-1 md:!grid-cols-2 lg:!grid-cols-3 gap-5">
         {members.map((member) => (
           <BentoCard key={member.id} className="flex flex-col h-full bg-gradient-to-b from-white to-slate-50/50">
             <div className="flex items-start justify-between gap-3 mb-4">
@@ -223,7 +224,7 @@ export function FamilyClient({ user }: { user: UserProfile }) {
             </div>
           </BentoCard>
         )}
-      </div>
+      </BentoGrid>
     </div>
   );
 }

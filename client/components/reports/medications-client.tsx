@@ -22,6 +22,7 @@ import { useSession } from "next-auth/react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BentoCard } from "@/components/ui/bento-card";
+import { BentoGrid } from "@/components/ui/bento-grid";
 import { PrescriptionRecord, PrescriptionRiskAnalysis, PrescriptionRiskFinding, RiskSeverity } from "@/lib/types";
 
 type RefillPrompt = {
@@ -410,11 +411,11 @@ function RiskCheckPanel({ token }: { token?: string }) {
       ) : null}
 
       {analysis?.findings.length ? (
-        <div className="grid gap-3 md:grid-cols-2">
+        <BentoGrid className="!grid-cols-1 md:!grid-cols-2 gap-3">
           {analysis.findings.map((finding) => (
             <RiskFindingCard key={`${finding.id}-${finding.title}`} finding={finding} />
           ))}
-        </div>
+        </BentoGrid>
       ) : null}
 
       {analysis?.nextSteps.length ? (
@@ -493,7 +494,7 @@ function SafetySetupChecklist({ analysis }: { analysis: PrescriptionRiskAnalysis
     },
   ];
   return (
-    <div className="grid gap-4 md:grid-cols-3">
+    <BentoGrid className="!grid-cols-1 md:!grid-cols-3 gap-4">
       {items.map((item) => (
         <BentoCard key={item.label} className="p-4 shadow-sm bg-white border border-slate-200/60">
           <div className="flex items-start gap-3">
@@ -505,7 +506,7 @@ function SafetySetupChecklist({ analysis }: { analysis: PrescriptionRiskAnalysis
           </div>
         </BentoCard>
       ))}
-    </div>
+    </BentoGrid>
   );
 }
 
@@ -597,7 +598,7 @@ function PrescriptionList({ prescriptions }: { prescriptions: PrescriptionRecord
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <BentoGrid className="!grid-cols-1 md:!grid-cols-2 gap-4">
       {prescriptions.map((record) => (
         <BentoCard key={record.id} className="p-5 h-full flex flex-col justify-between">
           <div className="space-y-4">
@@ -627,7 +628,7 @@ function PrescriptionList({ prescriptions }: { prescriptions: PrescriptionRecord
           </div>
         </BentoCard>
       ))}
-    </div>
+    </BentoGrid>
   );
 }
 
@@ -637,7 +638,7 @@ function RefillList({ prompts }: { prompts: RefillPrompt[] }) {
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <BentoGrid className="!grid-cols-1 md:!grid-cols-2 gap-4">
       {prompts.map((prompt) => (
         <BentoCard key={`${prompt.reportId}-${prompt.daysSinceUpload}`} className="p-5 h-full flex flex-col justify-between">
           <div className="flex items-start justify-between gap-4">
@@ -649,7 +650,7 @@ function RefillList({ prompts }: { prompts: RefillPrompt[] }) {
           </div>
         </BentoCard>
       ))}
-    </div>
+    </BentoGrid>
   );
 }
 

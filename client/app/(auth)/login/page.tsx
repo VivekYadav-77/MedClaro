@@ -6,8 +6,8 @@ import { AuthContainer } from "@/components/auth/auth-forms";
 
 export default function LoginPage() {
   return (
-    <main className="min-h-screen bg-gradient-to-br from-brand-50 via-white to-teal-50 px-4 py-8 text-slate-900 md:px-6">
-      <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-6xl flex-col">
+    <main className="min-h-screen px-4 py-8 text-slate-900 md:px-6">
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-6xl flex-col animate-fade-in">
         <header className="flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white">

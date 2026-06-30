@@ -17,7 +17,8 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { BentoCard } from "@/components/ui/bento-card";
+import { BentoGrid } from "@/components/ui/bento-grid";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { LifestyleLogsSection } from "@/app/(app)/settings/lifestyle-logs-section";
@@ -71,7 +72,7 @@ export function SettingsClient({ user }: { user: UserProfile }) {
         </p>
       </div>
 
-      <Card className="space-y-5 p-4">
+      <BentoCard className="space-y-5 p-4 bg-white/70 backdrop-blur-xl">
         <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-100">
             <User className="h-5 w-5 text-brand-600" />
@@ -82,7 +83,7 @@ export function SettingsClient({ user }: { user: UserProfile }) {
           </div>
         </div>
 
-        <div className="grid gap-5 md:grid-cols-2">
+        <BentoGrid className="!grid-cols-1 md:!grid-cols-2 gap-5">
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-slate-700">Full name</label>
             <Input value={name} onChange={(event) => setName(event.target.value)} />
@@ -122,7 +123,7 @@ export function SettingsClient({ user }: { user: UserProfile }) {
             />
             <p className="text-xs text-slate-500">Add one allergy per line. Use “name - reaction” when you know the reaction.</p>
           </div>
-        </div>
+        </BentoGrid>
 
         {status ? <p className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{status}</p> : null}
         {error ? <p className="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
@@ -137,11 +138,11 @@ export function SettingsClient({ user }: { user: UserProfile }) {
             Mute nudges (30 days)
           </Button>
         </div>
-      </Card>
+      </BentoCard>
 
       <LifestyleLogsSection />
 
-      <Card className="space-y-4 p-4">
+      <BentoCard className="space-y-4 p-4 bg-white/70 backdrop-blur-xl">
         <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-100">
             <Smartphone className="h-5 w-5 text-teal-700" />
@@ -151,16 +152,16 @@ export function SettingsClient({ user }: { user: UserProfile }) {
             <p className="text-xs text-slate-500">Free-mode setup with no paid messaging or wearable providers required.</p>
           </div>
         </div>
-        <div className="grid gap-3 md:grid-cols-3">
+        <BentoGrid className="!grid-cols-1 md:!grid-cols-3 gap-3">
           <IntegrationCard icon={MessageCircle} title="Care Circle alerts" status="Free mode" body="Emergency alerts use in-app notifications for admins and caregivers, plus browser sharing for phone apps." />
           <IntegrationCard icon={Activity} title="Manual health import" status="Enabled" body="Import steps, sleep, heart rate, BP, and glucose from CSV or JSON without paid wearable APIs." />
           <IntegrationCard icon={Smartphone} title="Phone sharing" status="Browser native" body="Use your device share sheet to send emergency text through installed apps when supported." />
-        </div>
-      </Card>
+        </BentoGrid>
+      </BentoCard>
 
       <HealthImportPanel token={(session as any)?.accessToken} />
 
-      <Card className="space-y-4 p-4">
+      <BentoCard className="space-y-4 p-4 bg-white/70 backdrop-blur-xl">
         <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100">
             <CalendarCheck className="h-5 w-5 text-amber-700" />
@@ -170,7 +171,7 @@ export function SettingsClient({ user }: { user: UserProfile }) {
             <p className="text-xs text-slate-500">Profile-derived schedule preview. Reminder backend is pending.</p>
           </div>
         </div>
-        <div className="grid gap-3 md:grid-cols-3">
+        <BentoGrid className="!grid-cols-1 md:!grid-cols-3 gap-3">
           {screeningTasks.map((task) => (
             <div key={task.title} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
               <div className="flex items-center justify-between gap-2">
@@ -183,10 +184,10 @@ export function SettingsClient({ user }: { user: UserProfile }) {
               </Button>
             </div>
           ))}
-        </div>
-      </Card>
+        </BentoGrid>
+      </BentoCard>
 
-      <Card className="space-y-4 p-4">
+      <BentoCard className="space-y-4 p-4 bg-white/70 backdrop-blur-xl">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-100">
             <Bone className="h-5 w-5 text-brand-700" />
@@ -196,13 +197,13 @@ export function SettingsClient({ user }: { user: UserProfile }) {
             <p className="text-xs text-slate-500">Both modules are connected to saved report context with conservative fallback logic.</p>
           </div>
         </div>
-        <div className="grid gap-3 md:grid-cols-2">
+        <BentoGrid className="!grid-cols-1 md:!grid-cols-2 gap-3">
           <LinkedModule title="Post-op discharge checklist" body="Upload discharge PDFs or paste notes to prepare action items and caregiver review points." href="/reports/discharge" action="Open discharge" />
           <LinkedModule title="90-day remission pathway" body="Prediabetes, fatty liver, and hypertension coaching uses saved abnormal markers to suggest habit pathways." href="/pathways" action="View pathways" />
-        </div>
-      </Card>
+        </BentoGrid>
+      </BentoCard>
 
-      <Card className="space-y-4 border-red-200 p-6">
+      <BentoCard className="space-y-4 border-red-200 p-6 bg-red-50/50">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100">
             <Shield className="h-5 w-5 text-red-600" />
@@ -219,7 +220,7 @@ export function SettingsClient({ user }: { user: UserProfile }) {
           <Trash2 className="h-4 w-4" />
           Delete my account & all data
         </Button>
-      </Card>
+      </BentoCard>
     </div>
   );
 }
@@ -301,7 +302,7 @@ function HealthImportPanel({ token }: { token?: string }) {
   }
 
   return (
-    <Card className="space-y-4 p-4">
+    <BentoCard className="space-y-4 p-4 bg-white/70 backdrop-blur-xl">
       <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-100">
           <Activity className="h-5 w-5 text-sky-700" />
@@ -326,7 +327,7 @@ function HealthImportPanel({ token }: { token?: string }) {
         </Button>
         <p className="text-xs text-slate-500">Allowed: steps, sleep_minutes, resting_heart_rate, blood_pressure_systolic, blood_pressure_diastolic, glucose.</p>
       </div>
-    </Card>
+      </BentoCard>
   );
 }
 

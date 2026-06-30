@@ -112,23 +112,13 @@ REST_FRAMEWORK = {
 }
 
 CORS_ALLOW_CREDENTIALS = True
-DEFAULT_FRONTEND_ORIGINS = [
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:3001",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:3001",
 ]
-configured_frontend_origins = [
-    origin.strip()
-    for origin in ",".join(
-        [
-            env("FRONTEND_URL", "") or "",
-            env("FRONTEND_URLS", "") or "",
-        ]
-    ).split(",")
-    if origin.strip()
-]
-CORS_ALLOWED_ORIGINS = list(dict.fromkeys([*DEFAULT_FRONTEND_ORIGINS, *configured_frontend_origins]))
 
 APP_NAME = env("APP_NAME", "MedClaro API") or "MedClaro API"
 API_V1_PREFIX = env("API_V1_PREFIX", "/api") or "/api"
