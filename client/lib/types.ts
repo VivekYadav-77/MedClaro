@@ -1,5 +1,13 @@
 export type LanguageCode = "en" | "hi" | "ta" | "bn" | "te" | "mr";
 
+export type AccessibilityMode = "standard" | "easy";
+
+export type FrontendPreferences = {
+  accessibilityMode: AccessibilityMode;
+  reducedMotion: boolean;
+  preferredLanguage: LanguageCode;
+};
+
 export type FamilyMember = {
   id: string;
   name: string;

@@ -8,6 +8,7 @@ import {
   BellOff,
   Bone,
   CalendarCheck,
+  Eye,
   MessageCircle,
   Save,
   Shield,
@@ -21,6 +22,7 @@ import { BentoCard } from "@/components/ui/bento-card";
 import { BentoGrid } from "@/components/ui/bento-grid";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { useAccessibilityPreferences } from "@/components/accessibility/accessibility-preferences";
 import { LifestyleLogsSection } from "@/app/(app)/settings/lifestyle-logs-section";
 import { buildScreeningTasks } from "@/lib/clinical-features";
 import { LanguageCode, UserProfile } from "@/lib/types";
@@ -34,6 +36,12 @@ export function SettingsClient({ user }: { user: UserProfile }) {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const {
+    preferences,
+    setAccessibilityMode,
+    setReducedMotion,
+    setPreferredLanguage: setPreferenceLanguage,
+  } = useAccessibilityPreferences();
   const screeningTasks = buildScreeningTasks(user.dob, biologicalSex);
 
   const saveSettings = async () => {
@@ -65,12 +73,49 @@ export function SettingsClient({ user }: { user: UserProfile }) {
   return (
     <div className="space-y-8 animate-fade-in">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Clinical setup</p>
-        <h1 className="mt-1 font-display text-2xl font-bold text-slate-900">Profile, integrations, reminders & privacy</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
-          Language selection changes UI copy and AI explanations. Inactivity signs you out after 15 minutes.
+        <p className="text-sm font-semibold uppercase tracking-wide text-brand-700">Settings</p>
+        <h1 className="mt-1 font-display text-3xl font-bold text-slate-900">Make MedClaro easier to use</h1>
+        <p className="mt-2 max-w-2xl text-base leading-7 text-slate-700">
+          Choose larger controls, simpler motion, language, reminders, and privacy settings. Inactivity signs you out after 15 minutes.
         </p>
       </div>
+
+      <BentoCard className="space-y-5 border-brand-100 bg-brand-50/60 p-5 shadow-sm">
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-brand-700 shadow-sm">
+            <Eye className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="font-display text-2xl font-bold text-slate-900">Easy mode</h2>
+            <p className="mt-1 text-base leading-7 text-slate-700">
+              Larger text, bigger buttons, stronger contrast, and less movement for senior citizens and non-tech users.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <Button
+            type="button"
+            variant={preferences.accessibilityMode === "easy" ? "default" : "outline"}
+            onClick={() => setAccessibilityMode("easy")}
+          >
+            Turn on easy mode
+          </Button>
+          <Button
+            type="button"
+            variant={preferences.accessibilityMode === "standard" ? "default" : "outline"}
+            onClick={() => setAccessibilityMode("standard")}
+          >
+            Standard mode
+          </Button>
+          <Button
+            type="button"
+            variant={preferences.reducedMotion ? "default" : "outline"}
+            onClick={() => setReducedMotion(!preferences.reducedMotion)}
+          >
+            {preferences.reducedMotion ? "Motion reduced" : "Reduce motion"}
+          </Button>
+        </div>
+      </BentoCard>
 
       <BentoCard className="space-y-5 p-4 bg-white/70 backdrop-blur-xl">
         <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
@@ -94,7 +139,14 @@ export function SettingsClient({ user }: { user: UserProfile }) {
           </div>
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-slate-700">Preferred language</label>
-            <Select value={preferredLanguage} onChange={(event) => setPreferredLanguage(event.target.value as LanguageCode)}>
+            <Select
+              value={preferredLanguage}
+              onChange={(event) => {
+                const language = event.target.value as LanguageCode;
+                setPreferredLanguage(language);
+                setPreferenceLanguage(language);
+              }}
+            >
               <option value="en">English</option>
               <option value="hi">Hindi</option>
               <option value="ta">Tamil</option>

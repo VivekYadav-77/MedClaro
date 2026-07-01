@@ -5,9 +5,11 @@
 /* ── Base reset & tokens ───────────────────────────── */
 :root {
   color-scheme: light;
-  --radius-card: 1.25rem;
+  --radius-card: 0.75rem;
   --transition-fast: 0.15s ease;
   --transition-base: 0.22s ease;
+  --page-font-size: 16px;
+  --control-min-height: 44px;
 }
 
 /* ── Body ──────────────────────────────────────────── */
@@ -19,6 +21,7 @@ body {
     radial-gradient(at 50% 0%, hsla(225,39%,30%,0.03) 0, transparent 50%), 
     radial-gradient(at 100% 0%, hsla(339,49%,30%,0.03) 0, transparent 50%);
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  font-size: var(--page-font-size);
 }
 
 /* ── Typography helpers ────────────────────────────── */
@@ -69,3 +72,45 @@ a {
 @keyframes fadeIn  { from { opacity: 0; }                           to { opacity: 1; } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); }    to { opacity: 1; transform: scale(1); } }
+
+.easy-mode {
+  --page-font-size: 18px;
+  --control-min-height: 48px;
+}
+
+.easy-mode body {
+  background-image: none;
+}
+
+.easy-mode main {
+  line-height: 1.65;
+}
+
+.easy-mode .text-xs {
+  font-size: 0.875rem;
+}
+
+.easy-mode .text-sm {
+  font-size: 1rem;
+}
+
+.easy-mode .text-slate-400,
+.easy-mode .text-slate-500 {
+  color: #475569;
+}
+
+.reduce-motion * {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+  transition-duration: 0.001ms !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+  }
+}

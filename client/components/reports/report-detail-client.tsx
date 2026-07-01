@@ -7,6 +7,7 @@ import {
   Activity,
   ArrowLeft,
   ClipboardCopy,
+  ClipboardList,
   FileDown,
   FileText,
   Pill,
@@ -31,6 +32,8 @@ import { loincHint, markerRisk } from "@/lib/clinical-features";
 import { cn } from "@/lib/utils";
 
 const tabs = ["summary", "values", "doctor-export", "meds", "diet", "chat", "sharing"] as const;
+const primaryTabs: ReportTab[] = ["summary", "chat", "sharing"];
+const detailTabs: ReportTab[] = ["values", "doctor-export", "meds", "diet"];
 type ReportTab = (typeof tabs)[number];
 type DoctorExportRow = {
   marker: string;
@@ -45,13 +48,13 @@ type DoctorExportRow = {
 };
 
 const tabLabels: Record<ReportTab, string> = {
-  summary: "Summary",
-  values: "Values",
-  "doctor-export": "Doctor Export",
-  meds: "Meds",
-  diet: "Diet",
-  chat: "Chat",
-  sharing: "Sharing",
+  summary: "Simple Summary",
+  values: "Lab Values",
+  "doctor-export": "Doctor Summary",
+  meds: "Medicines",
+  diet: "Food Advice",
+  chat: "Ask a Question",
+  sharing: "Share",
 };
 
 export function ReportDetailClient({ report }: { report: Report }) {
@@ -88,22 +91,47 @@ export function ReportDetailClient({ report }: { report: Report }) {
               {report.familyMemberName || report.ownerName ? ` - ${report.familyMemberName ?? report.ownerName}` : ""}
             </p>
           </div>
-          <Badge variant={attentionVariant(score)} className="rounded-md px-3 py-1 shadow-sm border border-white/50">{score}/5 attention</Badge>
+          <Badge variant={attentionVariant(score)} className="rounded-md border border-white/50 px-3 py-1 shadow-sm">
+            {score >= 4 ? "Needs attention" : score >= 2 ? "Worth checking" : "Looks calm"}
+          </Badge>
         </div>
 
-        <div className="flex gap-1.5 overflow-x-auto rounded-xl bg-white/50 p-1.5 border border-slate-200 backdrop-blur-sm">
-          {tabs.map((tab) => (
+        <div className="space-y-3">
+          <div className="flex gap-1.5 overflow-x-auto rounded-xl bg-white/50 p-1.5 border border-slate-200 backdrop-blur-sm" role="tablist" aria-label="Report actions">
+            {primaryTabs.map((tab) => (
+              <button
+                key={tab}
+                className={cn(
+                  "whitespace-nowrap rounded-lg px-4 py-2.5 text-base font-bold transition-all duration-200",
+                  activeTab === tab ? "bg-white text-brand-700 shadow-sm border border-slate-200/50" : "text-slate-600 hover:bg-white hover:text-slate-900"
+                )}
+                onClick={() => changeTab(tab)}
+                role="tab"
+                aria-selected={activeTab === tab}
+              >
+                {tabLabels[tab]}
+              </button>
+            ))}
+          </div>
+          <details className="rounded-xl border border-slate-200 bg-white/70 p-2">
+            <summary className="cursor-pointer px-2 py-1 text-base font-semibold text-slate-800">More details</summary>
+            <div className="mt-2 flex gap-1.5 overflow-x-auto">
+              {detailTabs.map((tab) => (
             <button
               key={tab}
               className={cn(
-                "whitespace-nowrap rounded-lg px-4 py-2 text-sm font-bold transition-all duration-200",
-                activeTab === tab ? "bg-white text-brand-700 shadow-sm border border-slate-200/50" : "text-slate-500 hover:bg-white hover:text-slate-900"
+                "whitespace-nowrap rounded-lg px-4 py-2.5 text-base font-bold transition-all duration-200",
+                activeTab === tab ? "bg-brand-50 text-brand-700 shadow-sm border border-brand-100" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
               )}
               onClick={() => changeTab(tab)}
+              role="tab"
+              aria-selected={activeTab === tab}
             >
               {tabLabels[tab]}
             </button>
-          ))}
+              ))}
+            </div>
+          </details>
         </div>
       </BentoCard>
 
@@ -126,10 +154,29 @@ function SummaryTab({ report }: { report: Report }) {
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-brand-600 shadow-sm">
             <Activity className="h-5 w-5" />
           </span>
-          <h2 className="font-display font-bold text-slate-900 text-lg">Overall Summary</h2>
+          <h2 className="font-display font-bold text-slate-900 text-2xl">Simple Summary</h2>
         </div>
-        <p className="text-sm leading-relaxed text-slate-700 font-medium">{report.aiExplanation.holisticSummary}</p>
+        <p className="text-base leading-8 text-slate-800 font-medium">{report.aiExplanation.holisticSummary}</p>
         <VoiceReadout text={report.aiExplanation.holisticSummary} language={report.language} />
+      </BentoCard>
+
+      <BentoCard className="space-y-4 border-teal-100 bg-white p-6 shadow-sm">
+        <div className="flex items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-700 shadow-sm">
+            <ClipboardList className="h-5 w-5" />
+          </span>
+          <h2 className="font-display text-2xl font-bold text-slate-900">What should I do next?</h2>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          {[
+            "Talk to a doctor before changing medicines or treatment.",
+            "Upload an older report to compare changes over time.",
+            "Use Doctor Summary before your next visit.",
+            "Share this report with family only when you are comfortable.",
+          ].map((item) => (
+            <p key={item} className="rounded-lg bg-slate-50 p-4 text-base leading-7 text-slate-800">{item}</p>
+          ))}
+        </div>
       </BentoCard>
 
       {report.aiExplanation.parameterLevel.length ? (
@@ -138,7 +185,7 @@ function SummaryTab({ report }: { report: Report }) {
             <BentoCard key={item.parameter} className="p-5 h-full flex flex-col justify-between">
               <div>
                 <p className="font-display font-bold text-slate-900 text-lg">{item.parameter}</p>
-                <p className="mt-3 text-sm leading-relaxed text-slate-600">{item.explanation}</p>
+              <p className="mt-3 text-base leading-7 text-slate-700">{item.explanation}</p>
               </div>
               <p className="mt-4 text-[10px] font-bold uppercase tracking-wider text-slate-400">{item.confidence}</p>
             </BentoCard>
@@ -240,9 +287,9 @@ function DoctorExportTab({ report }: { report: Report }) {
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-brand-600 shadow-sm">
               <Stethoscope className="h-4 w-4" />
             </span>
-            Doctor Export
+            Doctor Summary
           </h2>
-          <p className="mt-2 text-sm text-slate-500 leading-relaxed max-w-lg">Tabular handoff generated from saved report analysis with LOINC hints.</p>
+          <p className="mt-2 text-base text-slate-700 leading-relaxed max-w-lg">A printable handoff you can take to your doctor. Please verify it with the original report.</p>
           {message ? <p className="mt-3 text-xs font-bold uppercase tracking-wider text-brand-700">{message}</p> : null}
         </div>
         <div className="flex gap-2">
@@ -465,6 +512,12 @@ function attentionVariant(score: number): "success" | "warning" | "danger" | "de
   return "danger";
 }
 
+function scoreLabel(score: number) {
+  if (score >= 4) return "Needs attention";
+  if (score >= 2) return "Worth checking";
+  return "Looks calm";
+}
+
 function printDoctorExport(
   report: Report,
   rows: { item: Report["structuredData"][number]; risk: string; loinc: string; referenceRangeText?: string }[]
@@ -489,7 +542,7 @@ function printDoctorExport(
     <!doctype html>
     <html>
       <head>
-        <title>Doctor Export - ${escapeHtml(report.labName || "Health Report")}</title>
+        <title>Doctor Summary - ${escapeHtml(report.labName || "Health Report")}</title>
         <style>
           * { box-sizing: border-box; }
           body { font-family: Arial, Helvetica, sans-serif; color: #0f172a; margin: 32px; }
@@ -516,7 +569,7 @@ function printDoctorExport(
             <p><strong>Report date:</strong> ${escapeHtml(reportDate)}</p>
             <p><strong>Patient/profile:</strong> ${escapeHtml(report.familyMemberName || report.ownerName || "Saved profile")}</p>
             <p><strong>Generated:</strong> ${escapeHtml(printedAt)}</p>
-            <p><strong>Attention score:</strong> ${escapeHtml(String(report.aiExplanation?.attentionScore ?? "Not scored"))}/5</p>
+            <p><strong>Review level:</strong> ${escapeHtml(scoreLabel(report.aiExplanation?.attentionScore ?? 0))}</p>
           </div>
         </header>
         <section class="note">

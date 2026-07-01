@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
   // Base: pointer-events-auto ensures clicks always register
-  "relative inline-flex items-center justify-center gap-2 rounded-lg text-sm font-semibold " +
+  "relative inline-flex min-h-[var(--control-min-height)] items-center justify-center gap-2 rounded-lg text-base font-semibold " +
   "transition-all duration-150 pointer-events-auto select-none " +
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 " +
   "disabled:pointer-events-none disabled:opacity-40 " +
@@ -26,10 +26,10 @@ const buttonVariants = cva(
           "bg-teal-600 text-white shadow-sm hover:bg-teal-700 active:bg-teal-800",
       },
       size: {
-        sm:  "h-8 px-3 text-xs",
-        default: "h-10 px-4",
-        lg:  "h-12 px-6 text-base",
-        icon: "h-10 w-10",
+        sm:  "min-h-10 px-3 text-sm",
+        default: "px-4",
+        lg:  "min-h-12 px-6 text-lg",
+        icon: "h-11 w-11",
       }
     },
     defaultVariants: {

@@ -61,10 +61,12 @@ export function ReportCard({
           </div>
         </div>
 
-        <Badge variant={attentionVariant(score)}>{score}/5 attention</Badge>
+        <Badge variant={attentionVariant(score)}>
+          {score >= 4 ? "Needs attention" : score >= 2 ? "Worth checking" : "Looks calm"}
+        </Badge>
       </div>
 
-      <p className="mt-3 text-sm leading-relaxed text-slate-600 line-clamp-2">
+      <p className="mt-3 line-clamp-2 text-base leading-7 text-slate-700">
         {report.aiExplanation?.holisticSummary}
       </p>
 

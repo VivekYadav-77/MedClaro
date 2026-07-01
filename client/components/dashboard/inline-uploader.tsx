@@ -23,13 +23,13 @@ export function InlineUploader({
   onUploaded,
   onViewReport,
   onProcessingChange,
-  eyebrow = "Inline Upload",
-  title = "Analyze a report from the dashboard",
-  dropTitle = "Drop your report here",
+  eyebrow = "Upload Report",
+  title = "Choose a report to understand",
+  dropTitle = "Choose a file from your phone or computer",
   emptyHint = "PDF, JPG, or PNG up to 10 MB",
-  actionLabel = "Analyze report",
-  doneLabel = "View Current Analysis",
-  processingLabel = "Processing...",
+  actionLabel = "Upload and explain",
+  doneLabel = "Read my report",
+  processingLabel = "Reading your report...",
   progressSteps,
   progressDoneText,
   autoAdvance = true,
@@ -72,12 +72,12 @@ export function InlineUploader({
 
     if (!ACCEPTED_TYPES.has(nextFile.type)) {
       setFile(null);
-      setError("Choose a PDF, JPG, or PNG report.");
+      setError("This file type is not supported. Please choose a PDF, JPG, or PNG report.");
       return;
     }
     if (nextFile.size > MAX_SIZE) {
       setFile(null);
-      setError("Choose a file under 10 MB.");
+      setError("This file is too large. Please choose a file under 10 MB.");
       return;
     }
     setFile(nextFile);
@@ -150,14 +150,23 @@ export function InlineUploader({
     <Card className="overflow-hidden border-brand-100 bg-white p-5 shadow-card">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-brand-600">{eyebrow}</p>
-          <h2 className="mt-1 font-display text-xl font-semibold text-slate-900">{title}</h2>
+          <p className="text-sm font-semibold uppercase tracking-wider text-brand-700">{eyebrow}</p>
+          <h2 className="mt-1 font-display text-2xl font-semibold text-slate-900">{title}</h2>
         </div>
-        <div className="inline-flex w-fit items-center gap-2 rounded-full bg-teal-50 px-3 py-1.5 text-xs font-medium text-teal-700">
+        <div className="inline-flex w-fit items-center gap-2 rounded-full bg-teal-50 px-3 py-1.5 text-sm font-medium text-teal-700">
           <ShieldCheck className="h-3.5 w-3.5" />
-          Signed storage ready
+          Private upload
         </div>
       </div>
+
+      <ol className="mb-5 grid gap-3 text-sm font-semibold text-slate-700 sm:grid-cols-3" aria-label="Upload steps">
+        {["Choose file", "Upload safely", "Read result"].map((step, index) => (
+          <li key={step} className="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-brand-700 shadow-sm">{index + 1}</span>
+            {step}
+          </li>
+        ))}
+      </ol>
 
       <div
         onDragOver={(event) => {
@@ -166,7 +175,7 @@ export function InlineUploader({
         }}
         onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
-        className={`relative flex min-h-52 flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-9 text-center transition-all ${
+        className={`relative flex min-h-56 flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-9 text-center transition-all ${
           dragging
             ? "border-brand-400 bg-brand-50"
             : file
@@ -177,8 +186,8 @@ export function InlineUploader({
         {file ? (
           <>
             <FileText className="mb-3 h-10 w-10 text-teal-500" />
-            <p className="max-w-full break-words font-semibold text-slate-900">{file.name}</p>
-            <p className="mt-1 text-xs text-slate-500">{(file.size / 1024).toFixed(1)} KB</p>
+            <p className="max-w-full break-words text-lg font-semibold text-slate-900">{file.name}</p>
+            <p className="mt-1 text-sm text-slate-600">{(file.size / 1024).toFixed(1)} KB</p>
             <button
               type="button"
               onClick={reset}
@@ -192,10 +201,10 @@ export function InlineUploader({
         ) : (
           <>
             <CloudUpload className="mb-4 h-12 w-12 text-slate-400" />
-            <p className="font-display text-lg font-semibold text-slate-900">{dropTitle}</p>
-            <p className="mt-1 text-sm text-slate-500">{emptyHint}</p>
-            <Button variant="outline" className="mt-5" onClick={() => inputRef.current?.click()}>
-              Browse files
+            <p className="font-display text-2xl font-semibold text-slate-900">{dropTitle}</p>
+            <p className="mt-2 text-base text-slate-700">{emptyHint}. You may also drag and drop here.</p>
+            <Button variant="outline" size="lg" className="mt-5" onClick={() => inputRef.current?.click()}>
+              Choose file
             </Button>
           </>
         )}
@@ -205,12 +214,13 @@ export function InlineUploader({
           accept=".pdf,.jpg,.jpeg,.png"
           onChange={(event) => selectFile(event.target.files?.[0])}
           className="sr-only"
+          aria-label="Choose report file"
         />
       </div>
 
       {error ? (
         <div className="mt-3 flex flex-col gap-3 rounded-xl border border-red-100 bg-red-50 p-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm font-medium text-red-700">{error}</p>
+          <p className="text-base font-medium text-red-700">{error}</p>
           <Button variant="outline" size="sm" onClick={upload} disabled={!file || busy}>
             Try Again
           </Button>
@@ -295,7 +305,7 @@ function buildMockReport(file: File): Report {
     reportType: file.type === "application/pdf" ? "blood_test" : "prescription",
     reportDate: now,
     uploadDate: now,
-    labName: "Inline Upload Preview",
+    labName: "Upload Preview",
     fileRef: file.name,
     language: "en",
     structuredData: [

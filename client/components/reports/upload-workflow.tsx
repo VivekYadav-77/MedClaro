@@ -5,7 +5,7 @@ import { CheckCircle2, CloudUpload, FileText, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BentoCard } from "@/components/ui/bento-card";
 
-const STEPS = ["Uploading", "Extracting", "Analyzing", "Ready"] as const;
+const STEPS = ["Choose file", "Upload safely", "Read result", "Ready"] as const;
 
 export function UploadWorkflow() {
   const [file, setFile] = useState<File | null>(null);
@@ -82,13 +82,13 @@ export function UploadWorkflow() {
         ) : (
           <>
             <CloudUpload className="h-12 w-12 text-slate-400 mb-4" />
-            <h2 className="font-display text-xl font-semibold text-slate-900">Drop your report here</h2>
-            <p className="mt-1 text-sm text-slate-500">PDF, JPG, or PNG up to 10 MB</p>
+            <h2 className="font-display text-2xl font-semibold text-slate-900">Choose your report</h2>
+            <p className="mt-2 text-base text-slate-700">PDF, JPG, or PNG up to 10 MB. You may also drag and drop here.</p>
             <label className="mt-5 cursor-pointer">
-              <span className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm">
-                Browse files
+              <span className="inline-flex min-h-11 items-center rounded-xl border border-slate-300 bg-white px-5 py-2 text-base font-semibold text-slate-800 shadow-sm transition-colors hover:bg-slate-50">
+                Choose file
               </span>
-              <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileInput} className="sr-only" />
+              <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileInput} className="sr-only" aria-label="Choose report file" />
             </label>
           </>
         )}
@@ -155,9 +155,9 @@ export function UploadWorkflow() {
             disabled={!file || currentStep >= 0}
           >
             {currentStep >= 0 ? (
-              <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</>
+              <><Loader2 className="h-4 w-4 animate-spin" /> Reading report...</>
             ) : (
-              <><CloudUpload className="h-4 w-4" /> Analyse report</>
+              <><CloudUpload className="h-4 w-4" /> Upload and explain</>
             )}
           </Button>
         )}

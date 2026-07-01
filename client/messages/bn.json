@@ -1,7 +1,20 @@
 {
-  "appName": "HealthStack",
-  "dashboardTitle": "আপনার স্বাস্থ্য টাইমলাইন",
-  "uploadCta": "রিপোর্ট আপলোড করুন",
-  "emptyReports": "এখনও কোনও রিপোর্ট নেই - শুরু করতে আপনার প্রথম ব্লাড রিপোর্ট আপলোড করুন",
-  "aiReading": "AI আপনার রিপোর্ট পড়ছে..."
+  "appName": "MedClaro",
+  "dashboardTitle": "Your health home",
+  "uploadCta": "Upload report",
+  "emptyReports": "No reports yet - upload your first report to get started",
+  "aiReading": "MedClaro is reading your report...",
+  "navigation": {
+    "myReports": "My Reports",
+    "askForHelp": "Ask for Help",
+    "healthTrends": "Health Trends",
+    "familyCare": "Family Care",
+    "settings": "Settings",
+    "easyMode": "Easy mode",
+    "easyModeOn": "Easy mode on",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "on": "On",
+    "off": "Off"
+  }
 }

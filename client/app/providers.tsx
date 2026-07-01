@@ -4,6 +4,7 @@ import { ReactNode, useEffect, useRef } from "react";
 import { SessionProvider, signOut } from "next-auth/react";
 import { NextIntlClientProvider } from "next-intl";
 
+import { AccessibilityPreferencesProvider } from "@/components/accessibility/accessibility-preferences";
 import { LanguageCode } from "@/lib/types";
 import { getMessages } from "@/lib/i18n";
 
@@ -45,8 +46,10 @@ export function Providers({
   return (
     <SessionProvider>
       <NextIntlClientProvider locale={locale} messages={getMessages(locale)}>
-        <IdleLogout />
-        {children}
+        <AccessibilityPreferencesProvider locale={locale}>
+          <IdleLogout />
+          {children}
+        </AccessibilityPreferencesProvider>
       </NextIntlClientProvider>
     </SessionProvider>
   );

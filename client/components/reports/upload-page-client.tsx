@@ -48,16 +48,16 @@ export function UploadPageClient() {
       </Link>
 
       <div className="space-y-1">
-        <p className="text-xs font-semibold uppercase tracking-widest text-brand-600">
-          {isPrescription ? "Rx Context Analysis" : "Upload Report"}
+        <p className="text-sm font-semibold uppercase tracking-widest text-brand-600">
+          {isPrescription ? "Prescription help" : "Upload Report"}
         </p>
         <h1 className="font-display text-3xl font-bold text-slate-900">
-          {isPrescription ? "Upload prescription, select saved reports, run context analysis" : "Add a blood report, prescription, or scan"}
+          {isPrescription ? "Upload a prescription and understand it" : "Add a blood report, prescription, or scan"}
         </h1>
-        <p className="max-w-2xl text-sm leading-relaxed text-slate-600">
+        <p className="max-w-2xl text-base leading-7 text-slate-700">
           {isPrescription
-            ? "The prescription is extracted first. Then choose from saved analyzed reports ranked by relevance, or continue with prescription-only analysis at lower confidence."
-            : "Files are validated for MIME type, limited to 10 MB, and analyzed through the connected report API when available."}
+            ? "We will read the prescription first. Then you can connect it with saved reports, or continue with the prescription only."
+            : "Choose a PDF, JPG, or PNG file. We will upload it privately and explain the result in simple words."}
         </p>
       </div>
 
@@ -65,9 +65,9 @@ export function UploadPageClient() {
         <Card className="flex items-start gap-3 border-amber-200 bg-amber-50 p-4 shadow-none">
           <Pill className="mt-0.5 h-5 w-5 text-amber-700" />
           <div>
-            <p className="font-semibold text-amber-950">Prescription context</p>
-            <p className="mt-1 text-sm leading-6 text-amber-900">
-              After upload, you will review saved analyzed reports. If none are available, you can continue with a lower-confidence prescription-only explanation.
+            <p className="font-semibold text-amber-950">Prescription help</p>
+            <p className="mt-1 text-base leading-7 text-amber-900">
+              After upload, you can choose related reports. If there are no reports yet, you can still get a simpler prescription explanation.
             </p>
           </div>
         </Card>
@@ -76,18 +76,18 @@ export function UploadPageClient() {
       <InlineUploader
         onUploaded={handleUploaded}
         onViewReport={(report) => (isPrescription ? openPrescriptionContext(report) : router.push(`/reports/${report._id}`))}
-        eyebrow={isPrescription ? "Prescription upload" : "Inline Upload"}
-        title={isPrescription ? "Upload prescription for extraction" : "Analyze a report from the dashboard"}
-        dropTitle={isPrescription ? "Drop your prescription here" : "Drop your report here"}
-        actionLabel={isPrescription ? "Extract prescription" : "Analyze report"}
-        processingLabel={isPrescription ? "Extracting prescription..." : "Processing..."}
-        doneLabel={isPrescription ? "Next: choose reports" : "View Current Analysis"}
+        eyebrow={isPrescription ? "Prescription upload" : "Upload Report"}
+        title={isPrescription ? "Choose your prescription file" : "Choose a report to understand"}
+        dropTitle={isPrescription ? "Choose your prescription" : "Choose your report"}
+        actionLabel={isPrescription ? "Upload prescription" : "Upload and explain"}
+        processingLabel={isPrescription ? "Reading prescription..." : "Reading your report..."}
+        doneLabel={isPrescription ? "Next: choose reports" : "Read my report"}
         progressSteps={
           isPrescription
-            ? ["Uploading", "Extracting prescription text", "Saving prescription context", "Ready for report selection"]
+            ? ["Uploading", "Reading prescription", "Saving details", "Ready for report selection"]
             : undefined
         }
-        progressDoneText={isPrescription ? "Prescription extracted" : undefined}
+        progressDoneText={isPrescription ? "Prescription ready" : undefined}
         autoAdvance={!isPrescription}
         uploadKind={isPrescription ? "prescription" : "report"}
       />
