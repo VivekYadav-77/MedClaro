@@ -29,6 +29,7 @@ import { ActivityFeed } from "@/components/circles/activity-feed";
 import { InlineUploader } from "@/components/dashboard/inline-uploader";
 import { Timeline } from "@/components/dashboard/timeline";
 import { TrendChart } from "@/components/reports/trend-chart";
+import { RelatedActions } from "@/components/journeys/related-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BentoGrid } from "@/components/ui/bento-grid";
@@ -37,6 +38,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ChatMessage, Circle, CircleHealthDashboard, CircleMember, FeedEntry, Report } from "@/lib/types";
+import { familyRelatedActions } from "@/lib/journeys";
 import { cn } from "@/lib/utils";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -494,6 +496,7 @@ export function CirclesClient() {
           <ActivityFeed entries={dashboard?.feed ?? feed} />
         </BentoCard>
         ) : null}
+        <RelatedActions title="Build stronger family care" actions={familyRelatedActions} />
       </div>
       {uploadOpen ? (
         <div className="fixed inset-0 z-[80] flex items-end justify-center px-4 py-6 sm:items-center" role="dialog" aria-modal="true">

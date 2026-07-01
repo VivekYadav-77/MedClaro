@@ -7,9 +7,11 @@ import { ArrowLeft, Brain, CheckCircle2, FileText, Loader2, Pill, X } from "luci
 import { useSession } from "next-auth/react";
 
 import { InlineUploader } from "@/components/dashboard/inline-uploader";
+import { RelatedActions } from "@/components/journeys/related-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { medicineRelatedActions, reportRelatedActions } from "@/lib/journeys";
 import { PrescriptionCandidateReport, PrescriptionContextualAnalysis, Report } from "@/lib/types";
 
 export function UploadPageClient() {
@@ -90,6 +92,11 @@ export function UploadPageClient() {
         progressDoneText={isPrescription ? "Prescription ready" : undefined}
         autoAdvance={!isPrescription}
         uploadKind={isPrescription ? "prescription" : "report"}
+      />
+
+      <RelatedActions
+        title={isPrescription ? "After prescription upload" : "After report upload"}
+        actions={isPrescription ? medicineRelatedActions : reportRelatedActions.slice(0, 3)}
       />
 
       {contextReport ? (

@@ -1,8 +1,10 @@
 import { TrendChart } from "@/components/reports/trend-chart";
 import { TrajectoryCard } from "@/components/reports/trajectory-card";
+import { RelatedActions } from "@/components/journeys/related-actions";
 import { BentoCard } from "@/components/ui/bento-card";
 import { BentoGrid } from "@/components/ui/bento-grid";
 import { getTrends } from "@/lib/api";
+import { trendsRelatedActions } from "@/lib/journeys";
 import { AlertTriangle, Calendar, ScanSearch, Stethoscope, TrendingUp, type LucideIcon } from "lucide-react";
 import { TreatmentTab } from "@/app/(app)/trends/treatment-tab";
 
@@ -136,6 +138,8 @@ export default async function TrendsPage() {
         </div>
         <TreatmentTab />
       </section>
+
+      <RelatedActions title="Turn trends into action" actions={trendsRelatedActions} />
     </div>
   );
 }

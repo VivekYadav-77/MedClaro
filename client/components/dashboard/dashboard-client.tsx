@@ -22,15 +22,25 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { InlineUploader } from "@/components/dashboard/inline-uploader";
 import { EmergencyCard } from "@/components/dashboard/emergency-card";
+import {
+  DoctorVisitCard,
+  EmergencyReadinessCard,
+  FamilyCareCard,
+  LatestReportCard,
+  MedicineSafetyCard,
+  TrendReadinessCard,
+} from "@/components/dashboard/ecosystem-cards";
 import { RemindersPanel } from "@/components/dashboard/reminders-panel";
 import { Timeline } from "@/components/dashboard/timeline";
 import { MilestoneToast } from "@/components/circles/milestone-toast";
+import { JourneyCallout } from "@/components/journeys/related-actions";
 import { Button } from "@/components/ui/button";
 import { BentoCard } from "@/components/ui/bento-card";
 import { BentoGrid } from "@/components/ui/bento-grid";
 import { Card } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { collectAbnormalMarkers } from "@/lib/clinical-features";
+import { getNextBestAction } from "@/lib/journeys";
 import { Circle, Report, UserProfile } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -54,15 +64,11 @@ export function DashboardClient({
   const firstName = user.name.split(" ")[0];
 
   const abnormalMarkers = useMemo(() => collectAbnormalMarkers(reports), [reports]);
-  const highestRiskReport = useMemo(
-    () => [...reports].sort((a, b) => (b.aiExplanation?.attentionScore ?? 0) - (a.aiExplanation?.attentionScore ?? 0))[0],
-    [reports]
-  );
-  const nextReminderCount = useMemo(() => reports.filter((report) => (report.aiExplanation?.attentionScore ?? 0) >= 3).length, [reports]);
   const activeCircleName = circles.find((circle) => circle.id === selectedCircleId)?.name;
   const contextLabel = selectedCircleId ? activeCircleName ?? "selected Care Circle" : selectedFamilyMemberId ? "selected family profile" : "my private reports";
   const primaryAlert = abnormalMarkers[0];
   const dashboardPreviewReports = useMemo(() => reports.slice(0, 3), [reports]);
+  const nextBestAction = useMemo(() => getNextBestAction({ reports, user, circles }), [circles, reports, user]);
 
   useEffect(() => {
     if (!process.env.NEXT_PUBLIC_API_URL || !session?.accessToken) return;
@@ -171,10 +177,10 @@ export function DashboardClient({
     <div className="space-y-6 animate-fade-in pb-12">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-2">
-          <p className="text-sm font-semibold uppercase tracking-wide text-brand-700">Your Health Home</p>
-          <h1 className="font-display text-3xl font-bold tracking-tight text-slate-950 md:text-4xl">Hello {firstName}, what would you like to do?</h1>
+          <p className="text-sm font-semibold uppercase tracking-wide text-brand-700">Home</p>
+          <h1 className="font-display text-3xl font-bold tracking-tight text-slate-950 md:text-4xl">Hello {firstName}, your health ecosystem is connected here</h1>
           <p className="max-w-2xl text-base leading-7 text-slate-700">
-            See your latest reports, upload a new document, ask a simple question, or share updates with family.
+            Upload health data, understand it, track changes, review medicines, coordinate family care, and prepare for doctor or emergency moments.
           </p>
         </div>
         <div className="flex flex-col gap-3 sm:min-w-[320px]">
@@ -203,6 +209,8 @@ export function DashboardClient({
         </div>
       </div>
 
+      <JourneyCallout action={nextBestAction} />
+
       <section aria-labelledby="quick-actions-title" className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <h2 id="quick-actions-title" className="sr-only">Quick actions</h2>
         <QuickAction
@@ -230,6 +238,21 @@ export function DashboardClient({
           body="Let caregivers see important reports with consent."
           href="/circles"
         />
+      </section>
+
+      <section className="space-y-4" aria-labelledby="ecosystem-title">
+        <div>
+          <p className="text-sm font-bold uppercase tracking-wider text-slate-600">Connected journey hubs</p>
+          <h2 id="ecosystem-title" className="font-display text-2xl font-bold text-slate-950">How your features work together</h2>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <LatestReportCard report={reports[0]} />
+          <TrendReadinessCard reports={reports} />
+          <MedicineSafetyCard reports={reports} />
+          <FamilyCareCard user={user} circles={circles} />
+          <EmergencyReadinessCard reports={reports} />
+          <DoctorVisitCard report={reports[0]} />
+        </div>
       </section>
 
       <BentoGrid className="!grid-cols-1 md:!grid-cols-12 gap-5 md:gap-6 mt-6">

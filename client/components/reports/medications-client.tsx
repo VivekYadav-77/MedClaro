@@ -23,6 +23,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BentoCard } from "@/components/ui/bento-card";
 import { BentoGrid } from "@/components/ui/bento-grid";
+import { RelatedActions } from "@/components/journeys/related-actions";
+import { medicineRelatedActions } from "@/lib/journeys";
 import { PrescriptionRecord, PrescriptionRiskAnalysis, PrescriptionRiskFinding, RiskSeverity } from "@/lib/types";
 
 type RefillPrompt = {
@@ -279,6 +281,8 @@ export function MedicationsClient({
       ) : (
         <PrescriptionList prescriptions={prescriptions} />
       )}
+
+      <RelatedActions title="Connect medicines to the wider health picture" actions={medicineRelatedActions} />
     </div>
   );
 }

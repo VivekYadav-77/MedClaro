@@ -27,8 +27,10 @@ import { LifestyleCorrelationCard } from "@/components/reports/lifestyle-correla
 import { MedicationCard } from "@/components/reports/medication-card";
 import { SummaryGenerator } from "@/components/reports/summary-generator";
 import { VoiceReadout } from "@/components/reports/voice-readout";
+import { RelatedActions } from "@/components/journeys/related-actions";
 import { Circle, Report, ReportShare } from "@/lib/types";
 import { loincHint, markerRisk } from "@/lib/clinical-features";
+import { reportRelatedActions } from "@/lib/journeys";
 import { cn } from "@/lib/utils";
 
 const tabs = ["summary", "values", "doctor-export", "meds", "diet", "chat", "sharing"] as const;
@@ -142,6 +144,7 @@ export function ReportDetailClient({ report }: { report: Report }) {
       {activeTab === "diet" ? <DietAdvicePanel reportId={report._id} /> : null}
       {activeTab === "chat" ? <ChatPanel reportId={report._id} language={report.language} initialMessages={report.chatHistory ?? []} /> : null}
       {activeTab === "sharing" ? <ReportSharingTab report={report} /> : null}
+      <RelatedActions title="Use this report across the ecosystem" actions={reportRelatedActions} />
     </div>
   );
 }

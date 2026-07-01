@@ -8,8 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BentoCard } from "@/components/ui/bento-card";
 import { BentoGrid } from "@/components/ui/bento-grid";
+import { RelatedActions } from "@/components/journeys/related-actions";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { reportRelatedActions } from "@/lib/journeys";
 import { ChatMessage, Circle, HealthContext } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -249,6 +251,8 @@ export function AssistantClient() {
           </BentoCard>
         </aside>
       </BentoGrid>
+
+      <RelatedActions title="Use the assistant answer in your next step" actions={reportRelatedActions} />
     </div>
   );
 }

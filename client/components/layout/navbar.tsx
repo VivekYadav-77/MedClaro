@@ -9,16 +9,9 @@ import { useTranslations } from "next-intl";
 import { useAccessibilityPreferences } from "@/components/accessibility/accessibility-preferences";
 import { FamilySwitcher } from "@/components/layout/family-switcher";
 import { NotificationBell } from "@/components/layout/notification-bell";
+import { getActiveJourney, journeyHubs } from "@/lib/journeys";
 import { UserProfile } from "@/lib/types";
 import { cn } from "@/lib/utils";
-
-const navLinks = [
-  { href: "/dashboard", key: "myReports" },
-  { href: "/assistant", key: "askForHelp" },
-  { href: "/trends", key: "healthTrends" },
-  { href: "/circles", key: "familyCare" },
-  { href: "/settings", key: "settings" },
-] as const;
 
 export function Navbar({ user }: { user: UserProfile }) {
   const pathname = usePathname();
@@ -26,6 +19,7 @@ export function Navbar({ user }: { user: UserProfile }) {
   const { preferences, setAccessibilityMode } = useAccessibilityPreferences();
   const [mobileOpen, setMobileOpen] = useState(false);
   const easyMode = preferences.accessibilityMode === "easy";
+  const activeJourney = getActiveJourney(pathname);
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
@@ -48,22 +42,23 @@ export function Navbar({ user }: { user: UserProfile }) {
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-1 md:flex" aria-label="Main navigation">
-          {navLinks.map(({ href, key }) => {
-            const active = pathname === href || pathname.startsWith(href + "/");
+        <nav className="hidden items-center gap-1 md:flex" aria-label="Journey navigation">
+          {journeyHubs.map((hub) => {
+            const active = activeJourney === hub.id;
             return (
               <Link
-                key={href}
-                href={href}
+                key={hub.id}
+                href={hub.href}
                 className={cn(
-                  "rounded-lg px-3.5 py-2.5 text-base font-semibold transition-colors",
+                  "rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors xl:text-base",
                   active
                     ? "bg-brand-50 text-brand-700"
                     : "text-slate-700 hover:bg-slate-100 hover:text-slate-950"
                 )}
                 aria-current={active ? "page" : undefined}
+                title={hub.description}
               >
-                {t(key)}
+                {hub.shortLabel}
               </Link>
             );
           })}
@@ -113,12 +108,12 @@ export function Navbar({ user }: { user: UserProfile }) {
             {t("easyMode")}
             <span className="text-sm">{easyMode ? t("on") : t("off")}</span>
           </button>
-          {navLinks.map(({ href, key }) => {
-            const active = pathname === href || pathname.startsWith(href + "/");
+          {journeyHubs.map((hub) => {
+            const active = activeJourney === hub.id;
             return (
               <Link
-                key={href}
-                href={href}
+                key={hub.id}
+                href={hub.href}
                 onClick={() => setMobileOpen(false)}
                 className={cn(
                   "flex items-center rounded-xl px-4 py-3 text-base font-semibold transition-colors",
@@ -126,7 +121,7 @@ export function Navbar({ user }: { user: UserProfile }) {
                 )}
                 aria-current={active ? "page" : undefined}
               >
-                {t(key)}
+                {hub.label}
               </Link>
             );
           })}

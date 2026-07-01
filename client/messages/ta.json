@@ -16,5 +16,16 @@
     "closeMenu": "Close menu",
     "on": "On",
     "off": "Off"
+  },
+  "journeys": {
+    "home": "Home",
+    "reports": "Understand Reports",
+    "trends": "Health Trends",
+    "medicines": "Medicines",
+    "family": "Family Care",
+    "doctor": "Emergency & Doctor Visit",
+    "nextStep": "Today’s next step",
+    "connectedEcosystem": "Connected ecosystem",
+    "relatedActions": "Related next steps"
   }
 }
