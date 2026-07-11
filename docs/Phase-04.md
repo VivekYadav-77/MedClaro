@@ -59,13 +59,28 @@
 - Report analysis result UI plan.
 - Safety review workflow plan.
 
+## Implementation Notes
+
+- Added `report_analysis` Django app for report analysis records and biomarker storage.
+- Added owner-scoped APIs under `/api/v1/report-analyses/`.
+- Added a deterministic mocked analysis service that preserves the Gemini module boundary through `GEMINI_REPORT_ANALYSIS_MODEL`.
+- Stored health score, health status, key findings, food guidance, lifestyle guidance, doctor prompts, disclaimer, safety review metadata, model name, prompt version, timestamp, and source document reference.
+- Added five biomarker explanation levels:
+  - `explain_to_grandma`
+  - `simple`
+  - `detailed`
+  - `medical_student`
+  - `doctor_mode`
+- Added frontend report analysis page at `/reports` with analysis trigger, result history, safety notes, and expandable biomarker cards.
+- Live OCR and real Gemini report extraction are still future production integrations; current behavior is testable and deterministic for Phase 04 foundation work.
+
 ## Completion Checklist
 
-- [ ] Dedicated report analysis Gemini instance is planned.
-- [ ] Report analysis schema is defined.
-- [ ] Biomarker model is defined.
-- [ ] Health score rules are defined.
-- [ ] Health status rules are defined.
-- [ ] Explanation levels are defined.
-- [ ] Safety review flow is defined.
-- [ ] Frontend result view is specified.
+- [x] Dedicated report analysis Gemini instance is planned.
+- [x] Report analysis schema is defined.
+- [x] Biomarker model is defined.
+- [x] Health score rules are defined.
+- [x] Health status rules are defined.
+- [x] Explanation levels are defined.
+- [x] Safety review flow is defined.
+- [x] Frontend result view is specified.

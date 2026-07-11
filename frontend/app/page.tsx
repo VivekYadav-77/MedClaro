@@ -3,7 +3,7 @@ import Link from "next/link";
 
 const hubItems = [
   { label: "Health Profile", value: "Foundation", icon: HeartPulse },
-  { label: "Reports", value: "Ready for upload flow", icon: FileText },
+  { label: "Reports", value: "Analysis workflow", icon: FileText },
   { label: "AI Safety", value: "Educational only", icon: ShieldCheck },
   { label: "Trends", value: "Planned", icon: Activity }
 ];
@@ -36,6 +36,12 @@ export default function HomePage() {
                 href="/documents"
               >
                 Open Vault
+              </Link>
+              <Link
+                className="inline-flex rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                href="/reports"
+              >
+                Analyze Reports
               </Link>
             </div>
           </div>
