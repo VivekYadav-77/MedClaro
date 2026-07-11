@@ -1,11 +1,11 @@
 # MedClaro Progress
 
 > Last updated: 2026-07-11  
-> Current phase: Phase 02 complete, Phase 03 next
+> Current phase: Phase 03 complete, Phase 04 next
 
 ## Current Status
 
-MedClaro has moved from planning-only documents to a working full-stack foundation. The repository now contains a Django REST Framework backend scaffold, token-based identity APIs, Personal Health Profile models and APIs, a Next.js frontend scaffold, a profile onboarding UI, environment configuration guidance, AI client separation planning, and architecture documentation.
+MedClaro has moved from planning-only documents to a working full-stack foundation. The repository now contains a Django REST Framework backend scaffold, token-based identity APIs, Personal Health Profile models and APIs, secure medical document upload APIs, a Next.js frontend scaffold, profile onboarding and Medical Vault UIs, environment configuration guidance, AI client separation planning, and architecture documentation.
 
 ## Completed
 
@@ -51,6 +51,26 @@ MedClaro has moved from planning-only documents to a working full-stack foundati
 - Frontend onboarding/profile page added at `/profile`.
 - Phase 02 checklist marked complete in `docs/Phase-02.md`.
 
+### Phase 03 - Medical Document Upload and Storage
+
+- Medical document metadata model implemented.
+- Document audit events implemented.
+- Upload validation implemented for PDF, image, DOC, and DOCX files.
+- Upload size limit configured through `DJANGO_MAX_UPLOAD_MB`.
+- Document lifecycle statuses implemented:
+  - uploaded
+  - queued
+  - processing
+  - analyzed
+  - failed
+  - needs_review
+- Owner-scoped document APIs implemented under `/api/v1/documents/`.
+- Preview and download endpoints implemented.
+- Soft delete implemented for document records.
+- Analysis handoff metadata added for future report and prescription workflows.
+- Frontend Medical Vault page added at `/documents`.
+- Phase 03 checklist marked complete in `docs/Phase-03.md`.
+
 ## Verified
 
 - Backend Python syntax check passed with `python -m compileall backend`.
@@ -64,6 +84,7 @@ MedClaro has moved from planning-only documents to a working full-stack foundati
   - `http://127.0.0.1:3000`
 - Backend account/profile tests are available and can be run with:
   - `python manage.py test --settings=medclaro_api.test_settings`
+- Backend document tests are included in the same test command.
 
 ## Known Notes
 
@@ -74,32 +95,36 @@ MedClaro has moved from planning-only documents to a working full-stack foundati
   - `frontend/.next`
   - `backend/.venv`
 - PostgreSQL migrations have not been run against a real local database yet.
-- Document upload models and production AI calls are not implemented yet.
+- Production object storage is not implemented yet; local media storage is used
+  for development.
+- OCR/text extraction and production AI calls are not implemented yet.
 - The frontend profile page can submit to the backend when the user provides a
   token from registration or login.
+- The frontend document page can upload and list documents when the user
+  provides a token from registration or login.
 
 ## Next Recommended Work
 
-### Phase 03 - Medical Document Upload and Storage
+### Phase 04 - AI Health Report Analysis
 
-The next agent should begin Phase 03 by implementing secure medical document upload and storage.
+The next agent should begin Phase 04 by implementing AI health report analysis.
 
 Recommended first tasks:
 
-- Define document metadata models.
-- Add upload lifecycle statuses.
-- Add secure ownership-scoped document APIs.
-- Define local and production storage behavior.
-- Add supported file type and size validation.
-- Add document history and preview UI.
-- Prepare handoff points for report and prescription AI analysis.
+- Define report analysis models connected to uploaded lab report documents.
+- Add structured biomarker result storage.
+- Build mocked Gemini report analysis service tests.
+- Add report analysis request/status/result APIs.
+- Add safety and disclaimer handling for report outputs.
+- Add frontend report analysis result screens.
 
 ## Important Files
 
 - `docs/MasterPlan.md`: master roadmap and product direction.
 - `docs/Phase-01.md`: completed foundation phase.
 - `docs/Phase-02.md`: completed identity and profile phase.
-- `docs/Phase-03.md`: next implementation phase.
+- `docs/Phase-03.md`: completed document upload and storage phase.
+- `docs/Phase-04.md`: next implementation phase.
 - `docs/Architecture.md`: current architecture baseline.
 - `.env.example`: required local environment variables.
 - `backend/medclaro_api/settings.py`: Django settings.
@@ -108,5 +133,8 @@ Recommended first tasks:
 - `backend/accounts/views.py`: identity API views.
 - `backend/health_profiles/models.py`: Personal Health Profile schema.
 - `backend/health_profiles/views.py`: profile API views.
+- `backend/documents/models.py`: Medical Vault document schema.
+- `backend/documents/views.py`: document upload, preview, download, and soft-delete APIs.
 - `frontend/app/page.tsx`: starter frontend dashboard.
 - `frontend/app/profile/page.tsx`: profile onboarding UI.
+- `frontend/app/documents/page.tsx`: Medical Vault upload and history UI.

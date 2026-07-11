@@ -53,12 +53,36 @@
 - Medical Vault foundation.
 - Security rules for document access.
 
+## Implementation Notes
+
+- Medical document metadata is implemented in `backend/documents/models.py`.
+- Supported document categories include lab reports, prescriptions, scans,
+  insurance, invoices, and other medical vault records.
+- Upload validation allows PDF, image, DOC, and DOCX files and enforces the
+  `DJANGO_MAX_UPLOAD_MB` size limit.
+- Document lifecycle statuses are implemented:
+  - uploaded
+  - queued
+  - processing
+  - analyzed
+  - failed
+  - needs_review
+- Document APIs are owner-scoped under `/api/v1/documents/`.
+- Preview and download routes stream owned files through authenticated API
+  endpoints.
+- Deletion is implemented as soft deletion with `is_deleted` and `deleted_at`.
+- Document audit events are recorded for upload, preview, download, and delete.
+- Analysis handoff metadata is stored in `analysis_handoff` for future report
+  and prescription AI workflows.
+- Frontend Medical Vault UI is available at `/documents`.
+- Backend tests cover upload, file validation, owner scoping, and soft deletion.
+
 ## Completion Checklist
 
-- [ ] Document upload flow is specified.
-- [ ] Document metadata fields are defined.
-- [ ] Supported file types are defined.
-- [ ] Status lifecycle is defined.
-- [ ] Access control rules are defined.
-- [ ] Document history view is planned.
-- [ ] Analysis handoff structure is planned.
+- [x] Document upload flow is specified.
+- [x] Document metadata fields are defined.
+- [x] Supported file types are defined.
+- [x] Status lifecycle is defined.
+- [x] Access control rules are defined.
+- [x] Document history view is planned.
+- [x] Analysis handoff structure is planned.

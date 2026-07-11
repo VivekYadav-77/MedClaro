@@ -46,6 +46,20 @@ permission grant allows family, doctor, caregiver, or emergency access.
 
 Authentication uses DRF token authentication for the current foundation stage.
 
+## Phase 03 API Surface
+
+- `GET /api/v1/documents/`: list the authenticated user's non-deleted documents.
+- `POST /api/v1/documents/`: upload a medical document with metadata.
+- `GET /api/v1/documents/{id}/`: retrieve owned document metadata.
+- `PATCH /api/v1/documents/{id}/`: update editable document metadata.
+- `DELETE /api/v1/documents/{id}/`: soft-delete an owned document.
+- `GET /api/v1/documents/{id}/status/`: retrieve processing status and handoff metadata.
+- `GET /api/v1/documents/{id}/preview/`: stream an owned document for preview.
+- `GET /api/v1/documents/{id}/download/`: download an owned document.
+
+Supported upload extensions are PDF, PNG, JPG, JPEG, WEBP, DOC, and DOCX.
+The local maximum upload size is configured with `DJANGO_MAX_UPLOAD_MB`.
+
 ## AI Client Separation
 
 Each major AI feature has its own API key and model variable so modules can be

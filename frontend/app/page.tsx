@@ -24,12 +24,20 @@ export default function HomePage() {
               A privacy-first foundation for health profiles, report analysis,
               medication intelligence, family care, and doctor-ready summaries.
             </p>
-            <Link
-              className="mt-5 inline-flex rounded-md bg-claro-blue px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
-              href="/profile"
-            >
-              Open Profile
-            </Link>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Link
+                className="inline-flex rounded-md bg-claro-blue px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+                href="/profile"
+              >
+                Open Profile
+              </Link>
+              <Link
+                className="inline-flex rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                href="/documents"
+              >
+                Open Vault
+              </Link>
+            </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {hubItems.map((item) => (
