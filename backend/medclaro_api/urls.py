@@ -27,4 +27,5 @@ urlpatterns = [
     path("api/v1/health-trends/", include("health_trends.urls")),
     path("api/v1/prescriptions/", include("medication_intelligence.urls")),
     path("api/v1/health-hub/", include("health_hub.urls")),
+    path("api/v1/daily-health/", include("daily_health.urls")),
 ]

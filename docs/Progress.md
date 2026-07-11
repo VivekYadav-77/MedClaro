@@ -1,11 +1,11 @@
 # MedClaro Progress
 
 > Last updated: 2026-07-11  
-> Current phase: Phase 07 complete, Phase 08 next
+> Current phase: Phase 08 complete, Phase 09 next
 
 ## Current Status
 
-MedClaro has moved from planning-only documents to a working full-stack foundation. The repository now contains a Django REST Framework backend scaffold, token-based identity APIs, Personal Health Profile models and APIs, secure medical document upload APIs, mocked AI health report analysis APIs, report history/timeline/trend APIs, mocked prescription and medication intelligence APIs, central health hub aggregation APIs, contextual assistant conversation APIs, a Next.js frontend scaffold, profile onboarding, Medical Vault, report analysis, trends, prescription intelligence, and Health Hub UIs, environment configuration guidance, AI client separation planning, and architecture documentation.
+MedClaro has moved from planning-only documents to a working full-stack foundation. The repository now contains a Django REST Framework backend scaffold, token-based identity APIs, Personal Health Profile models and APIs, secure medical document upload APIs, mocked AI health report analysis APIs, report history/timeline/trend APIs, mocked prescription and medication intelligence APIs, central health hub aggregation APIs, contextual assistant conversation APIs, daily symptom/journal APIs, mocked lifestyle planning APIs, a Next.js frontend scaffold, profile onboarding, Medical Vault, report analysis, trends, prescription intelligence, Health Hub, and Daily Health UIs, environment configuration guidance, AI client separation planning, and architecture documentation.
 
 ## Completed
 
@@ -163,6 +163,29 @@ MedClaro has moved from planning-only documents to a working full-stack foundati
 - Root dashboard now prioritizes the Health Hub link.
 - Phase 07 checklist marked complete in `docs/Phase-07.md`.
 
+### Phase 08 - Symptoms Tracker, Health Journal, Diet, and Exercise Planning
+
+- Daily health app implemented in `backend/daily_health`.
+- Symptom log model added with severity, pain level, timing, triggers, notes,
+  doctor-consultation flag, safety notes, and timestamps.
+- Journal entry model added with mood, stress, sleep, energy, pain, fever,
+  weight, blood pressure, blood sugar, pulse, water intake, notes, tags, and
+  timestamps.
+- Lifestyle plan model added with diet/exercise type, recommendations,
+  restrictions, doctor prompts, safety notes, input context, model name, prompt
+  version, and generated timestamp.
+- Owner-scoped daily health APIs added under `/api/v1/daily-health/`.
+- Searchable journal history added through the journal API `q` parameter.
+- Timeline events added for symptom logs and journal entries.
+- Health Hub assistant context updated with recent symptoms and journal entries.
+- Deterministic mocked diet and exercise planner added while preserving the
+  `gemini-3.1-flash-lite` module boundary.
+- Safety rules added for severe symptoms, urgent symptom keywords, high pain
+  scores, restrictive diets, and major exercise changes.
+- Frontend Daily Health page added at `/daily`.
+- Dashboard now links to Daily Health.
+- Phase 08 checklist marked complete in `docs/Phase-08.md`.
+
 ## Verified
 
 - Backend Python syntax check passed with `python -m compileall backend`.
@@ -177,6 +200,8 @@ MedClaro has moved from planning-only documents to a working full-stack foundati
 - Backend account/profile/document/report-analysis/health-trends/prescription tests passed with:
   - `python manage.py test --settings=medclaro_api.test_settings`
 - Backend account/profile/document/report-analysis/health-trends/prescription/health-hub tests passed with:
+  - `python manage.py test --settings=medclaro_api.test_settings`
+- Backend account/profile/document/report-analysis/health-trends/prescription/health-hub/daily-health tests passed with:
   - `python manage.py test --settings=medclaro_api.test_settings`
 - Backend health endpoint responded successfully:
   - `http://127.0.0.1:8000/api/v1/health/`
@@ -207,6 +232,8 @@ MedClaro has moved from planning-only documents to a working full-stack foundati
   medication database integration, and notification delivery are not implemented yet.
 - Phase 07 health assistant currently uses deterministic mocked responses; live
   Gemini health assistant calls are not implemented yet.
+- Phase 08 lifestyle planning currently uses deterministic mocked plans; live
+  Gemini diet/exercise planning and deeper symptom correlation are not implemented yet.
 - The frontend profile page can submit to the backend when the user provides a
   token from registration or login.
 - The frontend document page can upload and list documents when the user
@@ -214,18 +241,18 @@ MedClaro has moved from planning-only documents to a working full-stack foundati
 
 ## Next Recommended Work
 
-### Phase 08 - Symptoms Tracker, Health Journal, Diet, and Exercise Planning
+### Phase 09 - Family Care Circle, Doctor Mode, and Emergency Mode
 
-The next agent should begin Phase 08 by implementing symptoms, journal, diet, and exercise planning.
+The next agent should begin Phase 09 by implementing family care, doctor mode, and emergency mode.
 
 Recommended first tasks:
 
-- Define symptom and daily journal models.
-- Add timeline integration for symptom and journal entries.
-- Add diet and exercise planning schema using profile, reports, trends, and
-  medications.
-- Add mocked AI correlation and planning service tests before live AI calls.
-- Add frontend tracker, journal, diet, and exercise screens.
+- Define family care circle membership and role models.
+- Define permission and consent rules for family/doctor access.
+- Build doctor-ready summary schema from profile, reports, prescriptions,
+  trends, symptoms, and journal entries.
+- Build emergency profile access model and safety constraints.
+- Add frontend family, doctor mode, and emergency mode screens.
 
 ## Important Files
 
@@ -237,6 +264,7 @@ Recommended first tasks:
 - `docs/Phase-05.md`: completed report history, timeline, trends, and risk awareness phase.
 - `docs/Phase-06.md`: completed prescription and medication intelligence phase.
 - `docs/Phase-07.md`: completed central health hub and contextual assistant phase.
+- `docs/Phase-08.md`: completed symptoms tracker, health journal, diet, and exercise planning phase.
 - `docs/Architecture.md`: current architecture baseline.
 - `.env.example`: required local environment variables.
 - `backend/medclaro_api/settings.py`: Django settings.
@@ -259,6 +287,9 @@ Recommended first tasks:
 - `backend/health_hub/models.py`: assistant conversation and message schema.
 - `backend/health_hub/services.py`: dashboard aggregation, assistant context builder, and mocked assistant responses.
 - `backend/health_hub/views.py`: Health Hub dashboard, memory context, and assistant conversation APIs.
+- `backend/daily_health/models.py`: symptom log, journal entry, and lifestyle plan schema.
+- `backend/daily_health/services.py`: timeline integration, symptom safety rules, and mocked lifestyle planning.
+- `backend/daily_health/views.py`: symptom, journal, and lifestyle plan APIs.
 - `frontend/app/page.tsx`: starter frontend dashboard.
 - `frontend/app/profile/page.tsx`: profile onboarding UI.
 - `frontend/app/documents/page.tsx`: Medical Vault upload and history UI.
@@ -266,3 +297,4 @@ Recommended first tasks:
 - `frontend/app/trends/page.tsx`: trends and timeline UI.
 - `frontend/app/prescriptions/page.tsx`: prescription intelligence UI.
 - `frontend/app/hub/page.tsx`: central Health Hub and assistant UI.
+- `frontend/app/daily/page.tsx`: daily health tracker, journal, and lifestyle planning UI.

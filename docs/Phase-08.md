@@ -48,13 +48,30 @@
 - Exercise planner workflow.
 - Safety rules for lifestyle guidance.
 
+## Implementation Notes
+
+- Added `daily_health` Django app for symptom logs, journal entries, and lifestyle plans.
+- Added owner-scoped APIs under `/api/v1/daily-health/`:
+  - `/symptoms/` for symptom tracking.
+  - `/journal/` for daily measurement entries and searchable journal history.
+  - `/plans/` for diet and exercise plan history/generation.
+- Added `SymptomLog` model with severity, pain level, timing, triggers, notes, doctor-consultation flag, and safety notes.
+- Added `JournalEntry` model with mood, stress, sleep, energy, pain, fever, weight, blood pressure, sugar, pulse, water intake, notes, and tags.
+- Added `LifestylePlan` model with diet/exercise type, recommendations, restrictions, doctor prompts, safety notes, context snapshot, model name, prompt version, and generated timestamp.
+- Added timeline events for symptoms and journal entries through the Phase 05 `TimelineEvent` model.
+- Updated Health Hub assistant context to include recent symptoms and journal entries.
+- Added deterministic mocked diet and exercise planning while preserving the `GEMINI_DIET_EXERCISE_MODEL` boundary.
+- Added lifestyle safety rules for severe symptoms, urgent symptom keywords, high pain score, restrictive diets, and major activity changes.
+- Added frontend daily health page at `/daily` with symptom entry, quick journal entry, history search, and diet/exercise plan generation.
+- Live Gemini diet/exercise calls, richer correlation analysis, notifications, and wearable integrations remain future production work.
+
 ## Completion Checklist
 
-- [ ] Symptom model is defined.
-- [ ] Journal model is defined.
-- [ ] Daily entry UI is specified.
-- [ ] Search and history are planned.
-- [ ] Timeline integration is defined.
-- [ ] Diet planner is specified.
-- [ ] Exercise planner is specified.
-- [ ] Lifestyle safety guidance is defined.
+- [x] Symptom model is defined.
+- [x] Journal model is defined.
+- [x] Daily entry UI is specified.
+- [x] Search and history are planned.
+- [x] Timeline integration is defined.
+- [x] Diet planner is specified.
+- [x] Exercise planner is specified.
+- [x] Lifestyle safety guidance is defined.

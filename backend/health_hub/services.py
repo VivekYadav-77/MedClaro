@@ -2,6 +2,7 @@ from django.db.models import Count
 from django.utils import timezone
 
 from ai_services.gemini_config import GEMINI_MODULES
+from daily_health.models import JournalEntry, SymptomLog
 from health_profiles.models import HealthProfile
 from health_trends.models import TimelineEvent, TrendInsight
 from medication_intelligence.models import (
@@ -71,6 +72,8 @@ def build_assistant_context(owner) -> dict:
         .prefetch_related("schedules", "warnings")
         .order_by("brand_name")[:10]
     )
+    symptoms = list(SymptomLog.objects.filter(owner=owner).order_by("-started_at")[:10])
+    journal_entries = list(JournalEntry.objects.filter(owner=owner).order_by("-entry_date", "-created_at")[:10])
     warnings = list(
         MedicationWarning.objects.filter(analysis__owner=owner)
         .select_related("medication")
@@ -129,7 +132,29 @@ def build_assistant_context(owner) -> dict:
             }
             for warning in warnings
         ],
-        "symptoms_and_journal": [],
+        "symptoms_and_journal": {
+            "recent_symptoms": [
+                {
+                    "symptom": symptom.symptom,
+                    "severity": symptom.severity,
+                    "pain_level": symptom.pain_level,
+                    "started_at": symptom.started_at,
+                    "doctor_consultation_recommended": symptom.doctor_consultation_recommended,
+                }
+                for symptom in symptoms
+            ],
+            "recent_journal": [
+                {
+                    "entry_date": entry.entry_date,
+                    "title": entry.title,
+                    "mood": entry.mood,
+                    "stress": entry.stress,
+                    "sleep_hours": str(entry.sleep_hours) if entry.sleep_hours is not None else None,
+                    "notes": entry.notes[:160],
+                }
+                for entry in journal_entries
+            ],
+        },
         "family_context": [],
         "assembled_at": timezone.now().isoformat(),
     }
