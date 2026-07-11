@@ -108,13 +108,13 @@ npm run dev
 
 ```text
 ProjectHealth/
-├── backend/
+├── server/
 │   ├── projecthealth_backend/ # Core Django configuration & routing
 │   ├── users/                 # Custom user, profile, and family management
 │   ├── reports/               # Report uploads, parsing, chat, and trends
 │   ├── reminders/             # Medication and appointment reminders
-│   └── app/                   # Legacy FastAPI source & prompt templates
-└── frontend/
+│   └── circles/               # Care circles, sharing, and notifications
+└── client/
     ├── app/                   # Next.js App Router (Pages & Layouts)
     ├── components/            # Reusable UI & shadcn components
     ├── lib/                   # API layers, Auth configs, mock data

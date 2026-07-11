@@ -20,10 +20,10 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework import exceptions, status
 
-from app.utils.normalizer import normalize_value
-from app.utils.pii import strip_pii
-from app.utils.sanitizer import is_off_topic, sanitize_report_text
 from projecthealth_backend import settings
+from projecthealth_backend.utils.normalizer import normalize_value
+from projecthealth_backend.utils.pii import strip_pii
+from projecthealth_backend.utils.sanitizer import is_off_topic, sanitize_report_text
 from reports.models import AnalysisQueueEntry, AuditEvent, ChatMessage, RateLimitEntry, Report, StructuredParameter
 
 
