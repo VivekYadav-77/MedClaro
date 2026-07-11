@@ -1,11 +1,11 @@
 # MedClaro Progress
 
-> Last updated: 2026-07-11  
-> Current phase: Phase 09 complete, Phase 10 next
+> Last updated: 2026-07-12  
+> Current phase: Phase 11 complete, Phase 12 next
 
 ## Current Status
 
-MedClaro has moved from planning-only documents to a working full-stack foundation. The repository now contains a Django REST Framework backend scaffold, token-based identity APIs, Personal Health Profile models and APIs, secure medical document upload APIs, mocked AI health report analysis APIs, report history/timeline/trend APIs, mocked prescription and medication intelligence APIs, central health hub aggregation APIs, contextual assistant conversation APIs, daily symptom/journal APIs, mocked lifestyle planning APIs, family care/doctor/emergency APIs, a Next.js frontend scaffold, profile onboarding, Medical Vault, report analysis, trends, prescription intelligence, Health Hub, Daily Health, and Family Care UIs, environment configuration guidance, AI client separation planning, and architecture documentation.
+MedClaro has moved from planning-only documents to a working full-stack foundation. The repository now contains a Django REST Framework backend scaffold, token-based identity APIs, Personal Health Profile models and APIs, secure medical document upload APIs, mocked AI health report analysis APIs, report history/timeline/trend APIs, mocked prescription and medication intelligence APIs, central health hub aggregation APIs, contextual assistant conversation APIs, daily symptom/journal APIs, mocked lifestyle planning APIs, family care/doctor/emergency APIs, accessibility and multilingual planning APIs, future ecosystem planning APIs, a Next.js frontend scaffold, profile onboarding, Medical Vault, report analysis, trends, prescription intelligence, Health Hub, Daily Health, Family Care, Accessibility, and Future Modules UIs, environment configuration guidance, AI client separation planning, and architecture documentation.
 
 ## Completed
 
@@ -214,6 +214,61 @@ MedClaro has moved from planning-only documents to a working full-stack foundati
 - Dashboard now links to Family Care.
 - Phase 09 checklist marked complete in `docs/Phase-09.md`.
 
+### Phase 10 - Accessibility, Multilingual, Voice, and Senior Citizen Mode
+
+- Accessibility app implemented in `backend/accessibility`.
+- Accessibility preference model added with preferred language, fallback
+  language, senior mode, simplified dashboard, text size, high contrast, reduced
+  motion, voice summaries, report read-aloud, assistant voice input planning,
+  one-click actions, and localization notes.
+- Localized content artifact model added for translated/simplified outputs with
+  quality checks, model name, prompt version, source type, and source reference.
+- Voice summary artifact model added for report read-aloud, assistant response,
+  doctor summary, and emergency profile voice planning.
+- Owner-scoped accessibility APIs added under `/api/v1/accessibility/`.
+- Supported language roadmap added for English, Hindi, Bengali, Tamil, Telugu,
+  Marathi, Gujarati, Kannada, Malayalam, Punjabi, and Urdu.
+- Translation workflow added with medical-term preservation, quality checks,
+  and English fallback behavior.
+- Dedicated translation Gemini boundary preserved through
+  `gemini-3.1-flash-lite`.
+- Senior mode rules added for large text, simplified dashboard, high contrast,
+  reduced motion, and one-click important actions.
+- Voice workflow planning added for report read-aloud, assistant responses,
+  doctor summaries, emergency profile, future text-to-speech, and future
+  speech-to-text.
+- Frontend Accessibility page added at `/accessibility`.
+- Dashboard now links to Accessibility.
+- Phase 10 checklist marked complete in `docs/Phase-10.md`.
+
+### Phase 11 - Future Modules and Ecosystem Expansion
+
+- Future modules app implemented in `backend/future_modules`.
+- Future module roadmap model added for vaccination, women's health, child
+  growth, insurance, Medical Vault expansion, Second Opinion AI, health
+  education, wearables, hospitals, pharmacies, appointments, nutrition, fitness,
+  mental wellness, and preventive programs.
+- Vaccination record model added with due dates, linked document metadata, and
+  deterministic reminder planning rules.
+- Women's health record model added for periods, pregnancy, PCOS, menopause,
+  iron, and calcium tracking.
+- Child growth profile and measurement models added with pediatric discussion
+  prompts.
+- Insurance policy model added with policy metadata, emergency claim details,
+  and Medical Vault document links.
+- Second Opinion request model added with discussion points, questions to ask,
+  relevant findings, missing tests to discuss, and safety language.
+- Health education content model added for biomarkers, conditions, foods,
+  exercises, videos, and articles.
+- Wearable integration planning model added for steps, sleep, heart rate,
+  oxygen, weight, and activity.
+- Partner integration boundary model added for hospitals, pharmacies,
+  appointments, and insurance with consent and audit rules.
+- Owner-scoped future module APIs added under `/api/v1/future-modules/`.
+- Frontend Future Modules page added at `/future`.
+- Dashboard now links to Future Modules.
+- Phase 11 checklist marked complete in `docs/Phase-11.md`.
+
 ## Verified
 
 - Backend Python syntax check passed with `python -m compileall backend`.
@@ -232,6 +287,8 @@ MedClaro has moved from planning-only documents to a working full-stack foundati
 - Backend account/profile/document/report-analysis/health-trends/prescription/health-hub/daily-health tests passed with:
   - `python manage.py test --settings=medclaro_api.test_settings`
 - Backend account/profile/document/report-analysis/health-trends/prescription/health-hub/daily-health/family-care tests passed with:
+  - `python manage.py test --settings=medclaro_api.test_settings`
+- Backend account/profile/document/report-analysis/health-trends/prescription/health-hub/daily-health/family-care/accessibility tests passed with:
   - `python manage.py test --settings=medclaro_api.test_settings`
 - Backend health endpoint responded successfully:
   - `http://127.0.0.1:8000/api/v1/health/`
@@ -267,6 +324,13 @@ MedClaro has moved from planning-only documents to a working full-stack foundati
 - Phase 09 doctor summaries currently use deterministic structured summaries;
   live Gemini doctor summary calls, email invitation delivery, real QR image
   rendering, and PDF exports are not implemented yet.
+- Phase 10 multilingual and voice features currently use deterministic planning
+  artifacts; live translation, live text-to-speech, live speech-to-text, and
+  real audio generation are not implemented yet.
+- Phase 11 future ecosystem features currently use planning records and
+  deterministic safety/reminder strategies; live partner integrations, wearable
+  sync, automated vaccine schedules, clinical child-growth interpretation,
+  claim workflows, and production education review are not implemented yet.
 - The frontend profile page can submit to the backend when the user provides a
   token from registration or login.
 - The frontend document page can upload and list documents when the user
@@ -274,18 +338,16 @@ MedClaro has moved from planning-only documents to a working full-stack foundati
 
 ## Next Recommended Work
 
-### Phase 10 - Accessibility, Multilingual, Voice, and Senior Citizen Mode
+### Phase 12 - Testing, Security Hardening, Deployment, and Release Readiness
 
-The next agent should begin Phase 10 by implementing accessibility, multilingual, voice, and senior citizen mode.
+The next agent should begin Phase 12 by hardening MedClaro for release readiness.
 
 Recommended first tasks:
 
-- Define preferred-language response behavior across assistant, reports,
-  prescriptions, and summaries.
-- Add multilingual/translation schema using the translation Gemini boundary.
-- Add senior-friendly UI modes and accessibility preferences.
-- Add voice summary/read-aloud planning for reports and assistant answers.
-- Add frontend accessibility and language controls.
+- Expand regression tests across all backend apps.
+- Review auth, permissions, owner scoping, and audit coverage.
+- Document production deployment and environment hardening.
+- Add release readiness checklist for frontend and backend.
 
 ## Important Files
 
@@ -299,6 +361,9 @@ Recommended first tasks:
 - `docs/Phase-07.md`: completed central health hub and contextual assistant phase.
 - `docs/Phase-08.md`: completed symptoms tracker, health journal, diet, and exercise planning phase.
 - `docs/Phase-09.md`: completed Family Care Circle, Doctor Mode, and Emergency Mode phase.
+- `docs/Phase-10.md`: completed accessibility, multilingual, voice, and senior citizen mode phase.
+- `docs/Phase-11.md`: completed Future Modules and Ecosystem Expansion phase.
+- `docs/Phase-12.md`: Testing, security hardening, deployment, and release readiness.
 - `docs/Architecture.md`: current architecture baseline.
 - `.env.example`: required local environment variables.
 - `backend/medclaro_api/settings.py`: Django settings.
@@ -327,6 +392,12 @@ Recommended first tasks:
 - `backend/family_care/models.py`: family circle, membership, permission, invitation, audit, doctor summary, and emergency share schema.
 - `backend/family_care/services.py`: invitation, revocation, doctor summary, emergency profile, and QR payload workflows.
 - `backend/family_care/views.py`: family dashboard, circle, doctor summary, and emergency share APIs.
+- `backend/accessibility/models.py`: accessibility preference, localized content, and voice summary schema.
+- `backend/accessibility/services.py`: language roadmap, fallback behavior, simplified dashboard, localization, and voice planning.
+- `backend/accessibility/views.py`: accessibility preference, plan, simplified dashboard, localized content, and voice summary APIs.
+- `backend/future_modules/models.py`: future roadmap, vaccination, women's health, child growth, insurance, Second Opinion AI, education, wearable, and partner boundary schemas.
+- `backend/future_modules/services.py`: ecosystem strategy, reminder rules, Second Opinion safety language, education seed content, wearable strategy, and integration boundary planning.
+- `backend/future_modules/views.py`: future module strategy and owner-scoped planning APIs.
 - `frontend/app/page.tsx`: starter frontend dashboard.
 - `frontend/app/profile/page.tsx`: profile onboarding UI.
 - `frontend/app/documents/page.tsx`: Medical Vault upload and history UI.
@@ -336,3 +407,5 @@ Recommended first tasks:
 - `frontend/app/hub/page.tsx`: central Health Hub and assistant UI.
 - `frontend/app/daily/page.tsx`: daily health tracker, journal, and lifestyle planning UI.
 - `frontend/app/family/page.tsx`: Family Care, Doctor Mode, and Emergency Mode UI.
+- `frontend/app/accessibility/page.tsx`: accessibility, multilingual, voice, and senior mode UI.
+- `frontend/app/future/page.tsx`: Future Modules and Ecosystem Expansion UI.

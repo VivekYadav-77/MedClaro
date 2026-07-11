@@ -13,6 +13,7 @@
 - `accounts`: authentication, account lifecycle, and user preferences.
 - `health_profiles`: Personal Health Profile and AI context assembly.
 - `documents`: medical vault metadata, upload lifecycle, ownership checks.
+- `future_modules`: future ecosystem roadmap, vaccination, women's health, child growth, insurance, Second Opinion AI, education, wearable, and partner-boundary planning.
 - `ai_services`: module-specific Gemini configuration and shared safety rules.
 - `audit`: sensitive-access logging and future compliance records.
 
@@ -59,6 +60,21 @@ Authentication uses DRF token authentication for the current foundation stage.
 
 Supported upload extensions are PDF, PNG, JPG, JPEG, WEBP, DOC, and DOCX.
 The local maximum upload size is configured with `DJANGO_MAX_UPLOAD_MB`.
+
+## Phase 11 API Surface
+
+- `GET /api/v1/future-modules/strategy/`: return roadmap, data extension strategy, education strategy, and advanced AI safety rules.
+- `GET /api/v1/future-modules/roadmap/`: return seeded future module priorities.
+- `GET/POST /api/v1/future-modules/vaccinations/`: list and create vaccination planning records with reminder rules.
+- `GET/POST /api/v1/future-modules/womens-health/`: list and create women's health planning records.
+- `GET/POST /api/v1/future-modules/children/`: list and create child growth profiles.
+- `GET/POST /api/v1/future-modules/children/{child_id}/measurements/`: list and create child growth measurements.
+- `GET/POST /api/v1/future-modules/insurance/`: list and create insurance policy metadata.
+- `GET/POST /api/v1/future-modules/second-opinions/`: list and create Second Opinion AI doctor-discussion packets.
+- `GET /api/v1/future-modules/education-library/`: return planned education content models.
+- `GET/POST /api/v1/future-modules/wearables/`: list and create wearable integration plans.
+- `GET /api/v1/future-modules/wearables/strategy/`: return wearable metrics and consent strategy.
+- `GET /api/v1/future-modules/integration-boundaries/`: return hospital, pharmacy, appointment, and insurance integration boundaries.
 
 ## AI Client Separation
 

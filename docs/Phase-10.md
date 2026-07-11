@@ -50,12 +50,41 @@
 - Accessibility preferences plan.
 - Simplified UI requirements.
 
+## Implementation Notes
+
+- Added `accessibility` Django app for accessibility preferences, localized content artifacts, and voice summary planning.
+- Added owner-scoped APIs under `/api/v1/accessibility/`:
+  - `/preferences/` for preferred language, fallback language, senior mode, text size, high contrast, reduced motion, voice summaries, read-aloud reports, voice input planning, and one-click actions.
+  - `/plan/` for supported language roadmap, translation workflow, quality checks, voice workflow, senior mode rules, and fallback behavior.
+  - `/simplified-dashboard/` for reduced-complexity dashboard cards and one-click actions.
+  - `/localized-content/` for mocked multilingual artifacts with quality checks.
+  - `/voice-summaries/` for read-aloud and voice summary planning artifacts.
+- Added supported language roadmap:
+  - English
+  - Hindi
+  - Bengali
+  - Tamil
+  - Telugu
+  - Marathi
+  - Gujarati
+  - Kannada
+  - Malayalam
+  - Punjabi
+  - Urdu
+- Preserved the dedicated Gemini translation boundary through `GEMINI_TRANSLATION_MODEL`.
+- Added fallback language behavior using English as default fallback when translation confidence or support is insufficient.
+- Added translation quality checks for preserving numbers, units, medicine names, biomarker names, and warning severity.
+- Added senior mode rules for large text, simplified dashboard, one-click actions, reduced motion, and high contrast.
+- Added voice experience planning for report read-aloud, assistant responses, doctor summaries, emergency profiles, text-to-speech provider selection, and future speech-to-text.
+- Added frontend Accessibility page at `/accessibility` with preferences, language roadmap, simplified dashboard preview, translation drafts, and voice summary planning.
+- Live translation, live text-to-speech, live speech-to-text, real audio generation, and human medical translation review remain future production integrations.
+
 ## Completion Checklist
 
-- [ ] Supported language roadmap is defined.
-- [ ] Translation workflow is specified.
-- [ ] Dedicated multilingual Gemini instance is planned.
-- [ ] Voice summary flow is specified.
-- [ ] Senior mode UI rules are defined.
-- [ ] Accessibility preferences are defined.
-- [ ] Fallback language behavior is defined.
+- [x] Supported language roadmap is defined.
+- [x] Translation workflow is specified.
+- [x] Dedicated multilingual Gemini instance is planned.
+- [x] Voice summary flow is specified.
+- [x] Senior mode UI rules are defined.
+- [x] Accessibility preferences are defined.
+- [x] Fallback language behavior is defined.
