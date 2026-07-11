@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     "medication_intelligence",
     "health_hub",
     "daily_health",
+    "family_care",
     "ai_services",
     "audit",
 ]

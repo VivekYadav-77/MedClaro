@@ -1,11 +1,11 @@
 # MedClaro Progress
 
 > Last updated: 2026-07-11  
-> Current phase: Phase 08 complete, Phase 09 next
+> Current phase: Phase 09 complete, Phase 10 next
 
 ## Current Status
 
-MedClaro has moved from planning-only documents to a working full-stack foundation. The repository now contains a Django REST Framework backend scaffold, token-based identity APIs, Personal Health Profile models and APIs, secure medical document upload APIs, mocked AI health report analysis APIs, report history/timeline/trend APIs, mocked prescription and medication intelligence APIs, central health hub aggregation APIs, contextual assistant conversation APIs, daily symptom/journal APIs, mocked lifestyle planning APIs, a Next.js frontend scaffold, profile onboarding, Medical Vault, report analysis, trends, prescription intelligence, Health Hub, and Daily Health UIs, environment configuration guidance, AI client separation planning, and architecture documentation.
+MedClaro has moved from planning-only documents to a working full-stack foundation. The repository now contains a Django REST Framework backend scaffold, token-based identity APIs, Personal Health Profile models and APIs, secure medical document upload APIs, mocked AI health report analysis APIs, report history/timeline/trend APIs, mocked prescription and medication intelligence APIs, central health hub aggregation APIs, contextual assistant conversation APIs, daily symptom/journal APIs, mocked lifestyle planning APIs, family care/doctor/emergency APIs, a Next.js frontend scaffold, profile onboarding, Medical Vault, report analysis, trends, prescription intelligence, Health Hub, Daily Health, and Family Care UIs, environment configuration guidance, AI client separation planning, and architecture documentation.
 
 ## Completed
 
@@ -186,6 +186,34 @@ MedClaro has moved from planning-only documents to a working full-stack foundati
 - Dashboard now links to Daily Health.
 - Phase 08 checklist marked complete in `docs/Phase-08.md`.
 
+### Phase 09 - Family Care Circle, Doctor Mode, and Emergency Mode
+
+- Family care app implemented in `backend/family_care`.
+- Family circle, membership, permission grant, invitation, access audit, doctor
+  summary, and emergency profile share models added.
+- Family roles added:
+  - owner
+  - parent
+  - child
+  - doctor
+  - caregiver
+  - emergency contact
+- Permission grants added for profile, reports, trends, medications, symptoms,
+  journal, doctor summary, and emergency profile access.
+- Owner-scoped family care APIs added under `/api/v1/family-care/`.
+- Invitation, acceptance, revocation, and audit workflows added.
+- Doctor-ready summary generation added using profile, allergies, known
+  conditions, medicines, reports, trends, risk factors, symptoms, journal
+  entries, and doctor questions.
+- Emergency profile share generation added with critical profile payload, token,
+  QR payload, expiry strategy, active/revoked state, public access endpoint, and
+  last-access timestamp.
+- Deterministic mocked doctor summary flow added while preserving the
+  `gemini-3.1-flash-lite` module boundary.
+- Frontend Family Care page added at `/family`.
+- Dashboard now links to Family Care.
+- Phase 09 checklist marked complete in `docs/Phase-09.md`.
+
 ## Verified
 
 - Backend Python syntax check passed with `python -m compileall backend`.
@@ -202,6 +230,8 @@ MedClaro has moved from planning-only documents to a working full-stack foundati
 - Backend account/profile/document/report-analysis/health-trends/prescription/health-hub tests passed with:
   - `python manage.py test --settings=medclaro_api.test_settings`
 - Backend account/profile/document/report-analysis/health-trends/prescription/health-hub/daily-health tests passed with:
+  - `python manage.py test --settings=medclaro_api.test_settings`
+- Backend account/profile/document/report-analysis/health-trends/prescription/health-hub/daily-health/family-care tests passed with:
   - `python manage.py test --settings=medclaro_api.test_settings`
 - Backend health endpoint responded successfully:
   - `http://127.0.0.1:8000/api/v1/health/`
@@ -234,6 +264,9 @@ MedClaro has moved from planning-only documents to a working full-stack foundati
   Gemini health assistant calls are not implemented yet.
 - Phase 08 lifestyle planning currently uses deterministic mocked plans; live
   Gemini diet/exercise planning and deeper symptom correlation are not implemented yet.
+- Phase 09 doctor summaries currently use deterministic structured summaries;
+  live Gemini doctor summary calls, email invitation delivery, real QR image
+  rendering, and PDF exports are not implemented yet.
 - The frontend profile page can submit to the backend when the user provides a
   token from registration or login.
 - The frontend document page can upload and list documents when the user
@@ -241,18 +274,18 @@ MedClaro has moved from planning-only documents to a working full-stack foundati
 
 ## Next Recommended Work
 
-### Phase 09 - Family Care Circle, Doctor Mode, and Emergency Mode
+### Phase 10 - Accessibility, Multilingual, Voice, and Senior Citizen Mode
 
-The next agent should begin Phase 09 by implementing family care, doctor mode, and emergency mode.
+The next agent should begin Phase 10 by implementing accessibility, multilingual, voice, and senior citizen mode.
 
 Recommended first tasks:
 
-- Define family care circle membership and role models.
-- Define permission and consent rules for family/doctor access.
-- Build doctor-ready summary schema from profile, reports, prescriptions,
-  trends, symptoms, and journal entries.
-- Build emergency profile access model and safety constraints.
-- Add frontend family, doctor mode, and emergency mode screens.
+- Define preferred-language response behavior across assistant, reports,
+  prescriptions, and summaries.
+- Add multilingual/translation schema using the translation Gemini boundary.
+- Add senior-friendly UI modes and accessibility preferences.
+- Add voice summary/read-aloud planning for reports and assistant answers.
+- Add frontend accessibility and language controls.
 
 ## Important Files
 
@@ -265,6 +298,7 @@ Recommended first tasks:
 - `docs/Phase-06.md`: completed prescription and medication intelligence phase.
 - `docs/Phase-07.md`: completed central health hub and contextual assistant phase.
 - `docs/Phase-08.md`: completed symptoms tracker, health journal, diet, and exercise planning phase.
+- `docs/Phase-09.md`: completed Family Care Circle, Doctor Mode, and Emergency Mode phase.
 - `docs/Architecture.md`: current architecture baseline.
 - `.env.example`: required local environment variables.
 - `backend/medclaro_api/settings.py`: Django settings.
@@ -290,6 +324,9 @@ Recommended first tasks:
 - `backend/daily_health/models.py`: symptom log, journal entry, and lifestyle plan schema.
 - `backend/daily_health/services.py`: timeline integration, symptom safety rules, and mocked lifestyle planning.
 - `backend/daily_health/views.py`: symptom, journal, and lifestyle plan APIs.
+- `backend/family_care/models.py`: family circle, membership, permission, invitation, audit, doctor summary, and emergency share schema.
+- `backend/family_care/services.py`: invitation, revocation, doctor summary, emergency profile, and QR payload workflows.
+- `backend/family_care/views.py`: family dashboard, circle, doctor summary, and emergency share APIs.
 - `frontend/app/page.tsx`: starter frontend dashboard.
 - `frontend/app/profile/page.tsx`: profile onboarding UI.
 - `frontend/app/documents/page.tsx`: Medical Vault upload and history UI.
@@ -298,3 +335,4 @@ Recommended first tasks:
 - `frontend/app/prescriptions/page.tsx`: prescription intelligence UI.
 - `frontend/app/hub/page.tsx`: central Health Hub and assistant UI.
 - `frontend/app/daily/page.tsx`: daily health tracker, journal, and lifestyle planning UI.
+- `frontend/app/family/page.tsx`: Family Care, Doctor Mode, and Emergency Mode UI.

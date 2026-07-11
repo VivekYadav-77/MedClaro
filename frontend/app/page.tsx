@@ -68,6 +68,12 @@ export default function HomePage() {
               >
                 Daily Health
               </Link>
+              <Link
+                className="inline-flex rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                href="/family"
+              >
+                Family Care
+              </Link>
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">

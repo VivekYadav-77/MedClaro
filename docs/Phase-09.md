@@ -76,13 +76,41 @@
 - QR sharing strategy.
 - Family and emergency UI plans.
 
+## Implementation Notes
+
+- Added `family_care` Django app for Family Care Circle, Doctor Mode, Emergency Mode, permissions, invitations, and audit logs.
+- Added owner-scoped APIs under `/api/v1/family-care/`:
+  - `/dashboard/` for family dashboard alerts and audit history.
+  - `/circles/` for care circle creation and listing.
+  - `/circles/<id>/invite/` for invitation creation.
+  - `/circles/<id>/members/<membership_id>/revoke/` for revocation.
+  - `/circles/<id>/audit/` for audit log retrieval.
+  - `/doctor-summaries/` for doctor-ready summary generation and history.
+  - `/emergency-shares/` for emergency profile share creation/listing.
+  - `/emergency-shares/<token>/public/` for time-limited emergency access.
+- Added family roles:
+  - `owner`
+  - `parent`
+  - `child`
+  - `doctor`
+  - `caregiver`
+  - `emergency_contact`
+- Added permission grants for profile, reports, trends, medications, symptoms, journal, doctor summary, and emergency profile access.
+- Added invitation, acceptance, revocation, and audit models.
+- Added doctor summary schema using profile, conditions, allergies, medicines, recent reports, trends, risk factors, symptoms, journal patterns, and doctor questions.
+- Preserved the dedicated Gemini doctor summary boundary through `GEMINI_DOCTOR_SUMMARY_MODEL`.
+- Added emergency profile schema with blood group, allergies, medicines, known diseases, emergency contacts, insurance placeholders, doctor contact placeholders, and safety notes.
+- Added emergency share token, QR payload, expiry, active/revoked state, public access endpoint, and last-access timestamp.
+- Added frontend Family Care page at `/family` with care circle creation, invitation, doctor summary generation, emergency share creation, and QR payload display.
+- Full email delivery, real QR image rendering, document/PDF export, and cross-account invitation acceptance UX remain future production integrations.
+
 ## Completion Checklist
 
-- [ ] Family roles are defined.
-- [ ] Permission rules are defined.
-- [ ] Invitation flow is specified.
-- [ ] Audit requirements are specified.
-- [ ] Doctor summary schema is defined.
-- [ ] Emergency profile schema is defined.
-- [ ] QR access strategy is defined.
-- [ ] Frontend views are specified.
+- [x] Family roles are defined.
+- [x] Permission rules are defined.
+- [x] Invitation flow is specified.
+- [x] Audit requirements are specified.
+- [x] Doctor summary schema is defined.
+- [x] Emergency profile schema is defined.
+- [x] QR access strategy is defined.
+- [x] Frontend views are specified.
