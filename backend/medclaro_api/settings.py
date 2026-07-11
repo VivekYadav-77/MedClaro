@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     "documents",
     "report_analysis",
     "health_trends",
+    "medication_intelligence",
     "ai_services",
     "audit",
 ]

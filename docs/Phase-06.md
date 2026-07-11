@@ -55,13 +55,36 @@
 - Reminder planning.
 - Prescription history and UI plan.
 
+## Implementation Notes
+
+- Added `medication_intelligence` Django app for prescription analysis, medication records, schedules, reminders, and warnings.
+- Added owner-scoped APIs under `/api/v1/prescriptions/`:
+  - `/analyses/` for prescription analysis request, history, details, and status.
+  - `/medications/` for extracted owner-scoped medication list.
+- Added `PrescriptionAnalysis` model with source document reference, prescribed/expiry dates, expiry flag, warnings, safety review metadata, model name, prompt version, payload, and timestamps.
+- Added `Medication` model with brand name, active ingredient, strength, purpose, usage guidance, side effects, food warnings, alcohol warning, driving warning, pregnancy/breastfeeding note, and duplicate key.
+- Added `MedicationSchedule` model with dosage, frequency, timing, start/end dates, reminder status, notification planning metadata, and instructions.
+- Added `MedicationWarning` model with warning type and severity categories:
+  - `info`
+  - `low`
+  - `moderate`
+  - `high`
+  - `critical`
+- Implemented deterministic mocked prescription analysis while preserving the dedicated Gemini prescription boundary through `GEMINI_PRESCRIPTION_MODEL`.
+- Implemented duplicate detection by normalized active ingredient.
+- Implemented allergy cross-check against Phase 02 profile allergies.
+- Implemented interaction, alcohol, driving, food, expired prescription, and pregnancy/breastfeeding safety prompts.
+- Added prescription timeline events through the Phase 05 `TimelineEvent` model.
+- Added frontend prescription page at `/prescriptions` with analysis trigger, prescription history, medication cards, schedules, reminder planning, and safety warnings.
+- Actual OCR/live Gemini prescription extraction, medication database integration, and notification delivery remain future production integrations.
+
 ## Completion Checklist
 
-- [ ] Dedicated prescription Gemini instance is planned.
-- [ ] Prescription analysis schema is defined.
-- [ ] Medication model is defined.
-- [ ] Interaction checks are planned.
-- [ ] Allergy checks are planned.
-- [ ] Reminder workflow is specified.
-- [ ] Timeline integration is specified.
-- [ ] Prescription result UI is planned.
+- [x] Dedicated prescription Gemini instance is planned.
+- [x] Prescription analysis schema is defined.
+- [x] Medication model is defined.
+- [x] Interaction checks are planned.
+- [x] Allergy checks are planned.
+- [x] Reminder workflow is specified.
+- [x] Timeline integration is specified.
+- [x] Prescription result UI is planned.

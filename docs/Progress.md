@@ -1,11 +1,11 @@
 # MedClaro Progress
 
 > Last updated: 2026-07-11  
-> Current phase: Phase 05 complete, Phase 06 next
+> Current phase: Phase 06 complete, Phase 07 next
 
 ## Current Status
 
-MedClaro has moved from planning-only documents to a working full-stack foundation. The repository now contains a Django REST Framework backend scaffold, token-based identity APIs, Personal Health Profile models and APIs, secure medical document upload APIs, mocked AI health report analysis APIs, report history/timeline/trend APIs, a Next.js frontend scaffold, profile onboarding, Medical Vault, report analysis, and trends UIs, environment configuration guidance, AI client separation planning, and architecture documentation.
+MedClaro has moved from planning-only documents to a working full-stack foundation. The repository now contains a Django REST Framework backend scaffold, token-based identity APIs, Personal Health Profile models and APIs, secure medical document upload APIs, mocked AI health report analysis APIs, report history/timeline/trend APIs, mocked prescription and medication intelligence APIs, a Next.js frontend scaffold, profile onboarding, Medical Vault, report analysis, trends, and prescription intelligence UIs, environment configuration guidance, AI client separation planning, and architecture documentation.
 
 ## Completed
 
@@ -115,6 +115,30 @@ MedClaro has moved from planning-only documents to a working full-stack foundati
 - Dashboard now links to the trends page.
 - Phase 05 checklist marked complete in `docs/Phase-05.md`.
 
+### Phase 06 - Prescription and Medication Intelligence
+
+- Medication intelligence app implemented in `backend/medication_intelligence`.
+- Prescription analysis model added with document reference, prescribed/expiry
+  dates, expiry flag, warnings, safety review metadata, model name, prompt
+  version, source document reference, payload, and timestamps.
+- Medication model added with brand name, active ingredient, strength, purpose,
+  usage guidance, side effects, food warnings, alcohol warning, driving warning,
+  pregnancy/breastfeeding note, and duplicate key.
+- Medication schedule model added with dosage, frequency, timing, start/end
+  dates, reminder status, notification planning metadata, and instructions.
+- Medication warning model added with warning types and severity categories.
+- Owner-scoped prescription APIs added under `/api/v1/prescriptions/`.
+- Prescription analysis creation validates that the source document is an
+  owner-scoped prescription.
+- Deterministic mocked Gemini prescription analysis service added for testable
+  Phase 06 behavior while preserving the `gemini-3.1-flash-lite` module boundary.
+- Duplicate active ingredient checks, allergy cross-checks, interaction prompts,
+  expired prescription warnings, and alcohol/driving/pregnancy safety notes added.
+- Prescription timeline events added through the Phase 05 timeline model.
+- Frontend prescription intelligence page added at `/prescriptions`.
+- Dashboard now links to the prescription intelligence page.
+- Phase 06 checklist marked complete in `docs/Phase-06.md`.
+
 ## Verified
 
 - Backend Python syntax check passed with `python -m compileall backend`.
@@ -125,6 +149,8 @@ MedClaro has moved from planning-only documents to a working full-stack foundati
 - Backend account/profile/document/report-analysis tests passed with:
   - `python manage.py test --settings=medclaro_api.test_settings`
 - Backend account/profile/document/report-analysis/health-trends tests passed with:
+  - `python manage.py test --settings=medclaro_api.test_settings`
+- Backend account/profile/document/report-analysis/health-trends/prescription tests passed with:
   - `python manage.py test --settings=medclaro_api.test_settings`
 - Backend health endpoint responded successfully:
   - `http://127.0.0.1:8000/api/v1/health/`
@@ -150,6 +176,9 @@ MedClaro has moved from planning-only documents to a working full-stack foundati
   live OCR and Gemini extraction are not implemented yet.
 - Phase 05 trends currently use deterministic trend calculations over stored
   biomarker values; live Gemini trend narrative generation is not implemented yet.
+- Phase 06 prescription intelligence currently uses deterministic mocked
+  medication extraction; live OCR, real Gemini prescription extraction,
+  medication database integration, and notification delivery are not implemented yet.
 - The frontend profile page can submit to the backend when the user provides a
   token from registration or login.
 - The frontend document page can upload and list documents when the user
@@ -157,18 +186,18 @@ MedClaro has moved from planning-only documents to a working full-stack foundati
 
 ## Next Recommended Work
 
-### Phase 06 - Prescription and Medication Intelligence
+### Phase 07 - Central Health Hub and Contextual AI Assistant
 
-The next agent should begin Phase 06 by implementing prescription intelligence.
+The next agent should begin Phase 07 by implementing the central health hub and contextual AI assistant.
 
 Recommended first tasks:
 
-- Define prescription analysis models connected to uploaded prescription
-  documents.
-- Add medication extraction and interaction-check schema.
-- Build mocked prescription AI service tests before live AI calls.
-- Add prescription analysis request/status/result APIs.
-- Add frontend prescription result screens.
+- Define central dashboard aggregation APIs for profile, reports, trends,
+  prescriptions, reminders, and timeline events.
+- Define AI assistant context assembly from existing Phase 02 through Phase 06
+  data.
+- Add mocked contextual assistant service tests before live AI calls.
+- Add Health Hub frontend screens and assistant UI.
 
 ## Important Files
 
@@ -178,6 +207,7 @@ Recommended first tasks:
 - `docs/Phase-03.md`: completed document upload and storage phase.
 - `docs/Phase-04.md`: completed AI health report analysis phase.
 - `docs/Phase-05.md`: completed report history, timeline, trends, and risk awareness phase.
+- `docs/Phase-06.md`: completed prescription and medication intelligence phase.
 - `docs/Architecture.md`: current architecture baseline.
 - `.env.example`: required local environment variables.
 - `backend/medclaro_api/settings.py`: Django settings.
@@ -194,8 +224,12 @@ Recommended first tasks:
 - `backend/health_trends/models.py`: timeline event and trend insight schema.
 - `backend/health_trends/services.py`: deterministic trend calculation, timeline refresh, and risk-awareness wording.
 - `backend/health_trends/views.py`: report history, timeline, biomarker trend, and trend insight APIs.
+- `backend/medication_intelligence/models.py`: prescription analysis, medication, schedule, and warning schema.
+- `backend/medication_intelligence/services.py`: deterministic prescription analysis, warning generation, allergy checks, and timeline integration.
+- `backend/medication_intelligence/views.py`: prescription analysis and medication APIs.
 - `frontend/app/page.tsx`: starter frontend dashboard.
 - `frontend/app/profile/page.tsx`: profile onboarding UI.
 - `frontend/app/documents/page.tsx`: Medical Vault upload and history UI.
 - `frontend/app/reports/page.tsx`: report analysis UI.
 - `frontend/app/trends/page.tsx`: trends and timeline UI.
+- `frontend/app/prescriptions/page.tsx`: prescription intelligence UI.
