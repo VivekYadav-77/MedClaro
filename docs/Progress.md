@@ -1,11 +1,11 @@
 # MedClaro Progress
 
 > Last updated: 2026-07-12  
-> Current phase: Phase 11 complete, Phase 12 next
+> Current phase: Phase 12 complete, first release readiness baseline complete
 
 ## Current Status
 
-MedClaro has moved from planning-only documents to a working full-stack foundation. The repository now contains a Django REST Framework backend scaffold, token-based identity APIs, Personal Health Profile models and APIs, secure medical document upload APIs, mocked AI health report analysis APIs, report history/timeline/trend APIs, mocked prescription and medication intelligence APIs, central health hub aggregation APIs, contextual assistant conversation APIs, daily symptom/journal APIs, mocked lifestyle planning APIs, family care/doctor/emergency APIs, accessibility and multilingual planning APIs, future ecosystem planning APIs, a Next.js frontend scaffold, profile onboarding, Medical Vault, report analysis, trends, prescription intelligence, Health Hub, Daily Health, Family Care, Accessibility, and Future Modules UIs, environment configuration guidance, AI client separation planning, and architecture documentation.
+MedClaro has moved from planning-only documents to a working full-stack foundation. The repository now contains a Django REST Framework backend scaffold, token-based identity APIs, Personal Health Profile models and APIs, secure medical document upload APIs, mocked AI health report analysis APIs, report history/timeline/trend APIs, mocked prescription and medication intelligence APIs, central health hub aggregation APIs, contextual assistant conversation APIs, daily symptom/journal APIs, mocked lifestyle planning APIs, family care/doctor/emergency APIs, accessibility and multilingual planning APIs, future ecosystem planning APIs, release-readiness planning APIs, a Next.js frontend scaffold, profile onboarding, Medical Vault, report analysis, trends, prescription intelligence, Health Hub, Daily Health, Family Care, Accessibility, Future Modules, and Release Readiness UIs, environment configuration guidance, AI client separation planning, security hardening guidance, and architecture documentation.
 
 ## Completed
 
@@ -269,6 +269,31 @@ MedClaro has moved from planning-only documents to a working full-stack foundati
 - Dashboard now links to Future Modules.
 - Phase 11 checklist marked complete in `docs/Phase-11.md`.
 
+### Phase 12 - Testing, Security Hardening, Deployment, and Release Readiness
+
+- Release readiness app implemented in `backend/release_readiness`.
+- Authenticated release readiness API added under `/api/v1/release-readiness/plan/`.
+- Backend test strategy defined for identity, profiles, documents, AI workflows,
+  family permissions, accessibility, future modules, and release readiness.
+- Frontend critical-flow test strategy defined for onboarding, upload, analysis,
+  dashboard, assistant, family sharing, emergency mode, accessibility, future
+  modules, and release readiness.
+- AI mock test plan defined with separate Gemini module configuration checks.
+- Permission and access-control tests defined for unauthenticated access,
+  cross-user record denial, document soft deletion, permission revocation, and
+  emergency share blocking.
+- Production security hardening environment toggles added for CSRF trusted
+  origins, HTTPS redirect, secure cookies, HSTS, and trusted proxy SSL headers.
+- Observability plan added for API errors, AI failures, upload failures,
+  long-running tasks, permission failures, and emergency share access.
+- Deployment, secrets, PostgreSQL backup, media backup, and restore strategy
+  documented.
+- User-facing medical, privacy, and urgent-care disclaimers defined.
+- Frontend Release Readiness page added at `/readiness`.
+- Dashboard now links to Release Readiness.
+- Detailed release-readiness document added in `docs/ReleaseReadiness.md`.
+- Phase 12 checklist marked complete in `docs/Phase-12.md`.
+
 ## Verified
 
 - Backend Python syntax check passed with `python -m compileall backend`.
@@ -331,6 +356,9 @@ MedClaro has moved from planning-only documents to a working full-stack foundati
   deterministic safety/reminder strategies; live partner integrations, wearable
   sync, automated vaccine schedules, clinical child-growth interpretation,
   claim workflows, and production education review are not implemented yet.
+- Phase 12 release readiness defines provider-neutral plans; final production
+  deployment, monitoring, object storage, backup provider, and CI/CD choices
+  still need to be selected before serving real users.
 - The frontend profile page can submit to the backend when the user provides a
   token from registration or login.
 - The frontend document page can upload and list documents when the user
@@ -338,16 +366,17 @@ MedClaro has moved from planning-only documents to a working full-stack foundati
 
 ## Next Recommended Work
 
-### Phase 12 - Testing, Security Hardening, Deployment, and Release Readiness
+### First Release Execution
 
-The next agent should begin Phase 12 by hardening MedClaro for release readiness.
+The next agent should move from release-readiness planning into production execution.
 
 Recommended first tasks:
 
-- Expand regression tests across all backend apps.
-- Review auth, permissions, owner scoping, and audit coverage.
-- Document production deployment and environment hardening.
-- Add release readiness checklist for frontend and backend.
+- Choose deployment, monitoring, object storage, and backup providers.
+- Add CI commands for backend tests and frontend production builds.
+- Run PostgreSQL migrations in staging and perform a restore drill.
+- Resolve frontend dependency audit findings.
+- Add browser automation for the critical frontend flows listed in `docs/ReleaseReadiness.md`.
 
 ## Important Files
 
@@ -363,7 +392,8 @@ Recommended first tasks:
 - `docs/Phase-09.md`: completed Family Care Circle, Doctor Mode, and Emergency Mode phase.
 - `docs/Phase-10.md`: completed accessibility, multilingual, voice, and senior citizen mode phase.
 - `docs/Phase-11.md`: completed Future Modules and Ecosystem Expansion phase.
-- `docs/Phase-12.md`: Testing, security hardening, deployment, and release readiness.
+- `docs/Phase-12.md`: completed testing, security hardening, deployment, and release readiness phase.
+- `docs/ReleaseReadiness.md`: detailed first-release readiness plan.
 - `docs/Architecture.md`: current architecture baseline.
 - `.env.example`: required local environment variables.
 - `backend/medclaro_api/settings.py`: Django settings.
@@ -398,6 +428,8 @@ Recommended first tasks:
 - `backend/future_modules/models.py`: future roadmap, vaccination, women's health, child growth, insurance, Second Opinion AI, education, wearable, and partner boundary schemas.
 - `backend/future_modules/services.py`: ecosystem strategy, reminder rules, Second Opinion safety language, education seed content, wearable strategy, and integration boundary planning.
 - `backend/future_modules/views.py`: future module strategy and owner-scoped planning APIs.
+- `backend/release_readiness/services.py`: testing strategy, security hardening, observability, deployment, backup, disclaimer, and release checklist planning.
+- `backend/release_readiness/views.py`: release readiness API.
 - `frontend/app/page.tsx`: starter frontend dashboard.
 - `frontend/app/profile/page.tsx`: profile onboarding UI.
 - `frontend/app/documents/page.tsx`: Medical Vault upload and history UI.
@@ -409,3 +441,4 @@ Recommended first tasks:
 - `frontend/app/family/page.tsx`: Family Care, Doctor Mode, and Emergency Mode UI.
 - `frontend/app/accessibility/page.tsx`: accessibility, multilingual, voice, and senior mode UI.
 - `frontend/app/future/page.tsx`: Future Modules and Ecosystem Expansion UI.
+- `frontend/app/readiness/page.tsx`: Release Readiness UI.

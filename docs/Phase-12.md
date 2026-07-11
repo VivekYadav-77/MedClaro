@@ -57,14 +57,43 @@
 - Backup and restore plan.
 - First-release readiness checklist.
 
+## Implementation Notes
+
+- Added `release_readiness` Django app for release planning and validation.
+- Added authenticated API under `/api/v1/release-readiness/plan/` with:
+  - Backend test strategy.
+  - Frontend critical-flow test strategy.
+  - AI mocked-response test strategy.
+  - Permission and access-control test requirements.
+  - Security hardening checklist.
+  - Observability and monitoring plan.
+  - Deployment plan.
+  - Production secrets plan.
+  - PostgreSQL and media backup/restore plan.
+  - Medical, privacy, and urgent-care disclaimer language.
+  - First-release checklist.
+- Added production hardening settings controlled by environment variables:
+  - `DJANGO_CSRF_TRUSTED_ORIGINS`
+  - `DJANGO_SECURE_SSL_REDIRECT`
+  - `DJANGO_SESSION_COOKIE_SECURE`
+  - `DJANGO_CSRF_COOKIE_SECURE`
+  - `DJANGO_SECURE_HSTS_SECONDS`
+  - `DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS`
+  - `DJANGO_SECURE_HSTS_PRELOAD`
+  - `DJANGO_SECURE_PROXY_SSL_HEADER`
+- Added release-readiness tests for authenticated access, deliverable coverage, separate Gemini configuration boundaries, cross-user document denial, family permission revocation, and production security toggles.
+- Added frontend Release Readiness page at `/readiness` and linked it from the dashboard.
+- Added detailed release-readiness documentation in `docs/ReleaseReadiness.md`.
+- Provider-specific deployment, monitoring, storage, and backup tooling remain open until production platform choices are finalized.
+
 ## Completion Checklist
 
-- [ ] Backend test plan is complete.
-- [ ] Frontend test plan is complete.
-- [ ] AI mock test plan is complete.
-- [ ] Permission tests are defined.
-- [ ] Security checklist is complete.
-- [ ] Deployment plan is complete.
-- [ ] Monitoring plan is complete.
-- [ ] Backup strategy is complete.
-- [ ] Release checklist is complete.
+- [x] Backend test plan is complete.
+- [x] Frontend test plan is complete.
+- [x] AI mock test plan is complete.
+- [x] Permission tests are defined.
+- [x] Security checklist is complete.
+- [x] Deployment plan is complete.
+- [x] Monitoring plan is complete.
+- [x] Backup strategy is complete.
+- [x] Release checklist is complete.

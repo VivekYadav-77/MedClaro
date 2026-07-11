@@ -14,6 +14,7 @@
 - `health_profiles`: Personal Health Profile and AI context assembly.
 - `documents`: medical vault metadata, upload lifecycle, ownership checks.
 - `future_modules`: future ecosystem roadmap, vaccination, women's health, child growth, insurance, Second Opinion AI, education, wearable, and partner-boundary planning.
+- `release_readiness`: testing, security hardening, monitoring, deployment, backup, disclaimer, and release checklist planning.
 - `ai_services`: module-specific Gemini configuration and shared safety rules.
 - `audit`: sensitive-access logging and future compliance records.
 
@@ -75,6 +76,10 @@ The local maximum upload size is configured with `DJANGO_MAX_UPLOAD_MB`.
 - `GET/POST /api/v1/future-modules/wearables/`: list and create wearable integration plans.
 - `GET /api/v1/future-modules/wearables/strategy/`: return wearable metrics and consent strategy.
 - `GET /api/v1/future-modules/integration-boundaries/`: return hospital, pharmacy, appointment, and insurance integration boundaries.
+
+## Phase 12 API Surface
+
+- `GET /api/v1/release-readiness/plan/`: return testing strategy, security hardening checklist, deployment plan, monitoring plan, backup and restore plan, disclaimer language, and first-release readiness checklist.
 
 ## AI Client Separation
 

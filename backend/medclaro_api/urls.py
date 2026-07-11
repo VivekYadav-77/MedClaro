@@ -31,4 +31,5 @@ urlpatterns = [
     path("api/v1/family-care/", include("family_care.urls")),
     path("api/v1/accessibility/", include("accessibility.urls")),
     path("api/v1/future-modules/", include("future_modules.urls")),
+    path("api/v1/release-readiness/", include("release_readiness.urls")),
 ]
