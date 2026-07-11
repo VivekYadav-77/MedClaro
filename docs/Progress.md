@@ -1,11 +1,11 @@
 # MedClaro Progress
 
 > Last updated: 2026-07-11  
-> Current phase: Phase 04 complete, Phase 05 next
+> Current phase: Phase 05 complete, Phase 06 next
 
 ## Current Status
 
-MedClaro has moved from planning-only documents to a working full-stack foundation. The repository now contains a Django REST Framework backend scaffold, token-based identity APIs, Personal Health Profile models and APIs, secure medical document upload APIs, mocked AI health report analysis APIs, a Next.js frontend scaffold, profile onboarding, Medical Vault, and report analysis UIs, environment configuration guidance, AI client separation planning, and architecture documentation.
+MedClaro has moved from planning-only documents to a working full-stack foundation. The repository now contains a Django REST Framework backend scaffold, token-based identity APIs, Personal Health Profile models and APIs, secure medical document upload APIs, mocked AI health report analysis APIs, report history/timeline/trend APIs, a Next.js frontend scaffold, profile onboarding, Medical Vault, report analysis, and trends UIs, environment configuration guidance, AI client separation planning, and architecture documentation.
 
 ## Completed
 
@@ -90,6 +90,31 @@ MedClaro has moved from planning-only documents to a working full-stack foundati
 - Dashboard now links to the report analysis page.
 - Phase 04 checklist marked complete in `docs/Phase-04.md`.
 
+### Phase 05 - Report History, Timeline, Trends, and Risk Awareness
+
+- Health trends app implemented in `backend/health_trends`.
+- Timeline event model added for reports and future prescriptions, symptoms,
+  medicines, doctor summaries, and journal entries.
+- Trend insight model added with biomarker identity, trend label, report count,
+  first/latest values, delta, graph points, risk awareness, doctor prompts,
+  Gemini trends model name, prompt version, and generated timestamp.
+- Owner-scoped health trends APIs added under `/api/v1/health-trends/`.
+- Report history endpoint added for analyzed report summaries.
+- Timeline endpoint added with year, event type, and biomarker filters.
+- Biomarker trend endpoint added with graph-ready data.
+- Trend refresh endpoint added to generate timeline events and persisted trend
+  insights from Phase 04 biomarker results.
+- Deterministic trend labels implemented:
+  - improving
+  - worsening
+  - stable
+  - fluctuating
+  - insufficient data
+- Non-diagnostic risk-awareness wording added for all trend states.
+- Frontend trends page added at `/trends`.
+- Dashboard now links to the trends page.
+- Phase 05 checklist marked complete in `docs/Phase-05.md`.
+
 ## Verified
 
 - Backend Python syntax check passed with `python -m compileall backend`.
@@ -98,6 +123,8 @@ MedClaro has moved from planning-only documents to a working full-stack foundati
 - Frontend dependencies installed with `npm.cmd install`.
 - Frontend production build passed with `npm.cmd run build`.
 - Backend account/profile/document/report-analysis tests passed with:
+  - `python manage.py test --settings=medclaro_api.test_settings`
+- Backend account/profile/document/report-analysis/health-trends tests passed with:
   - `python manage.py test --settings=medclaro_api.test_settings`
 - Backend health endpoint responded successfully:
   - `http://127.0.0.1:8000/api/v1/health/`
@@ -121,6 +148,8 @@ MedClaro has moved from planning-only documents to a working full-stack foundati
 - OCR/text extraction and production AI calls are not implemented yet.
 - Phase 04 report analysis currently uses deterministic mocked biomarker output;
   live OCR and Gemini extraction are not implemented yet.
+- Phase 05 trends currently use deterministic trend calculations over stored
+  biomarker values; live Gemini trend narrative generation is not implemented yet.
 - The frontend profile page can submit to the backend when the user provides a
   token from registration or login.
 - The frontend document page can upload and list documents when the user
@@ -128,9 +157,9 @@ MedClaro has moved from planning-only documents to a working full-stack foundati
 
 ## Next Recommended Work
 
-### Phase 05 - Medication and Prescription Intelligence
+### Phase 06 - Prescription and Medication Intelligence
 
-The next agent should begin Phase 05 by implementing prescription intelligence.
+The next agent should begin Phase 06 by implementing prescription intelligence.
 
 Recommended first tasks:
 
@@ -147,7 +176,8 @@ Recommended first tasks:
 - `docs/Phase-01.md`: completed foundation phase.
 - `docs/Phase-02.md`: completed identity and profile phase.
 - `docs/Phase-03.md`: completed document upload and storage phase.
-- `docs/Phase-04.md`: next implementation phase.
+- `docs/Phase-04.md`: completed AI health report analysis phase.
+- `docs/Phase-05.md`: completed report history, timeline, trends, and risk awareness phase.
 - `docs/Architecture.md`: current architecture baseline.
 - `.env.example`: required local environment variables.
 - `backend/medclaro_api/settings.py`: Django settings.
@@ -161,7 +191,11 @@ Recommended first tasks:
 - `backend/report_analysis/models.py`: report analysis and biomarker storage schema.
 - `backend/report_analysis/services.py`: deterministic Phase 04 analysis service and safety metadata.
 - `backend/report_analysis/views.py`: report analysis request/status/result APIs.
+- `backend/health_trends/models.py`: timeline event and trend insight schema.
+- `backend/health_trends/services.py`: deterministic trend calculation, timeline refresh, and risk-awareness wording.
+- `backend/health_trends/views.py`: report history, timeline, biomarker trend, and trend insight APIs.
 - `frontend/app/page.tsx`: starter frontend dashboard.
 - `frontend/app/profile/page.tsx`: profile onboarding UI.
 - `frontend/app/documents/page.tsx`: Medical Vault upload and history UI.
 - `frontend/app/reports/page.tsx`: report analysis UI.
+- `frontend/app/trends/page.tsx`: trends and timeline UI.
