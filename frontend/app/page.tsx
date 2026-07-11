@@ -1,7 +1,8 @@
-import { Activity, FileText, HeartPulse, ShieldCheck } from "lucide-react";
+import { Activity, Bot, FileText, HeartPulse, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 
 const hubItems = [
+  { label: "Health Hub", value: "Assistant ready", icon: Bot },
   { label: "Health Profile", value: "Foundation", icon: HeartPulse },
   { label: "Reports", value: "Analysis workflow", icon: FileText },
   { label: "AI Safety", value: "Educational only", icon: ShieldCheck },
@@ -27,6 +28,12 @@ export default function HomePage() {
             <div className="mt-5 flex flex-wrap gap-3">
               <Link
                 className="inline-flex rounded-md bg-claro-blue px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+                href="/hub"
+              >
+                Open Health Hub
+              </Link>
+              <Link
+                className="inline-flex rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
                 href="/profile"
               >
                 Open Profile
@@ -57,7 +64,7 @@ export default function HomePage() {
               </Link>
             </div>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             {hubItems.map((item) => (
               <div
                 className="rounded-md border border-slate-200 bg-slate-50 p-4"

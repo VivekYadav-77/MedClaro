@@ -59,12 +59,32 @@
 - Assistant safety plan.
 - Frontend dashboard and chat plans.
 
+## Implementation Notes
+
+- Added `health_hub` Django app for dashboard aggregation, assistant context assembly, and conversation storage.
+- Added owner-scoped APIs under `/api/v1/health-hub/`:
+  - `/dashboard/` for profile readiness, health score, recent reports, recent prescriptions, alerts, suggestions, reminders, timeline, and family-update placeholders.
+  - `/memory-context/` for assistant context assembled from profile, allergies, known conditions, family history, recent reports, biomarker trends, medicines, prescription warnings, and future symptom/family placeholders.
+  - `/assistant/conversations/` for conversation history.
+  - `/assistant/conversations/<id>/` for message retrieval.
+  - `/assistant/turns/` for user message submission and mocked assistant response.
+- Added `AssistantConversation` model with context snapshot, model name, prompt version, safety review metadata, and timestamps.
+- Added `AssistantMessage` model with role, content, safety flags, cited context, and timestamp.
+- Preserved the dedicated Gemini health assistant boundary through `GEMINI_HEALTH_ASSISTANT_MODEL`.
+- Added deterministic assistant replies that cite available MedClaro context counts and avoid diagnosis language.
+- Added sensitive-answer safety flags for urgent, diagnostic, overdose, allergic reaction, breathing, and self-harm related terms.
+- Added ranked dashboard alert rules using prescription warning severity and worsening/fluctuating trend labels.
+- Added AI suggestion rules for missing profile, recent reports, prescription warnings, and alert summaries.
+- Added frontend Health Hub page at `/hub` with widgets, ranked alerts, suggestions, reminders, timeline, assistant chat, empty/error/loading states, and sensitive-answer state.
+- Dashboard root now prioritizes the Health Hub link.
+- Live Gemini health assistant calls and Phase 08/09 symptoms, journal, and family context are future integrations.
+
 ## Completion Checklist
 
-- [ ] Health Hub widgets are defined.
-- [ ] Dashboard aggregation API is specified.
-- [ ] Dedicated health assistant Gemini instance is planned.
-- [ ] Assistant context builder is defined.
-- [ ] Conversation model is defined.
-- [ ] Safety rules are defined.
-- [ ] Frontend assistant experience is planned.
+- [x] Health Hub widgets are defined.
+- [x] Dashboard aggregation API is specified.
+- [x] Dedicated health assistant Gemini instance is planned.
+- [x] Assistant context builder is defined.
+- [x] Conversation model is defined.
+- [x] Safety rules are defined.
+- [x] Frontend assistant experience is planned.
