@@ -63,12 +63,28 @@
 - Frontend profile screens plan.
 - AI context contract for profile data.
 
+## Implementation Notes
+
+- Registration, login, logout, and current-user APIs are implemented in
+  `backend/accounts`.
+- Token authentication is enabled through Django REST Framework.
+- Personal Health Profile models are implemented in `backend/health_profiles`
+  with related records for allergies, known conditions, family history, and
+  emergency contacts.
+- Profile audit events are recorded on create and update.
+- Profile APIs are owner-scoped and exposed under `/api/v1/profiles/`.
+- AI context is exposed through `/api/v1/profiles/ai-context/` with privacy and
+  non-diagnostic usage framing.
+- Frontend onboarding/profile UI is available at `/profile`.
+- Backend tests cover registration, login, nested profile creation, and owner
+  scoping.
+
 ## Completion Checklist
 
-- [ ] User registration and login are planned.
-- [ ] Health profile fields are complete.
-- [ ] Profile APIs are specified.
-- [ ] Onboarding screens are specified.
-- [ ] Profile validation rules are defined.
-- [ ] AI context usage is defined.
-- [ ] Privacy messaging is included.
+- [x] User registration and login are planned.
+- [x] Health profile fields are complete.
+- [x] Profile APIs are specified.
+- [x] Onboarding screens are specified.
+- [x] Profile validation rules are defined.
+- [x] AI context usage is defined.
+- [x] Privacy messaging is included.

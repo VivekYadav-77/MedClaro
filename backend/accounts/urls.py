@@ -1,15 +1,11 @@
 from django.urls import path
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
-from rest_framework.response import Response
 
-
-@api_view(["GET"])
-@permission_classes([AllowAny])
-def module_status(_request):
-    return Response({"module": "accounts", "status": "planned"})
+from . import views
 
 
 urlpatterns = [
-    path("status/", module_status, name="accounts-status"),
+    path("register/", views.register, name="accounts-register"),
+    path("login/", views.login, name="accounts-login"),
+    path("logout/", views.logout, name="accounts-logout"),
+    path("me/", views.me, name="accounts-me"),
 ]

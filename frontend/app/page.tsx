@@ -1,4 +1,5 @@
 import { Activity, FileText, HeartPulse, ShieldCheck } from "lucide-react";
+import Link from "next/link";
 
 const hubItems = [
   { label: "Health Profile", value: "Foundation", icon: HeartPulse },
@@ -23,6 +24,12 @@ export default function HomePage() {
               A privacy-first foundation for health profiles, report analysis,
               medication intelligence, family care, and doctor-ready summaries.
             </p>
+            <Link
+              className="mt-5 inline-flex rounded-md bg-claro-blue px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+              href="/profile"
+            >
+              Open Profile
+            </Link>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {hubItems.map((item) => (

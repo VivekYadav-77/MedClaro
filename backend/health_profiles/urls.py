@@ -1,15 +1,9 @@
-from django.urls import path
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
-from rest_framework.response import Response
+from django.urls import include, path
+from rest_framework.routers import DefaultRouter
 
+from .views import HealthProfileViewSet
 
-@api_view(["GET"])
-@permission_classes([AllowAny])
-def module_status(_request):
-    return Response({"module": "health_profiles", "status": "planned"})
+router = DefaultRouter()
+router.register("", HealthProfileViewSet, basename="health-profile")
 
-
-urlpatterns = [
-    path("status/", module_status, name="health-profiles-status"),
-]
+urlpatterns = [path("", include(router.urls))]

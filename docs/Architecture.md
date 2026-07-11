@@ -33,6 +33,19 @@ Responses should be JSON only for API routes. Error responses should use:
 Protected records must be scoped by authenticated owner unless an explicit
 permission grant allows family, doctor, caregiver, or emergency access.
 
+## Phase 02 API Surface
+
+- `POST /api/v1/accounts/register/`: create a user and return an auth token.
+- `POST /api/v1/accounts/login/`: authenticate and return an auth token.
+- `POST /api/v1/accounts/logout/`: revoke the current user's tokens.
+- `GET /api/v1/accounts/me/`: return the authenticated user.
+- `GET /api/v1/profiles/me/`: return the authenticated user's health profile.
+- `POST /api/v1/profiles/`: create the authenticated user's health profile.
+- `PUT/PATCH /api/v1/profiles/{id}/`: update the authenticated user's profile.
+- `GET /api/v1/profiles/ai-context/`: return bounded profile context for AI modules.
+
+Authentication uses DRF token authentication for the current foundation stage.
+
 ## AI Client Separation
 
 Each major AI feature has its own API key and model variable so modules can be
