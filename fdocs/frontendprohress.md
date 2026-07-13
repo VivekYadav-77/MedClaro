@@ -2,14 +2,14 @@
 
 > Document type: Frontend progress handoff  
 > Purpose: Help future AI agents quickly understand frontend redesign planning status  
-> Current status: Phase 04 Medical Vault, reports, biomarkers, timeline, and trends implemented; Phase 05 Health Hub, medicines, assistant, daily health, and lifestyle planning next  
+> Current status: Phase 05 Health Hub, medicines, assistant, daily health, and lifestyle planning implemented; Phase 06 Family Care, Doctor Mode, Emergency Mode, and permissions next  
 > Last updated: 2026-07-13
 
 ---
 
 ## Current Frontend State
 
-The MedClaro frontend is currently a working Next.js 14 App Router application with Phase 04 production module work in place: public/authenticated/internal route groups, shared session handling, centralized API helpers, production auth entry screens, guided profile onboarding, internal surface gating, a production app shell, design tokens, shared UI primitives, and upgraded Medical Vault/report/trend workflows.
+The MedClaro frontend is currently a working Next.js 14 App Router application with Phase 05 production module work in place: public/authenticated/internal route groups, shared session handling, centralized API helpers, production auth entry screens, guided profile onboarding, internal surface gating, a production app shell, design tokens, shared UI primitives, upgraded Medical Vault/report/trend workflows, and frequent-use Health Hub/medicine/daily health workflows.
 
 The frontend has route-level pages for all major backend modules. The raw-token prototype pattern has been removed from feature pages, the shared app shell/design system exists, and the Personal Health Profile is now a guided onboarding wizard. The remaining module pages still need gradual migration onto the shared components, deeper flow redesign, accessibility polish, and production-ready responsive QA.
 
@@ -112,17 +112,24 @@ The frontend currently includes:
 - Preserved the existing backend API contracts for documents, report analyses, and health trends.
 - Verified the frontend with `npm.cmd run build`.
 
+## Implemented Phase 05 Work
+
+- Rebuilt `/hub` as the authenticated home screen with a status band, ranked alerts, today actions, recent timeline, trend/report/prescription snapshots, reminders, family-update placeholder, assistant thread, context snapshot counts, cited module display, disabled empty-send state, and sensitive-topic safety guidance.
+- Rebuilt `/prescriptions` around vault prescription selection, prescription analysis history, active medicines, ranked warning panel, schedule/reminder visibility, and food/alcohol/driving/pregnancy safety notes.
+- Rebuilt `/daily` as a fast Daily Health workflow with symptom chips, severity and pain controls, severe-symptom care guidance, journal sliders, tags, searchable symptom/journal history, and diet/exercise lifestyle plans showing recommendations, restrictions, safety notes, and doctor prompts.
+- Preserved the existing backend API contracts for Health Hub, prescription intelligence, medication, symptoms, journal, and lifestyle plans.
+- Verified the frontend with `npm.cmd run build`.
+
 ## Recommended Next Work
 
-Continue with `FrontendPhase-04.md`, then proceed in order.
+Continue with `FrontendPhase-06.md`, then proceed in order.
 
 Recommended implementation sequence:
 
-1. Convert `/hub` into the fully redesigned authenticated home screen from `FrontendPhase-05.md`.
-2. Upgrade prescriptions, medicines, assistant, daily health, and lifestyle planning from `FrontendPhase-05.md`.
-3. Migrate module pages onto the shared design-system primitives during each phase.
-4. Upgrade each module route using the remaining phase docs.
-5. Add accessibility, Senior Mode, responsive QA, and browser tests before release.
+1. Upgrade Family Care, Doctor Mode, Emergency Mode, and permissions from `FrontendPhase-06.md`.
+2. Continue migrating remaining module surfaces onto shared design-system primitives during each phase.
+3. Upgrade each module route using the remaining phase docs.
+4. Add accessibility, Senior Mode, responsive QA, and browser tests before release.
 
 ## Frontend Design Direction
 
@@ -156,7 +163,7 @@ Use this checklist as implementation progresses:
 - [x] Phase 02 implemented: app shell, design tokens, shared components.
 - [x] Phase 03 implemented: register, login, onboarding, profile editor.
 - [x] Phase 04 implemented: Vault, reports, biomarkers, timeline, trends.
-- [ ] Phase 05 implemented: Health Hub, medicines, assistant, daily health.
+- [x] Phase 05 implemented: Health Hub, medicines, assistant, daily health.
 - [ ] Phase 06 implemented: Family Care, Doctor Mode, Emergency Mode.
 - [ ] Phase 07 implemented: accessibility, multilingual, voice, Senior Mode.
 - [ ] Phase 08 implemented: QA, performance, release polish, developer handoff.

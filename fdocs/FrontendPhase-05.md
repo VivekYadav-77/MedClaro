@@ -98,10 +98,9 @@ The assistant should not feel like a generic chatbot. It should show:
 
 ## Completion Checklist
 
-- [ ] Health Hub production layout defined.
-- [ ] Assistant context and safety display defined.
-- [ ] Prescription and active medicine information architecture defined.
-- [ ] Daily check-in and journal workflows defined.
-- [ ] Lifestyle plan display rules defined.
-- [ ] Mobile-first frequent-use behavior defined.
-
+- [x] Health Hub production layout defined.
+- [x] Assistant context and safety display defined.
+- [x] Prescription and active medicine information architecture defined.
+- [x] Daily check-in and journal workflows defined.
+- [x] Lifestyle plan display rules defined.
+- [x] Mobile-first frequent-use behavior defined.
