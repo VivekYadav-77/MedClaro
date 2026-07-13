@@ -100,10 +100,9 @@ Required checks:
 
 ## Completion Checklist
 
-- [ ] Accessibility preferences mapped to global UI behavior.
-- [ ] Senior Mode behavior defined across modules.
-- [ ] Multilingual preservation rules defined.
-- [ ] Voice/read-aloud controls defined.
-- [ ] Accessibility testing checklist defined.
-- [ ] Simplified dashboard strategy defined.
-
+- [x] Accessibility preferences mapped to global UI behavior.
+- [x] Senior Mode behavior defined across modules.
+- [x] Multilingual preservation rules defined.
+- [x] Voice/read-aloud controls defined.
+- [x] Accessibility testing checklist defined.
+- [x] Simplified dashboard strategy defined.

@@ -17,12 +17,16 @@ import {
   Settings,
   ShieldCheck,
   TestTube2,
+  Type,
   Users,
+  Volume2,
   type LucideIcon
 } from "lucide-react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Tooltip } from "@/components/design-system";
+import { StatusBadge, Tooltip } from "@/components/design-system";
+import { useAccessibilityPreferences } from "@/lib/accessibility";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/ui";
 
@@ -53,10 +57,16 @@ const secondaryNavItems: NavItem[] = [
 ];
 
 const mobileNavItems = primaryNavItems.slice(0, 5);
+const seniorNavHrefs = new Set(["/hub", "/reports", "/prescriptions", "/family", "/accessibility"]);
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const { preference } = useAccessibilityPreferences();
+  const gridClass = preference.senior_mode
+    ? "md:grid-cols-[72px_1fr] xl:grid-cols-[248px_1fr]"
+    : "md:grid-cols-[72px_1fr] xl:grid-cols-[288px_1fr]";
+
   return (
-    <div className="min-h-screen bg-claro-background md:grid md:grid-cols-[72px_1fr] xl:grid-cols-[288px_1fr]">
+    <div className={cn("min-h-screen bg-claro-background md:grid", gridClass)}>
       <SideNav />
       <TabletRail />
 
@@ -72,6 +82,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
 export function SideNav() {
   const pathname = usePathname();
+  const { preference } = useAccessibilityPreferences();
+  const navItems = preference.senior_mode
+    ? primaryNavItems.filter((item) => seniorNavHrefs.has(item.href))
+    : primaryNavItems;
 
   return (
     <aside className="hidden border-r border-claro-border bg-white shadow-shell xl:block">
@@ -80,7 +94,7 @@ export function SideNav() {
 
         <nav className="flex-1 space-y-7 overflow-y-auto px-3 py-4" aria-label="Primary navigation">
           <NavSection title="Primary">
-            {primaryNavItems.map((item) => (
+            {navItems.map((item) => (
               <NavLink item={item} key={item.href} active={pathname === item.href} />
             ))}
           </NavSection>
@@ -100,6 +114,10 @@ export function SideNav() {
 
 export function TabletRail() {
   const pathname = usePathname();
+  const { preference } = useAccessibilityPreferences();
+  const navItems = preference.senior_mode
+    ? primaryNavItems.filter((item) => seniorNavHrefs.has(item.href))
+    : primaryNavItems;
 
   return (
     <aside className="hidden border-r border-claro-border bg-white shadow-shell md:block xl:hidden">
@@ -113,7 +131,7 @@ export function TabletRail() {
         </Link>
 
         <nav className="flex flex-1 flex-col gap-2" aria-label="Compact primary navigation">
-          {primaryNavItems.map((item) => {
+          {navItems.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Tooltip label={item.label} key={item.href}>
@@ -168,9 +186,7 @@ export function TopBar() {
           <TopIcon href="/family" label="Emergency profile">
             <QrCode className="h-4 w-4" aria-hidden />
           </TopIcon>
-          <TopIcon href="/accessibility" label="Language and accessibility">
-            <Languages className="h-4 w-4" aria-hidden />
-          </TopIcon>
+          <AccessibilityMenu />
           <button
             className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-slate-300 text-slate-700 hover:bg-slate-100"
             type="button"
@@ -206,13 +222,17 @@ export function TopBar() {
 
 export function MobileNav() {
   const pathname = usePathname();
+  const { preference } = useAccessibilityPreferences();
+  const navItems = preference.senior_mode
+    ? primaryNavItems.filter((item) => seniorNavHrefs.has(item.href)).slice(0, 5)
+    : mobileNavItems;
 
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-claro-border bg-white shadow-shell md:hidden"
       aria-label="Mobile primary navigation"
     >
-      {mobileNavItems.map((item) => {
+      {navItems.map((item) => {
         const isActive = pathname === item.href;
         return (
           <Link
@@ -229,6 +249,111 @@ export function MobileNav() {
         );
       })}
     </nav>
+  );
+}
+
+function AccessibilityMenu() {
+  const [open, setOpen] = useState(false);
+  const { error, isLoading, preference, updatePreference } = useAccessibilityPreferences();
+
+  return (
+    <div className="relative">
+      <Tooltip label="Language and accessibility">
+        <button
+          className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-slate-300 text-slate-700 hover:bg-slate-100"
+          type="button"
+          aria-label="Open accessibility menu"
+          aria-expanded={open}
+          onClick={() => setOpen((current) => !current)}
+        >
+          <Languages className="h-4 w-4" aria-hidden />
+        </button>
+      </Tooltip>
+      {open ? (
+        <div className="absolute right-0 top-12 z-40 w-[min(90vw,360px)] rounded-md border border-claro-border bg-white p-4 shadow-xl">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="font-semibold text-claro-ink">Accessibility</p>
+              <p className="mt-1 text-sm leading-6 text-slate-600">
+                Changes apply across MedClaro.
+              </p>
+            </div>
+            <StatusBadge tone={preference.senior_mode ? "success" : "neutral"}>
+              {preference.senior_mode ? "senior" : "standard"}
+            </StatusBadge>
+          </div>
+          <div className="mt-4 space-y-3">
+            <MenuToggle
+              label="Senior Mode"
+              checked={preference.senior_mode}
+              onChange={(checked) =>
+                updatePreference({
+                  senior_mode: checked,
+                  simplified_dashboard: checked ? true : preference.simplified_dashboard,
+                  large_text: checked && preference.large_text === "standard" ? "large" : preference.large_text
+                })
+              }
+            />
+            <MenuToggle
+              label="High contrast"
+              checked={preference.high_contrast}
+              onChange={(checked) => updatePreference({ high_contrast: checked })}
+            />
+            <MenuToggle
+              label="Reduce motion"
+              checked={preference.reduce_motion}
+              onChange={(checked) => updatePreference({ reduce_motion: checked })}
+            />
+            <MenuToggle
+              label="Read aloud"
+              checked={preference.read_aloud_reports}
+              onChange={(checked) => updatePreference({ read_aloud_reports: checked, voice_summaries: checked || preference.voice_summaries })}
+            />
+            <label className="block text-sm font-medium text-slate-700">
+              Text size
+              <select
+                className="mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                value={preference.large_text}
+                onChange={(event) => updatePreference({ large_text: event.target.value })}
+              >
+                <option value="standard">Standard</option>
+                <option value="large">Large</option>
+                <option value="extra_large">Extra large</option>
+              </select>
+            </label>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <Link className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700" href="/accessibility" onClick={() => setOpen(false)}>
+              <Type className="h-4 w-4" aria-hidden />
+              Settings
+            </Link>
+            <Link className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-claro-blue px-3 text-sm font-semibold text-white" href="/family" onClick={() => setOpen(false)}>
+              <Volume2 className="h-4 w-4" aria-hidden />
+              Emergency
+            </Link>
+          </div>
+          {isLoading ? <p className="mt-3 text-sm text-slate-500">Saving preferences...</p> : null}
+          {error ? <p className="mt-3 text-sm font-medium text-claro-rose">{error}</p> : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function MenuToggle({
+  checked,
+  label,
+  onChange
+}: {
+  checked: boolean;
+  label: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="flex min-h-11 items-center justify-between gap-3 rounded-md border border-claro-border px-3 py-2 text-sm font-semibold text-claro-ink">
+      {label}
+      <input className="h-5 w-5" type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
+    </label>
   );
 }
 
