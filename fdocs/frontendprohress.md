@@ -2,16 +2,16 @@
 
 > Document type: Frontend progress handoff  
 > Purpose: Help future AI agents quickly understand frontend redesign planning status  
-> Current status: Phase 02 design system and app shell implemented; Phase 03 authentication, onboarding, and profile next  
+> Current status: Phase 03 authentication, onboarding, and profile implemented; Phase 04 Vault, reports, biomarkers, timeline, and trends next  
 > Last updated: 2026-07-13
 
 ---
 
 ## Current Frontend State
 
-The MedClaro frontend is currently a working Next.js 14 App Router application with Phase 02 production foundation work in place: public/authenticated/internal route groups, shared session handling, centralized API helpers, auth entry screens, internal surface gating, a production app shell, design tokens, and shared UI primitives.
+The MedClaro frontend is currently a working Next.js 14 App Router application with Phase 03 production foundation work in place: public/authenticated/internal route groups, shared session handling, centralized API helpers, production auth entry screens, guided profile onboarding, internal surface gating, a production app shell, design tokens, and shared UI primitives.
 
-The frontend has route-level pages for all major backend modules. The raw-token prototype pattern has been removed from feature pages, and the shared app shell/design system now exists. The module pages still need gradual migration onto the shared components, deeper flow redesign, accessibility polish, and production-ready responsive QA.
+The frontend has route-level pages for all major backend modules. The raw-token prototype pattern has been removed from feature pages, the shared app shell/design system exists, and the Personal Health Profile is now a guided onboarding wizard. The remaining module pages still need gradual migration onto the shared components, deeper flow redesign, accessibility polish, and production-ready responsive QA.
 
 ## Completed Frontend Planning Work
 
@@ -92,13 +92,25 @@ The frontend currently includes:
 - Added `frontend/lib/ui.ts` for shared class name composition.
 - Verified the frontend with `npm.cmd run build`.
 
+## Implemented Phase 03 Work
+
+- Improved `/register` with first name, last name, username, email, password confirmation, supportive onboarding copy, and automatic handoff to `/profile`.
+- Improved `/signin` with session-based access language and privacy/safety copy.
+- Replaced the profile prototype form with a guided onboarding wizard covering safety/privacy, basic details, lifestyle, medical context, emergency contacts, language/accessibility preferences, consent/review, and Health Hub handoff.
+- Added nested profile editors for allergies, known conditions, family history, and emergency contacts.
+- Added profile loading, create, update, and duplicate-profile recovery against the existing DRF profile API.
+- Added client validation for numeric ranges and privacy consent.
+- Added completion card, step context panel, Senior Mode prompt, and Health Hub handoff.
+- Expanded `frontend/lib/api.ts` with current profile and update helpers.
+- Verified the frontend with `npm.cmd run build`.
+
 ## Recommended Next Work
 
-Continue with `FrontendPhase-03.md`, then proceed in order.
+Continue with `FrontendPhase-04.md`, then proceed in order.
 
 Recommended implementation sequence:
 
-1. Upgrade authentication, onboarding, and profile flows from `FrontendPhase-03.md`.
+1. Upgrade Medical Vault, reports, biomarkers, timeline, and trends from `FrontendPhase-04.md`.
 2. Convert `/hub` into the fully redesigned authenticated home screen.
 3. Migrate module pages onto the shared design-system primitives during each phase.
 4. Upgrade each module route using the remaining phase docs.
@@ -134,7 +146,7 @@ Use this checklist as implementation progresses:
 
 - [x] Phase 01 implemented: route groups, API client, auth/session, common states.
 - [x] Phase 02 implemented: app shell, design tokens, shared components.
-- [ ] Phase 03 implemented: register, login, onboarding, profile editor.
+- [x] Phase 03 implemented: register, login, onboarding, profile editor.
 - [ ] Phase 04 implemented: Vault, reports, biomarkers, timeline, trends.
 - [ ] Phase 05 implemented: Health Hub, medicines, assistant, daily health.
 - [ ] Phase 06 implemented: Family Care, Doctor Mode, Emergency Mode.

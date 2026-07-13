@@ -124,7 +124,10 @@ export const accountsApi = {
 export const profilesApi = {
   create: <T>(body: unknown, token?: string | null) =>
     apiJson<T>("/profiles/", { method: "POST", token, body }),
-  list: <T>(token?: string | null) => apiGet<T>("/profiles/", token)
+  current: <T>(token?: string | null) => apiGet<T>("/profiles/", token),
+  list: <T>(token?: string | null) => apiGet<T>("/profiles/", token),
+  update: <T>(id: number, body: unknown, token?: string | null) =>
+    apiJson<T>(`/profiles/${id}/`, { method: "PATCH", token, body })
 };
 
 export const documentsApi = {

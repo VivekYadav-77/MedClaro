@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { accountsApi } from "@/lib/api";
 import { useSession } from "@/lib/session";
+import { SafetyNotice } from "@/components/design-system";
 
 type LoginResponse = {
   token?: string;
@@ -55,8 +56,8 @@ export default function SignInPage() {
               Sign In To Your Health Workspace
             </h1>
             <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">
-              Your session powers all MedClaro modules, so feature screens no longer
-              ask for raw API tokens.
+              Your session powers all MedClaro modules, including profile,
+              vault, reports, medicines, family care, and accessibility.
             </p>
           </div>
           <Link className="text-sm font-semibold text-claro-blue" href="/register">
@@ -70,6 +71,12 @@ export default function SignInPage() {
           <div className="flex items-center gap-2">
             <LogIn className="h-5 w-5 text-claro-blue" aria-hidden />
             <h2 className="text-lg font-semibold text-claro-ink">Account access</h2>
+          </div>
+          <div className="mt-5">
+            <SafetyNotice title="Private workspace">
+              Sign in once and MedClaro handles secure API access behind the app
+              session. Health profile consent remains visible and separate.
+            </SafetyNotice>
           </div>
           <div className="mt-5 space-y-4">
             <label className="block font-medium text-slate-700">

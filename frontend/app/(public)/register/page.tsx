@@ -1,11 +1,12 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { UserPlus } from "lucide-react";
+import { ShieldCheck, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { accountsApi } from "@/lib/api";
 import { useSession } from "@/lib/session";
+import { SafetyNotice } from "@/components/design-system";
 
 type RegisterResponse = {
   token?: string;
@@ -25,17 +26,34 @@ export default function RegisterPage() {
   const { signIn } = useSession();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [error, setError] = useState("");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (password !== confirmPassword) {
+      setStatus("error");
+      setError("Passwords do not match.");
+      return;
+    }
+    if (password.length < 8) {
+      setStatus("error");
+      setError("Password must be at least 8 characters.");
+      return;
+    }
     setStatus("loading");
+    setError("");
 
     try {
       const data = await accountsApi.register<RegisterResponse>({
         username,
         email,
+        first_name: firstName,
+        last_name: lastName,
         password
       });
       const token = data.token ?? data.key;
@@ -44,6 +62,7 @@ export default function RegisterPage() {
       router.push("/profile");
     } catch {
       setStatus("error");
+      setError("Could not create account. Check required fields and backend availability.");
     }
   }
 
@@ -75,7 +94,31 @@ export default function RegisterPage() {
             <UserPlus className="h-5 w-5 text-claro-blue" aria-hidden />
             <h2 className="text-lg font-semibold text-claro-ink">Account details</h2>
           </div>
+          <SafetyNotice title="What happens next">
+            After account creation, MedClaro takes you straight to the guided Personal
+            Health Profile. You can skip optional health details and update them later.
+          </SafetyNotice>
           <div className="mt-5 space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block font-medium text-slate-700">
+                First name
+                <input
+                  className={inputClass}
+                  autoComplete="given-name"
+                  value={firstName}
+                  onChange={(event) => setFirstName(event.target.value)}
+                />
+              </label>
+              <label className="block font-medium text-slate-700">
+                Last name
+                <input
+                  className={inputClass}
+                  autoComplete="family-name"
+                  value={lastName}
+                  onChange={(event) => setLastName(event.target.value)}
+                />
+              </label>
+            </div>
             <label className="block font-medium text-slate-700">
               Username
               <input
@@ -105,6 +148,16 @@ export default function RegisterPage() {
                 onChange={(event) => setPassword(event.target.value)}
               />
             </label>
+            <label className="block font-medium text-slate-700">
+              Confirm password
+              <input
+                className={inputClass}
+                autoComplete="new-password"
+                type="password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+              />
+            </label>
             <button
               className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-claro-blue px-4 text-sm font-semibold text-white transition hover:bg-blue-700"
               type="submit"
@@ -114,9 +167,13 @@ export default function RegisterPage() {
             </button>
             {status === "error" ? (
               <p className="text-sm font-medium text-claro-rose">
-                Could not create account. Check required fields and backend availability.
+                {error}
               </p>
             ) : null}
+          </div>
+          <div className="mt-5 flex items-center gap-2 text-sm text-slate-600">
+            <ShieldCheck className="h-4 w-4 text-claro-mint" aria-hidden />
+            Profile consent is handled separately during onboarding.
           </div>
         </div>
       </form>

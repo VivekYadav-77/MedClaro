@@ -92,10 +92,24 @@ Avoid intimidating users with long medical descriptions during onboarding.
 
 ## Completion Checklist
 
-- [ ] Register/sign-in flow planned without raw token copy/paste.
-- [ ] Profile onboarding wizard sections defined.
-- [ ] Nested health context editing planned.
-- [ ] Consent and privacy UX defined.
-- [ ] Mobile and Senior Mode onboarding defined.
-- [ ] Health Hub handoff after onboarding defined.
+- [x] Register/sign-in flow planned without raw token copy/paste.
+- [x] Profile onboarding wizard sections defined.
+- [x] Nested health context editing planned.
+- [x] Consent and privacy UX defined.
+- [x] Mobile and Senior Mode onboarding defined.
+- [x] Health Hub handoff after onboarding defined.
 
+## Implementation Notes
+
+Phase 03 has been implemented in the frontend codebase:
+
+- `/register` now collects first name, last name, username, email, password, and password confirmation, then signs the user in and sends them to `/profile`.
+- `/signin` uses session-based access language and directs returning users into the Health Hub.
+- `/profile` is now a guided onboarding wizard with steps for safety/privacy, basic details, lifestyle, medical context, emergency contacts, language/preferences, consent/review, and Health Hub handoff.
+- The profile wizard loads the current user profile, creates it if missing, updates it when it already exists, and handles duplicate-profile recovery.
+- Nested editors are included for allergies, known conditions, family history, and emergency contacts.
+- Client-side validation covers numeric ranges and requires privacy consent before saving AI profile context.
+- The wizard includes profile completion, contextual help, Senior Mode setup messaging, and Health Hub handoff.
+- `frontend/lib/api.ts` now includes current-profile and update helpers.
+
+Verified with `npm.cmd run build`.
