@@ -111,10 +111,9 @@ Desktop:
 
 ## Completion Checklist
 
-- [ ] Vault upload and document history workflow specified.
-- [ ] Document status and next-action strategy defined.
-- [ ] Report analysis hierarchy defined.
-- [ ] Biomarker explanation component strategy defined.
-- [ ] Timeline grouping and filters defined.
-- [ ] Trend chart accessibility requirements defined.
-
+- [x] Vault upload and document history workflow specified.
+- [x] Document status and next-action strategy defined.
+- [x] Report analysis hierarchy defined.
+- [x] Biomarker explanation component strategy defined.
+- [x] Timeline grouping and filters defined.
+- [x] Trend chart accessibility requirements defined.

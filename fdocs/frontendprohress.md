@@ -2,14 +2,14 @@
 
 > Document type: Frontend progress handoff  
 > Purpose: Help future AI agents quickly understand frontend redesign planning status  
-> Current status: Phase 03 authentication, onboarding, and profile implemented; Phase 04 Vault, reports, biomarkers, timeline, and trends next  
+> Current status: Phase 04 Medical Vault, reports, biomarkers, timeline, and trends implemented; Phase 05 Health Hub, medicines, assistant, daily health, and lifestyle planning next  
 > Last updated: 2026-07-13
 
 ---
 
 ## Current Frontend State
 
-The MedClaro frontend is currently a working Next.js 14 App Router application with Phase 03 production foundation work in place: public/authenticated/internal route groups, shared session handling, centralized API helpers, production auth entry screens, guided profile onboarding, internal surface gating, a production app shell, design tokens, and shared UI primitives.
+The MedClaro frontend is currently a working Next.js 14 App Router application with Phase 04 production module work in place: public/authenticated/internal route groups, shared session handling, centralized API helpers, production auth entry screens, guided profile onboarding, internal surface gating, a production app shell, design tokens, shared UI primitives, and upgraded Medical Vault/report/trend workflows.
 
 The frontend has route-level pages for all major backend modules. The raw-token prototype pattern has been removed from feature pages, the shared app shell/design system exists, and the Personal Health Profile is now a guided onboarding wizard. The remaining module pages still need gradual migration onto the shared components, deeper flow redesign, accessibility polish, and production-ready responsive QA.
 
@@ -104,14 +104,22 @@ The frontend currently includes:
 - Expanded `frontend/lib/api.ts` with current profile and update helpers.
 - Verified the frontend with `npm.cmd run build`.
 
+## Implemented Phase 04 Work
+
+- Rebuilt `/documents` as a Medical Vault workflow with session-aware loading, upload metadata, document type selector, upload progress state, quick filters, document history rows, status badges, token-aware downloads, soft-delete action, and a detail drawer for metadata/status/next actions.
+- Rebuilt `/reports` around vault lab-report selection instead of manual document-ID entry, with report history, summary header, health score gauge, safety review, key findings, guidance, doctor prompts, biomarker search/filtering, expandable biomarker accordions, and explanation levels from Grandma through Doctor Mode.
+- Rebuilt `/trends` with report history, timeline filters, events grouped by year/month, trend cards, trend label explanations, accessible chart summaries, data-table alternatives, risk-awareness copy, and doctor discussion prompts.
+- Preserved the existing backend API contracts for documents, report analyses, and health trends.
+- Verified the frontend with `npm.cmd run build`.
+
 ## Recommended Next Work
 
 Continue with `FrontendPhase-04.md`, then proceed in order.
 
 Recommended implementation sequence:
 
-1. Upgrade Medical Vault, reports, biomarkers, timeline, and trends from `FrontendPhase-04.md`.
-2. Convert `/hub` into the fully redesigned authenticated home screen.
+1. Convert `/hub` into the fully redesigned authenticated home screen from `FrontendPhase-05.md`.
+2. Upgrade prescriptions, medicines, assistant, daily health, and lifestyle planning from `FrontendPhase-05.md`.
 3. Migrate module pages onto the shared design-system primitives during each phase.
 4. Upgrade each module route using the remaining phase docs.
 5. Add accessibility, Senior Mode, responsive QA, and browser tests before release.
@@ -147,7 +155,7 @@ Use this checklist as implementation progresses:
 - [x] Phase 01 implemented: route groups, API client, auth/session, common states.
 - [x] Phase 02 implemented: app shell, design tokens, shared components.
 - [x] Phase 03 implemented: register, login, onboarding, profile editor.
-- [ ] Phase 04 implemented: Vault, reports, biomarkers, timeline, trends.
+- [x] Phase 04 implemented: Vault, reports, biomarkers, timeline, trends.
 - [ ] Phase 05 implemented: Health Hub, medicines, assistant, daily health.
 - [ ] Phase 06 implemented: Family Care, Doctor Mode, Emergency Mode.
 - [ ] Phase 07 implemented: accessibility, multilingual, voice, Senior Mode.
