@@ -20,6 +20,7 @@ import {
   Type,
   Users,
   Volume2,
+  X,
   type LucideIcon
 } from "lucide-react";
 import { useState } from "react";
@@ -61,6 +62,7 @@ const seniorNavHrefs = new Set(["/hub", "/reports", "/prescriptions", "/family",
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { preference } = useAccessibilityPreferences();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const gridClass = preference.senior_mode
     ? "md:grid-cols-[72px_1fr] xl:grid-cols-[248px_1fr]"
     : "md:grid-cols-[72px_1fr] xl:grid-cols-[288px_1fr]";
@@ -71,10 +73,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <TabletRail />
 
       <div className="min-w-0 pb-20 md:pb-0">
-        <TopBar />
+        <TopBar onOpenMobileMenu={() => setMobileMenuOpen(true)} />
         <main className="min-w-0">{children}</main>
       </div>
 
+      <MobileMenu open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
       <MobileNav />
     </div>
   );
@@ -156,7 +159,7 @@ export function TabletRail() {
   );
 }
 
-export function TopBar() {
+export function TopBar({ onOpenMobileMenu }: { onOpenMobileMenu: () => void }) {
   const { isReady, isSignedIn, signOut, user } = useSession();
 
   return (
@@ -167,6 +170,7 @@ export function TopBar() {
             className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-slate-300 text-slate-700 md:hidden"
             type="button"
             aria-label="Open navigation menu"
+            onClick={onOpenMobileMenu}
           >
             <Menu className="h-5 w-5" aria-hidden />
           </button>
@@ -217,6 +221,73 @@ export function TopBar() {
         </div>
       </div>
     </header>
+  );
+}
+
+function MobileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const pathname = usePathname();
+  const { preference } = useAccessibilityPreferences();
+  const navItems = preference.senior_mode
+    ? primaryNavItems.filter((item) => seniorNavHrefs.has(item.href))
+    : primaryNavItems;
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-950/40 md:hidden" role="dialog" aria-modal="true" aria-label="Navigation menu">
+      <div className="flex h-full w-[min(84vw,340px)] flex-col bg-white shadow-xl">
+        <div className="flex min-h-16 items-center justify-between border-b border-claro-border px-4">
+          <Link className="flex items-center gap-2" href="/hub" onClick={onClose}>
+            <HeartPulse className="h-5 w-5 text-claro-blue" aria-hidden />
+            <span className="font-semibold text-claro-ink">MedClaro</span>
+          </Link>
+          <button className="grid h-11 w-11 place-items-center rounded-md text-slate-700 hover:bg-slate-100" type="button" onClick={onClose} aria-label="Close navigation menu">
+            <X className="h-5 w-5" aria-hidden />
+          </button>
+        </div>
+
+        <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-4" aria-label="Mobile navigation menu">
+          <NavSection title="Primary">
+            {navItems.map((item) => (
+              <MobileMenuLink item={item} key={item.href} active={pathname === item.href} onClose={onClose} />
+            ))}
+          </NavSection>
+          <NavSection title="Secondary">
+            {secondaryNavItems.map((item) => (
+              <MobileMenuLink item={item} key={item.href} active={pathname === item.href} onClose={onClose} />
+            ))}
+          </NavSection>
+        </nav>
+
+        <div className="border-t border-claro-border p-4">
+          <SafetyPanel />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MobileMenuLink({
+  active,
+  item,
+  onClose
+}: {
+  active: boolean;
+  item: NavItem;
+  onClose: () => void;
+}) {
+  return (
+    <Link
+      className={cn(
+        "flex min-h-11 items-center gap-3 rounded-md px-3 text-sm font-semibold transition",
+        active ? "bg-blue-50 text-claro-blue" : "text-slate-700 hover:bg-slate-100"
+      )}
+      href={item.href}
+      onClick={onClose}
+    >
+      <item.icon className="h-4 w-4" aria-hidden />
+      {item.label}
+    </Link>
   );
 }
 
