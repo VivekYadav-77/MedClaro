@@ -2,16 +2,16 @@
 
 > Document type: Frontend progress handoff  
 > Purpose: Help future AI agents quickly understand frontend redesign planning status  
-> Current status: Phase 01 foundation implemented; Phase 02 design system and app shell refinement next  
+> Current status: Phase 02 design system and app shell implemented; Phase 03 authentication, onboarding, and profile next  
 > Last updated: 2026-07-13
 
 ---
 
 ## Current Frontend State
 
-The MedClaro frontend is currently a working Next.js 14 App Router application with Phase 01 production foundation work in place: public/authenticated/internal route groups, shared session handling, centralized API helpers, auth entry screens, internal surface gating, and the first authenticated app shell.
+The MedClaro frontend is currently a working Next.js 14 App Router application with Phase 02 production foundation work in place: public/authenticated/internal route groups, shared session handling, centralized API helpers, auth entry screens, internal surface gating, a production app shell, design tokens, and shared UI primitives.
 
-The frontend has route-level pages for all major backend modules. The raw-token prototype pattern has been removed from feature pages, but it still needs the Phase 02 design system pass, deeper component extraction, accessibility polish, and production-ready responsive QA.
+The frontend has route-level pages for all major backend modules. The raw-token prototype pattern has been removed from feature pages, and the shared app shell/design system now exists. The module pages still need gradual migration onto the shared components, deeper flow redesign, accessibility polish, and production-ready responsive QA.
 
 ## Completed Frontend Planning Work
 
@@ -63,12 +63,9 @@ The frontend currently includes:
 ## Important Current Limitations
 
 - Authentication still uses the current DRF token backend, but the token is now hidden behind a shared frontend session abstraction.
-- The first app shell exists, but Phase 02 still needs deeper design-system extraction, responsive polish, and navigation refinement.
-- API calls are repeated inside pages instead of using a centralized client.
+- Some feature pages still use page-local helper functions on top of the centralized API client.
 - Components are mostly page-local and duplicated.
-- Empty, loading, error, permission, and unauthorized states are inconsistent.
-- The landing page and authenticated dashboard are not clearly separated.
-- Internal pages such as Future Modules and Release Readiness appear like normal user-facing pages.
+- Some feature pages still need to adopt the new shared design-system primitives.
 - Accessibility and Senior Mode are planned but not applied globally.
 - Mobile layouts exist through Tailwind grids but need production QA and refinement.
 - Charts need better accessibility alternatives and responsive polish.
@@ -86,15 +83,24 @@ The frontend currently includes:
 - Added an internal layout banner for Future Modules and Release Readiness.
 - Verified the frontend with `npm.cmd run build`.
 
+## Implemented Phase 02 Work
+
+- Expanded `frontend/tailwind.config.ts` with MedClaro design tokens for text, background, surface, muted surface, border, primary, stable, attention, risk, critical, teal, sky, and shared shadows.
+- Added global base typography, focus-visible styling, high-contrast variables, Senior Mode sizing hook, and reduced-motion handling in `frontend/app/globals.css`.
+- Rebuilt `frontend/components/app-shell.tsx` with desktop side navigation, tablet compact rail, top utility bar, mobile bottom navigation, emergency shortcut, language/accessibility shortcut, secondary navigation, and persistent safety messaging.
+- Added shared design-system primitives in `frontend/components/design-system.tsx`: page/section headers, metric tiles, status/severity badges, safety/permission notices, action/filter bars, tabs, segmented controls, drawer, modal, confirmation dialog, form field, toggle, tooltip, and inline status text.
+- Added `frontend/lib/ui.ts` for shared class name composition.
+- Verified the frontend with `npm.cmd run build`.
+
 ## Recommended Next Work
 
-Continue with `FrontendPhase-02.md`, then proceed in order.
+Continue with `FrontendPhase-03.md`, then proceed in order.
 
 Recommended implementation sequence:
 
-1. Implement the shared design system and app shell refinement from `FrontendPhase-02.md`.
+1. Upgrade authentication, onboarding, and profile flows from `FrontendPhase-03.md`.
 2. Convert `/hub` into the fully redesigned authenticated home screen.
-3. Upgrade authentication, onboarding, and profile flows from `FrontendPhase-03.md`.
+3. Migrate module pages onto the shared design-system primitives during each phase.
 4. Upgrade each module route using the remaining phase docs.
 5. Add accessibility, Senior Mode, responsive QA, and browser tests before release.
 
@@ -127,7 +133,7 @@ Avoid making authenticated app pages look like marketing pages. Use Bento Grid o
 Use this checklist as implementation progresses:
 
 - [x] Phase 01 implemented: route groups, API client, auth/session, common states.
-- [ ] Phase 02 implemented: app shell, design tokens, shared components.
+- [x] Phase 02 implemented: app shell, design tokens, shared components.
 - [ ] Phase 03 implemented: register, login, onboarding, profile editor.
 - [ ] Phase 04 implemented: Vault, reports, biomarkers, timeline, trends.
 - [ ] Phase 05 implemented: Health Hub, medicines, assistant, daily health.

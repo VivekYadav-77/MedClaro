@@ -130,10 +130,21 @@ Bento Grid is allowed only on the public landing page. Authenticated dashboards 
 
 ## Completion Checklist
 
-- [ ] App shell layout specified for desktop, tablet, and mobile.
-- [ ] Navigation hierarchy finalized.
-- [ ] Design tokens finalized.
-- [ ] Core components listed with behavior expectations.
-- [ ] Landing page Bento Grid restriction documented.
-- [ ] Accessibility requirements included in component acceptance criteria.
+- [x] App shell layout specified for desktop, tablet, and mobile.
+- [x] Navigation hierarchy finalized.
+- [x] Design tokens finalized.
+- [x] Core components listed with behavior expectations.
+- [x] Landing page Bento Grid restriction documented.
+- [x] Accessibility requirements included in component acceptance criteria.
 
+## Implementation Notes
+
+Phase 02 has been implemented in the frontend codebase:
+
+- `frontend/components/app-shell.tsx` now provides the production app shell, desktop side navigation, tablet icon rail, top utility bar, mobile bottom navigation, secondary navigation, emergency shortcut, and persistent safety language.
+- `frontend/components/design-system.tsx` defines reusable UI primitives for page headers, section headers, metric tiles, status and severity badges, safety and permission notices, action/filter bars, tabs, segmented controls, drawer, modal, confirmation dialog, form field, toggle, tooltip, and inline status text.
+- `frontend/tailwind.config.ts` includes the MedClaro color tokens, surface tokens, border token, critical state, and app shadows.
+- `frontend/app/globals.css` includes base typography, focus-visible styles, text selection, high-contrast variables, Senior Mode sizing hook, and reduced-motion handling.
+- `frontend/lib/ui.ts` adds a small className helper for shared component composition.
+
+Verified with `npm.cmd run build`.
