@@ -113,10 +113,9 @@ Desktop:
 
 ## Completion Checklist
 
-- [ ] Family circle IA defined.
-- [ ] Permission matrix specified.
-- [ ] Invite/revoke/expiry UX defined.
-- [ ] Doctor summary sections defined.
-- [ ] Emergency share flow defined.
-- [ ] Senior-friendly emergency behavior defined.
-
+- [x] Family circle IA defined.
+- [x] Permission matrix specified.
+- [x] Invite/revoke/expiry UX defined.
+- [x] Doctor summary sections defined.
+- [x] Emergency share flow defined.
+- [x] Senior-friendly emergency behavior defined.
