@@ -2,14 +2,14 @@
 
 > Document type: Frontend progress handoff  
 > Purpose: Help future AI agents quickly understand frontend redesign planning status  
-> Current status: Phase 05 Health Hub, medicines, assistant, daily health, and lifestyle planning implemented; Phase 06 Family Care, Doctor Mode, Emergency Mode, and permissions next  
+> Current status: Phases 01-08 implemented through QA, release polish, and developer handoff  
 > Last updated: 2026-07-13
 
 ---
 
 ## Current Frontend State
 
-The MedClaro frontend is currently a working Next.js 14 App Router application with Phase 05 production module work in place: public/authenticated/internal route groups, shared session handling, centralized API helpers, production auth entry screens, guided profile onboarding, internal surface gating, a production app shell, design tokens, shared UI primitives, upgraded Medical Vault/report/trend workflows, and frequent-use Health Hub/medicine/daily health workflows.
+The MedClaro frontend is currently a working Next.js 14 App Router application with Phases 01-08 in place: public/authenticated/internal route groups, shared session handling, centralized API helpers, production auth entry screens, guided profile onboarding, internal surface gating, a production app shell, design tokens, shared UI primitives, upgraded Medical Vault/report/trend workflows, frequent-use Health Hub/medicine/daily health workflows, permission-first Family Care, global accessibility preferences, Senior Mode behavior, and release QA/handoff surfaces.
 
 The frontend has route-level pages for all major backend modules. The raw-token prototype pattern has been removed from feature pages, the shared app shell/design system exists, and the Personal Health Profile is now a guided onboarding wizard. The remaining module pages still need gradual migration onto the shared components, deeper flow redesign, accessibility polish, and production-ready responsive QA.
 
@@ -42,6 +42,7 @@ Frontend planning docs now live in `fdocs/`:
 - `FrontendPhase-06.md`: Family Care, Doctor Mode, Emergency Mode, and permissions.
 - `FrontendPhase-07.md`: accessibility, multilingual support, voice, and Senior Mode.
 - `FrontendPhase-08.md`: QA, performance, release polish, and developer handoff.
+- `FrontendReleaseHandoff.md`: component inventory, route map, API map, QA matrices, known limitations, and next-release backlog.
 
 ## Current Prototype Routes
 
@@ -58,7 +59,7 @@ The frontend currently includes:
 - `/family`: Family Care, Doctor Mode, and Emergency Mode.
 - `/accessibility`: language, senior mode, voice, and simplified dashboard planning.
 - `/future`: future module roadmap and planning records.
-- `/readiness`: release readiness planning UI.
+- `/readiness`: gated release readiness, frontend QA, and developer handoff UI.
 
 ## Important Current Limitations
 
@@ -66,7 +67,7 @@ The frontend currently includes:
 - Some feature pages still use page-local helper functions on top of the centralized API client.
 - Components are mostly page-local and duplicated.
 - Some feature pages still need to adopt the new shared design-system primitives.
-- Accessibility and Senior Mode are planned but not applied globally.
+- Internal planning pages are session-gated but still need staff/admin role authorization before production.
 - Mobile layouts exist through Tailwind grids but need production QA and refinement.
 - Charts need better accessibility alternatives and responsive polish.
 - Medical safety notices are present but not yet standardized across all AI surfaces.
@@ -122,14 +123,13 @@ The frontend currently includes:
 
 ## Recommended Next Work
 
-Continue with `FrontendPhase-06.md`, then proceed in order.
+Move from implementation phases into release validation:
 
-Recommended implementation sequence:
-
-1. Upgrade Family Care, Doctor Mode, Emergency Mode, and permissions from `FrontendPhase-06.md`.
-2. Continue migrating remaining module surfaces onto shared design-system primitives during each phase.
-3. Upgrade each module route using the remaining phase docs.
-4. Add accessibility, Senior Mode, responsive QA, and browser tests before release.
+1. Add Playwright coverage for the Phase 08 critical browser flows.
+2. Add React Testing Library coverage for shared components and high-risk page-local components.
+3. Add staff/admin authorization for internal planning routes.
+4. Continue extracting repeated page-local panels into shared components after behavior stabilizes.
+5. Add bundle-size reporting and browser QA screenshots to CI.
 
 ## Frontend Design Direction
 
@@ -164,9 +164,9 @@ Use this checklist as implementation progresses:
 - [x] Phase 03 implemented: register, login, onboarding, profile editor.
 - [x] Phase 04 implemented: Vault, reports, biomarkers, timeline, trends.
 - [x] Phase 05 implemented: Health Hub, medicines, assistant, daily health.
-- [ ] Phase 06 implemented: Family Care, Doctor Mode, Emergency Mode.
-- [ ] Phase 07 implemented: accessibility, multilingual, voice, Senior Mode.
-- [ ] Phase 08 implemented: QA, performance, release polish, developer handoff.
+- [x] Phase 06 implemented: Family Care, Doctor Mode, Emergency Mode.
+- [x] Phase 07 implemented: accessibility, multilingual, voice, Senior Mode.
+- [x] Phase 08 implemented: QA, performance, release polish, developer handoff.
 
 ## Notes For Future AI Agents
 

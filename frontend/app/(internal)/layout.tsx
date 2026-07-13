@@ -1,7 +1,27 @@
+"use client";
+
 import { ShieldAlert } from "lucide-react";
 import Link from "next/link";
+import { UnauthorizedState } from "@/components/app-states";
+import { useSession } from "@/lib/session";
 
 export default function InternalLayout({ children }: { children: React.ReactNode }) {
+  const { isReady, isSignedIn } = useSession();
+
+  if (isReady && !isSignedIn) {
+    return (
+      <main className="min-h-screen bg-claro-background p-6">
+        <UnauthorizedState
+          action={
+            <Link className="inline-flex min-h-11 items-center rounded-md bg-claro-blue px-4 text-sm font-semibold text-white" href="/signin">
+              Sign in
+            </Link>
+          }
+        />
+      </main>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
       <header className="border-b border-amber-200 bg-amber-50">

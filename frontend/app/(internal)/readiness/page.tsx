@@ -5,15 +5,22 @@ import { useState } from "react";
 import {
   AlertCircle,
   CheckCircle2,
+  ClipboardCheck,
   DatabaseBackup,
   Eye,
+  Gauge,
   KeyRound,
+  LayoutDashboard,
   Loader2,
+  MonitorSmartphone,
+  PackageCheck,
   RefreshCw,
   Rocket,
+  Route,
   ShieldCheck,
   Stethoscope,
-  TestTube2
+  TestTube2,
+  type LucideIcon
 } from "lucide-react";
 import { apiGet } from "@/lib/api";
 import { useSession } from "@/lib/session";
@@ -64,6 +71,110 @@ type ReadinessPlan = {
   release_checklist: Array<{ item: string; owner: string; required: boolean }>;
 };
 
+const criticalBrowserFlows = [
+  "Register and sign in",
+  "Complete profile onboarding",
+  "Upload a document",
+  "Run report analysis",
+  "Review biomarkers and explanation levels",
+  "Refresh timeline and trends",
+  "Run prescription analysis",
+  "Review medication warnings",
+  "Load Health Hub and send assistant message",
+  "Log symptom and journal entry",
+  "Generate lifestyle plan",
+  "Create care circle and invite member",
+  "Generate doctor summary",
+  "Create and revoke emergency share",
+  "Change accessibility preferences",
+  "Use Senior Mode simplified dashboard"
+];
+
+const componentTestPlan = [
+  "Form validation",
+  "Error rendering",
+  "Severity badge logic",
+  "Permission matrix behavior",
+  "Explanation level switcher",
+  "Upload state transitions",
+  "Assistant message states",
+  "Trend chart fallback table",
+  "Senior Mode sizing behavior"
+];
+
+const responsiveMatrix = [
+  { viewport: "Mobile small", size: "360px", checks: ["No text overlap", "Bottom nav usable", "Tables transform to cards"] },
+  { viewport: "Mobile large", size: "430px", checks: ["Forms readable", "Sticky actions clear content", "Emergency QR fits"] },
+  { viewport: "Tablet", size: "768px", checks: ["Compact rail usable", "Drawers fit", "Assistant panels remain readable"] },
+  { viewport: "Laptop", size: "1366px", checks: ["Split views balanced", "Matrices scroll predictably", "Cards are not awkwardly nested"] },
+  { viewport: "Desktop", size: "1440px+", checks: ["Max-width content holds", "Right rails align", "Tables remain scannable"] }
+];
+
+const accessibilityMatrix = [
+  "Keyboard-only flow",
+  "Focus visibility",
+  "Screen-reader labels for icon buttons",
+  "Reduced motion",
+  "High contrast",
+  "Text zoom",
+  "Chart text alternatives",
+  "Error announcement",
+  "Modal focus trap",
+  "Emergency Mode with Senior Mode"
+];
+
+const performanceTargets = [
+  "Keep Health Hub fast to interactive by loading only dashboard and assistant context needed for first paint.",
+  "Lazy-load heavy charts, internal pages, and future modules when users enter those routes.",
+  "Avoid loading every module's data on app start; each module fetches only its own workflow data.",
+  "Use loading states or skeleton-like panels for dashboard, upload, assistant, and readiness surfaces.",
+  "Compress and optimize any visual assets before release.",
+  "Track bundle growth in CI using Next.js build output."
+];
+
+const releasePolishChecklist = [
+  "Replace prototype copy with user-facing language.",
+  "Remove raw token fields from feature pages.",
+  "Gate internal pages behind an authenticated session.",
+  "Ensure empty states guide a next action.",
+  "Ensure destructive and sensitive actions require confirmation.",
+  "Keep AI safety and medical disclaimers consistent.",
+  "Ensure navigation labels match product information architecture.",
+  "Add privacy and urgent-care links to public and app help surfaces."
+];
+
+const routeMap = [
+  { route: "/", purpose: "Public product entry" },
+  { route: "/signin", purpose: "Session sign in" },
+  { route: "/register", purpose: "Account creation" },
+  { route: "/hub", purpose: "Authenticated health home and assistant" },
+  { route: "/profile", purpose: "Profile onboarding and health context" },
+  { route: "/documents", purpose: "Medical Vault upload and records" },
+  { route: "/reports", purpose: "Report analysis and biomarkers" },
+  { route: "/trends", purpose: "Timeline and trend review" },
+  { route: "/prescriptions", purpose: "Prescription intelligence and medicines" },
+  { route: "/daily", purpose: "Symptoms, journal, and lifestyle plans" },
+  { route: "/family", purpose: "Care circles, doctor summary, emergency share" },
+  { route: "/accessibility", purpose: "Language, Senior Mode, and voice controls" },
+  { route: "/future", purpose: "Internal future ecosystem planning" },
+  { route: "/readiness", purpose: "Internal release readiness and handoff" }
+];
+
+const apiEndpointMap = [
+  "/accounts/",
+  "/profiles/",
+  "/documents/",
+  "/report-analyses/",
+  "/health-trends/",
+  "/prescriptions/",
+  "/health-hub/",
+  "/daily-health/",
+  "/family-care/",
+  "/accessibility/",
+  "/future-modules/",
+  "/release-readiness/"
+];
+
 export default function ReleaseReadinessPage() {
   const { token } = useSession();
   const [plan, setPlan] = useState<ReadinessPlan | null>(null);
@@ -113,7 +224,7 @@ export default function ReleaseReadinessPage() {
               ) : (
                 <RefreshCw className="h-4 w-4" />
               )}
-              Load Plan
+              Refresh readiness
             </button>
             {status === "error" ? (
               <p className="mt-3 flex items-center gap-2 text-sm font-medium text-claro-rose">
@@ -248,6 +359,87 @@ export default function ReleaseReadinessPage() {
               </div>
             </div>
           </section>
+
+          <section className="grid gap-6 lg:grid-cols-2">
+            <Panel icon={ClipboardCheck} title="Critical Browser Tests">
+              <Checklist items={criticalBrowserFlows} />
+            </Panel>
+
+            <Panel icon={TestTube2} title="Component Test Plan">
+              <Checklist items={componentTestPlan} />
+            </Panel>
+          </section>
+
+          <Panel icon={MonitorSmartphone} title="Responsive QA Matrix">
+            <div className="grid gap-3 md:grid-cols-2">
+              {responsiveMatrix.map((item) => (
+                <article className="rounded-md border border-slate-200 p-4" key={item.viewport}>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-semibold text-claro-ink">{item.viewport}</p>
+                    <span className="rounded-md bg-blue-50 px-2 py-1 text-xs font-semibold text-claro-blue">
+                      {item.size}
+                    </span>
+                  </div>
+                  <Checklist items={item.checks} />
+                </article>
+              ))}
+            </div>
+          </Panel>
+
+          <section className="grid gap-6 lg:grid-cols-2">
+            <Panel icon={Eye} title="Accessibility QA Matrix">
+              <Checklist items={accessibilityMatrix} />
+            </Panel>
+
+            <Panel icon={Gauge} title="Performance Targets">
+              <Checklist items={performanceTargets} />
+            </Panel>
+          </section>
+
+          <Panel icon={PackageCheck} title="Release Polish Checklist">
+            <Checklist items={releasePolishChecklist} />
+          </Panel>
+
+          <section className="rounded-md border border-slate-200 bg-white p-5">
+            <div className="flex items-center gap-2">
+              <Route className="h-5 w-5 text-claro-blue" aria-hidden />
+              <h2 className="text-lg font-semibold text-claro-ink">
+                Developer Handoff Package
+              </h2>
+            </div>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              The handoff covers component inventory, routes, API surfaces, design tokens,
+              accessibility checks, browser tests, known limitations, and next-release backlog.
+            </p>
+            <div className="mt-5 grid gap-6 lg:grid-cols-2">
+              <div>
+                <h3 className="text-sm font-semibold text-claro-ink">Route map</h3>
+                <div className="mt-3 space-y-2">
+                  {routeMap.map((item) => (
+                    <div className="rounded-md bg-slate-50 p-3 text-sm" key={item.route}>
+                      <p className="font-semibold text-claro-ink">{item.route}</p>
+                      <p className="mt-1 text-slate-600">{item.purpose}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-claro-ink">API endpoint map</h3>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {apiEndpointMap.map((endpoint) => (
+                    <span className="rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700" key={endpoint}>
+                      {endpoint}
+                    </span>
+                  ))}
+                </div>
+                <h3 className="mt-5 text-sm font-semibold text-claro-ink">Design tokens</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Core tokens live in Tailwind under `claro`: ink, background, surface,
+                  muted, border, blue, mint, amber, rose, critical, teal, and sky.
+                </p>
+              </div>
+            </div>
+          </section>
         </section>
       </div>
     </main>
@@ -259,7 +451,7 @@ function Panel({
   title,
   children
 }: {
-  icon: typeof ShieldCheck;
+  icon: LucideIcon;
   title: string;
   children: ReactNode;
 }) {
