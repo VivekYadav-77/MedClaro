@@ -593,8 +593,9 @@ function ProgressBar() {
   );
 }
 
-function labelize(value: string) {
-  return value.replaceAll("_", " ");
+function labelize(value?: string | null) {
+  if (!value) return "";
+  return String(value).replaceAll("_", " ");
 }
 
 function formatBytes(bytes: number) {
