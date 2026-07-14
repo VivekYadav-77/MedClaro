@@ -129,9 +129,9 @@ For local development, keep:
 ```env
 DJANGO_DEBUG=True
 DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
-DJANGO_CORS_ALLOWED_ORIGINS=http://localhost:3000
-DJANGO_CSRF_TRUSTED_ORIGINS=http://localhost:3000
-NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+DJANGO_CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://localhost:3002,http://127.0.0.1:3002
+DJANGO_CSRF_TRUSTED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://localhost:3002,http://127.0.0.1:3002
+NEXT_PUBLIC_API_URL=http://127.0.0.1:8000/api/v1
 ```
 
 Gemini API keys can stay empty for local testing because current AI behavior is deterministic and mocked.

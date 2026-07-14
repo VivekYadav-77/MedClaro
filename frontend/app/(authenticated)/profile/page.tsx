@@ -259,7 +259,15 @@ export default function ProfilePage() {
         }
       }
       setStatus("error");
-      setMessage("Could not save your profile. Check required fields and try again.");
+      let errorMessage = "Could not save your profile. Check required fields and try again.";
+      if (error instanceof ApiError && error.details && typeof error.details === "object") {
+        const details = error.details as Record<string, string[]>;
+        const firstErrorKey = Object.keys(details)[0];
+        if (firstErrorKey && Array.isArray(details[firstErrorKey]) && details[firstErrorKey].length > 0) {
+          errorMessage = details[firstErrorKey][0];
+        }
+      }
+      setMessage(errorMessage);
     }
   }
 
@@ -603,9 +611,11 @@ function LifestyleStep({
       <FormField label="Sleep hours">
         <input className={fieldClass} max={24} min={0} type="number" value={profile.sleep_hours} onChange={(event) => update("sleep_hours", event.target.value)} />
       </FormField>
-      <FormField label="Pregnancy status" hint="Optional. Leave blank if not clinically relevant.">
-        <input className={fieldClass} value={profile.pregnancy_status} onChange={(event) => update("pregnancy_status", event.target.value)} />
-      </FormField>
+      {profile.gender !== "male" && (
+        <FormField label="Pregnancy status" hint="Optional. Leave blank if not clinically relevant.">
+          <input className={fieldClass} value={profile.pregnancy_status} onChange={(event) => update("pregnancy_status", event.target.value)} />
+        </FormField>
+      )}
       <FormField label="Location">
         <input className={fieldClass} value={profile.location} onChange={(event) => update("location", event.target.value)} />
       </FormField>
@@ -958,7 +968,7 @@ function toApiPayload(profile: ProfilePayload) {
     alcohol: profile.alcohol,
     exercise: profile.exercise,
     sleep_hours: profile.sleep_hours || null,
-    pregnancy_status: profile.pregnancy_status,
+    pregnancy_status: profile.gender === "male" ? "" : profile.pregnancy_status,
     preferred_language: profile.preferred_language,
     food_preference: profile.food_preference,
     location: profile.location,

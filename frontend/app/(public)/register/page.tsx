@@ -4,7 +4,7 @@ import { FormEvent, useState } from "react";
 import { ShieldCheck, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { accountsApi } from "@/lib/api";
+import { accountsApi, ApiError } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { SafetyNotice } from "@/components/design-system";
 
@@ -20,6 +20,21 @@ type RegisterResponse = {
 
 const inputClass =
   "mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 outline-none transition focus:border-claro-blue focus:ring-2 focus:ring-blue-100";
+
+function formatApiDetails(details: unknown): string | null {
+  if (!details || typeof details !== "object") return null;
+
+  const messages = Object.entries(details)
+    .flatMap(([field, value]) => {
+      if (Array.isArray(value)) {
+        return value.map((message) => `${field}: ${String(message)}`);
+      }
+      return [`${field}: ${String(value)}`];
+    })
+    .filter(Boolean);
+
+  return messages.length ? messages.join(" ") : null;
+}
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -60,9 +75,14 @@ export default function RegisterPage() {
       if (!token) throw new Error("Register response did not include a token");
       signIn(token, data.user ?? { username, email });
       router.push("/profile");
-    } catch {
+    } catch (caughtError) {
       setStatus("error");
-      setError("Could not create account. Check required fields and backend availability.");
+      const apiMessage =
+        caughtError instanceof ApiError ? formatApiDetails(caughtError.details) : null;
+      setError(
+        apiMessage ??
+          "Could not create account. Check required fields and backend availability."
+      );
     }
   }
 
